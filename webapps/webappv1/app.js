@@ -21,37 +21,55 @@ function getDataikuAppConfig() {
 }
 
 function getApiBaseUrl() {
-    const config = getDataikuAppConfig();
-    if (!config) {
-        console.warn('Dataiku config not found, falling back to relative path');
-        return '';
+    // For Dataiku standard webapps, use the standard backend URL pattern
+    if (window.dataiku && window.dataiku.getWebAppBackendUrl) {
+        return window.dataiku.getWebAppBackendUrl('');
     }
-    return `${config.baseURL}plugins/well-log-analysis/endpoints`;  // Adjust the plugin name as needed
+    // Fallback to relative path
+    return '';
 }
 
 async function fetchJson(endpoint, options = {}) {
-    const baseUrl = getApiBaseUrl();
-    const url = `${baseUrl}${endpoint}`;
+    try {
+        // For Dataiku standard webapps, use the built-in helper if available
+        if (window.dataiku && window.dataiku.getWebAppBackendUrl) {
+            const url = window.dataiku.getWebAppBackendUrl(endpoint);
 
-    // Get CSRF token from Dataiku's config
-    const config = getDataikuAppConfig();
-    const csrfToken = config ? config.csrfToken : '';
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                credentials: 'include'
+            });
 
-    const response = await fetch(url, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken,  // Dataiku requires CSRF token
-            ...options.headers
-        },
-        credentials: 'include'  // Important for Dataiku session handling
-    });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: 'Network error' }));
+                throw new Error(error.error || `Server error: ${response.status}`);
+            }
+            return response.json();
+        } else {
+            // Fallback for direct relative paths
+            const response = await fetch(endpoint, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                credentials: 'include'
+            });
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Network error' }));
-        throw new Error(error.error || `Server error: ${response.status}`);
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: 'Network error' }));
+                throw new Error(error.error || `Server error: ${response.status}`);
+            }
+            return response.json();
+        }
+    } catch (error) {
+        console.error('fetchJson error:', error);
+        throw error;
     }
-    return response.json();
 }
 
 function showLoading() {
@@ -298,6 +316,15 @@ window.onload = function () {
 
 async function initializeApp() {
     try {
+        console.log('Initializing webapp...');
+
+        // Test if Dataiku APIs are available
+        if (window.dataiku && window.dataiku.getWebAppBackendUrl) {
+            console.log('Dataiku APIs available');
+        } else {
+            console.log('Using fallback mode');
+        }
+
         // Test backend connection
         const response = await fetchJson('/first_api_call');
         console.log('Backend connected:', response);
@@ -307,7 +334,7 @@ async function initializeApp() {
         showSuccess('Application initialized successfully');
     } catch (error) {
         console.error('Failed to initialize app:', error);
-        showError('Failed to connect to backend');
+        showError('Failed to connect to backend: ' + error.message);
     }
 }
 
