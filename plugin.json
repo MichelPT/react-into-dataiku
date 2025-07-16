@@ -1,29 +1,56 @@
 {
-    // Plugin identifiers are globally unique and only contain A-Za-z0-9_-
     "id": "standard-webapp-v1",
-
-    // It is highly recommended to use Semantic Versioning
     "version": "0.0.1",
-
-    // Meta data for display purposes:
     "meta": {
-        // label: name of the plugin as displayed, should be short
         "label": "Standard webapp v1",
-
-        // description: longer string to help end users understand what this plugin does
-        "description": "",
-
+        "description": "Interactive well log analysis webapp with plotting and calculations",
         "author": "admin",
-
-        // icon: must be one of the FontAwesome 5.15.4 icons, complete list here at https://fontawesome.com/v5/docs/
-        "icon": "fas fa-puzzle-piece",
-
-        // List of tags for filtering the list of plugins
-        "tags": [], //for example: ["Machine Learning", "NLP"]
-
-        // URL where the user can learn more about the plugin
+        "icon": "fas fa-chart-line",
+        "tags": [
+            "Well Log",
+            "Analysis",
+            "Plotting",
+            "Petrophysics"
+        ],
         "url": "",
-
         "licenseInfo": "Apache Software License"
-    }
+    },
+    "pythonEnvs": {
+        "python38": {
+            "desc": "Python 3.8 environment for well log analysis webapp",
+            "interpretationTimeoutSeconds": 300,
+            "installCorePackages": true,
+            "installJupyterSupport": false,
+            "useConda": false,
+            "condaPackages": [],
+            "pipPackages": [
+                "lasio>=0.30",
+                "plotly>=5.0.0",
+                "scipy>=1.7.0",
+                "pandas>=1.3.0",
+                "numpy>=1.21.0",
+                "matplotlib>=3.5.0",
+                "seaborn>=0.11.0",
+                "scikit-learn>=1.0.0",
+                "openpyxl>=3.0.0",
+                "xlrd>=2.0.0",
+                "requests>=2.25.0",
+                "kaleido>=0.2.1"
+            ]
+        }
+    },
+    "webApps": [
+        {
+            "id": "webappv1",
+            "type": "STANDARD",
+            "label": "Well Log Analysis",
+            "desc": "Interactive well log analysis tool for petrophysical calculations and plotting",
+            "pythonEnvId": "python38",
+            "hasBackend": true,
+            "standardWebApp": {
+                "urlPrefix": "/well-log-analysis",
+                "directory": "webapps/webappv1"
+            }
+        }
+    ]
 }
