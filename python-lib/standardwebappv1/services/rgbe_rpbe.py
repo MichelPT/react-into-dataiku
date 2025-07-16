@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import linregress
-from services.plotting_service import (
+from .plotting_service import (
     extract_markers_with_mean_depth,
     extract_markers_customize,
     normalize_xover,

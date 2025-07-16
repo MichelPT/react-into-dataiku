@@ -1,5 +1,5 @@
 from plotly.subplots import make_subplots
-from services.plotting_service import (
+from .plotting_service import (
     extract_markers_with_mean_depth,
     normalize_xover,
     plot_line,
