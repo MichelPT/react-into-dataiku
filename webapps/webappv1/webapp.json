@@ -12,8 +12,6 @@
         "dataiku"
     ],
     "hideWebAppConfig": "true",
-    "params": [
-    ],
-    "roles": [
-    ]
+    "params": [],
+    "roles": []
 }

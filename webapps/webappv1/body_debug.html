@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,23 +11,41 @@
             margin: 20px;
             background-color: #f5f5f5;
         }
+
         .container {
             max-width: 800px;
             margin: 0 auto;
             background: white;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
         .status {
             padding: 10px;
             margin: 10px 0;
             border-radius: 4px;
             border: 1px solid #ddd;
         }
-        .success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
-        .error { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
-        .info { background-color: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+
         button {
             padding: 8px 16px;
             margin: 5px;
@@ -36,9 +55,11 @@
             color: white;
             cursor: pointer;
         }
+
         button:hover {
             background-color: #0056b3;
         }
+
         pre {
             background-color: #f8f9fa;
             padding: 10px;
@@ -47,17 +68,18 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Well Log Analysis - Debug Mode</h1>
-        
+
         <div id="status" class="status info">Initializing...</div>
-        
+
         <div>
             <h3>Debug Information</h3>
             <div id="debug-info"></div>
         </div>
-        
+
         <div>
             <h3>Test Controls</h3>
             <button onclick="testBackend()">Test Backend Connection</button>
@@ -65,7 +87,7 @@
             <button onclick="loadDatasets()">Load Datasets</button>
             <button onclick="clearDebug()">Clear Debug</button>
         </div>
-        
+
         <div>
             <h3>Response</h3>
             <pre id="response"></pre>
@@ -93,10 +115,10 @@
         // Test Dataiku API availability
         function testDataikuAPI() {
             debugLog('Testing Dataiku API availability...');
-            
+
             if (typeof window.dataiku !== 'undefined') {
                 debugLog('✓ window.dataiku is available', 'success');
-                
+
                 if (window.dataiku.getWebAppBackendUrl) {
                     debugLog('✓ getWebAppBackendUrl is available', 'success');
                     try {
@@ -108,7 +130,7 @@
                 } else {
                     debugLog('✗ getWebAppBackendUrl is not available', 'error');
                 }
-                
+
                 if (window.dataiku.getWebAppConfig) {
                     debugLog('✓ getWebAppConfig is available', 'success');
                     try {
@@ -128,7 +150,7 @@
         // Test backend connection
         async function testBackend() {
             debugLog('Testing backend connection...');
-            
+
             try {
                 let url;
                 if (window.dataiku && window.dataiku.getWebAppBackendUrl) {
@@ -138,7 +160,7 @@
                     url = '/first_api_call';
                     debugLog('Using fallback URL: ' + url, 'info');
                 }
-                
+
                 const response = await fetch(url, {
                     method: 'GET',
                     headers: {
@@ -146,10 +168,10 @@
                     },
                     credentials: 'include'
                 });
-                
-                debugLog('Response status: ' + response.status + ' ' + response.statusText, 
+
+                debugLog('Response status: ' + response.status + ' ' + response.statusText,
                     response.ok ? 'success' : 'error');
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     debugLog('✓ Backend connected successfully', 'success');
@@ -168,7 +190,7 @@
         // Test loading datasets
         async function loadDatasets() {
             debugLog('Testing dataset loading...');
-            
+
             try {
                 let url;
                 if (window.dataiku && window.dataiku.getWebAppBackendUrl) {
@@ -176,7 +198,7 @@
                 } else {
                     url = '/get_datasets';
                 }
-                
+
                 const response = await fetch(url, {
                     method: 'GET',
                     headers: {
@@ -184,7 +206,7 @@
                     },
                     credentials: 'include'
                 });
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     debugLog('✓ Datasets loaded successfully', 'success');
@@ -201,19 +223,20 @@
         }
 
         // Initialize on page load
-        window.onload = function() {
+        window.onload = function () {
             debugLog('Page loaded, starting initialization...');
-            
+
             // Update status
             document.getElementById('status').className = 'status info';
             document.getElementById('status').textContent = 'Debug mode active - Click buttons to test functionality';
-            
+
             // Test Dataiku API availability
             testDataikuAPI();
-            
+
             // Automatically test backend connection
             setTimeout(testBackend, 1000);
         };
     </script>
 </body>
+
 </html>

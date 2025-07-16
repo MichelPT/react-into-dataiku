@@ -1,219 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Well Log Analysis - Debug</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .status {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
-        .success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
-        .error { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
-        .info { background-color: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
-        button {
-            padding: 8px 16px;
-            margin: 5px;
-            border: none;
-            border-radius: 4px;
-            background-color: #007bff;
-            color: white;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        pre {
-            background-color: #f8f9fa;
-            padding: 10px;
-            border-radius: 4px;
-            overflow-x: auto;
-        }
-    </style>
+    <title>Well Log Analysis</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
+
 <body>
-    <div class="container">
-        <h1>Well Log Analysis - Debug Mode</h1>
-        
-        <div id="status" class="status info">Initializing...</div>
-        
-        <div>
-            <h3>Debug Information</h3>
-            <div id="debug-info"></div>
-        </div>
-        
-        <div>
-            <h3>Test Controls</h3>
-            <button onclick="testBackend()">Test Backend Connection</button>
-            <button onclick="testDataikuAPI()">Test Dataiku API</button>
-            <button onclick="loadDatasets()">Load Datasets</button>
-            <button onclick="clearDebug()">Clear Debug</button>
-        </div>
-        
-        <div>
-            <h3>Response</h3>
-            <pre id="response"></pre>
-        </div>
+    <div id="app">
+        <!-- Left Sidebar -->
+        <aside id="leftSidebar" class="sidebar">
+            <div class="sidebar-section">
+                <h3>Well Selection</h3>
+                <div id="wellList" class="list-container"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Interval Selection</h3>
+                <div id="intervalList" class="list-container"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Saved Sets</h3>
+                <div id="savedSets" class="list-container"></div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main id="mainContent">
+            <div id="plotArea"></div>
+            <div id="parameterForm" class="hidden">
+                <table id="parameterTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Location</th>
+                            <th>Mode</th>
+                            <th>Comment</th>
+                            <th>Unit</th>
+                            <th>Name</th>
+                            <th>P</th>
+                            <!-- Interval columns will be added dynamically -->
+                        </tr>
+                    </thead>
+                    <tbody id="parameterRows"></tbody>
+                </table>
+            </div>
+            <div id="loadingSpinner" class="hidden">
+                <div class="spinner"></div>
+                <p>Processing...</p>
+            </div>
+        </main>
+
+        <!-- Right Sidebar -->
+        <aside id="rightSidebar" class="sidebar">
+            <h3>Module Configuration</h3>
+            <div class="module-section">
+                <h4>Data Preparation</h4>
+                <div class="button-group">
+                    <button onclick="loadModule('histogram')">HISTOGRAM</button>
+                    <button onclick="loadModule('crossplot-nphi-rhob')">CROSSPLOT-NPHI-RHOB</button>
+                    <button onclick="loadModule('crossplot-gr-nphi')">CROSSPLOT-GR-NPHI</button>
+                    <button onclick="loadModule('trim-data')">TRIM DATA</button>
+                    <button onclick="loadModule('depth-matching')">DEPTH MATCHING</button>
+                    <button onclick="loadModule('fill-missing')">FILL MISSING</button>
+                    <button onclick="loadModule('smoothing')">SMOOTHING</button>
+                    <button onclick="loadModule('normalization')">NORMALIZATION</button>
+                </div>
+            </div>
+            <div class="module-section">
+                <h4>Interpretation</h4>
+                <div class="button-group">
+                    <button onclick="loadModule('vsh-calculation')">VSH CALCULATION</button>
+                    <button onclick="loadModule('porosity-calculation')">POROSITY CALCULATION</button>
+                    <button onclick="loadModule('sw-calculation')">SW CALCULATION</button>
+                    <button onclick="loadModule('water-resistivity-calculation')">WATER RESISTIVITY</button>
+                </div>
+            </div>
+            <div class="module-section">
+                <h4>Gas Oil Water Scanner (GOWS)</h4>
+                <div class="button-group">
+                    <button onclick="loadModule('rgsa-ngsa-dgsa')">RGSA-NGSA-DGSA</button>
+                    <button onclick="loadModule('rgbe-rpbe')">RGBE-RPBE</button>
+                    <button onclick="loadModule('swgrad')">SWGRAD</button>
+                    <button onclick="loadModule('dns-dnsv')">DNS-DNSV</button>
+                    <button onclick="loadModule('rt-ro')">RT-RO</button>
+                </div>
+            </div>
+        </aside>
     </div>
-
-    <script>
-        // Debug logging function
-        function debugLog(message, type = 'info') {
-            const debugDiv = document.getElementById('debug-info');
-            const timestamp = new Date().toLocaleTimeString();
-            const logEntry = document.createElement('div');
-            logEntry.className = `status ${type}`;
-            logEntry.innerHTML = `[${timestamp}] ${message}`;
-            debugDiv.appendChild(logEntry);
-            console.log(`[${timestamp}] ${message}`);
-        }
-
-        // Clear debug log
-        function clearDebug() {
-            document.getElementById('debug-info').innerHTML = '';
-            document.getElementById('response').innerHTML = '';
-        }
-
-        // Test Dataiku API availability
-        function testDataikuAPI() {
-            debugLog('Testing Dataiku API availability...');
-            
-            if (typeof window.dataiku !== 'undefined') {
-                debugLog('✓ window.dataiku is available', 'success');
-                
-                if (window.dataiku.getWebAppBackendUrl) {
-                    debugLog('✓ getWebAppBackendUrl is available', 'success');
-                    try {
-                        const testUrl = window.dataiku.getWebAppBackendUrl('test');
-                        debugLog('✓ Generated test URL: ' + testUrl, 'success');
-                    } catch (e) {
-                        debugLog('✗ Error generating URL: ' + e.message, 'error');
-                    }
-                } else {
-                    debugLog('✗ getWebAppBackendUrl is not available', 'error');
-                }
-                
-                if (window.dataiku.getWebAppConfig) {
-                    debugLog('✓ getWebAppConfig is available', 'success');
-                    try {
-                        const config = window.dataiku.getWebAppConfig();
-                        debugLog('✓ Config: ' + JSON.stringify(config, null, 2), 'info');
-                    } catch (e) {
-                        debugLog('✗ Error getting config: ' + e.message, 'error');
-                    }
-                } else {
-                    debugLog('✗ getWebAppConfig is not available', 'error');
-                }
-            } else {
-                debugLog('✗ window.dataiku is not available - using fallback mode', 'error');
-            }
-        }
-
-        // Test backend connection
-        async function testBackend() {
-            debugLog('Testing backend connection...');
-            
-            try {
-                let url;
-                if (window.dataiku && window.dataiku.getWebAppBackendUrl) {
-                    url = window.dataiku.getWebAppBackendUrl('first_api_call');
-                    debugLog('Using Dataiku URL: ' + url, 'info');
-                } else {
-                    url = '/first_api_call';
-                    debugLog('Using fallback URL: ' + url, 'info');
-                }
-                
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include'
-                });
-                
-                debugLog('Response status: ' + response.status + ' ' + response.statusText, 
-                    response.ok ? 'success' : 'error');
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    debugLog('✓ Backend connected successfully', 'success');
-                    document.getElementById('response').textContent = JSON.stringify(data, null, 2);
-                } else {
-                    const errorText = await response.text();
-                    debugLog('✗ Backend error: ' + errorText, 'error');
-                    document.getElementById('response').textContent = errorText;
-                }
-            } catch (error) {
-                debugLog('✗ Connection failed: ' + error.message, 'error');
-                document.getElementById('response').textContent = error.message;
-            }
-        }
-
-        // Test loading datasets
-        async function loadDatasets() {
-            debugLog('Testing dataset loading...');
-            
-            try {
-                let url;
-                if (window.dataiku && window.dataiku.getWebAppBackendUrl) {
-                    url = window.dataiku.getWebAppBackendUrl('get_datasets');
-                } else {
-                    url = '/get_datasets';
-                }
-                
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    debugLog('✓ Datasets loaded successfully', 'success');
-                    document.getElementById('response').textContent = JSON.stringify(data, null, 2);
-                } else {
-                    const errorText = await response.text();
-                    debugLog('✗ Dataset loading failed: ' + errorText, 'error');
-                    document.getElementById('response').textContent = errorText;
-                }
-            } catch (error) {
-                debugLog('✗ Dataset loading error: ' + error.message, 'error');
-                document.getElementById('response').textContent = error.message;
-            }
-        }
-
-        // Initialize on page load
-        window.onload = function() {
-            debugLog('Page loaded, starting initialization...');
-            
-            // Update status
-            document.getElementById('status').className = 'status info';
-            document.getElementById('status').textContent = 'Debug mode active - Click buttons to test functionality';
-            
-            // Test Dataiku API availability
-            testDataikuAPI();
-            
-            // Automatically test backend connection
-            setTimeout(testBackend, 1000);
-        };
-    </script>
+    <script src="app.js"></script>
 </body>
+
 </html>
