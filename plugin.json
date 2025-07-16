@@ -1,0 +1,12 @@
+{
+  "id": "vanila-webapps",
+  "version": "1.0.0",
+  "meta": {
+    "label": "vanila webapps",
+    "description": "A plugin containing a webapp built with vanila js",
+    "author": "Michel Tahya",
+    "icon": "icon-rebel",
+    "tags": ["react", "nextjs", "webapp"],
+    "licenseInfo": "Apache Software License"
+  }
+}
