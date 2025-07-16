@@ -3,41 +3,11 @@
     "version": "0.0.1",
     "meta": {
         "label": "Standard webapp v1",
-        "description": "Interactive well log analysis webapp with plotting and calculations",
+        "description": "",
         "author": "admin",
-        "icon": "fas fa-chart-line",
-        "tags": [
-            "Well Log",
-            "Analysis",
-            "Plotting",
-            "Petrophysics"
-        ],
+        "icon": "fas fa-puzzle-piece",
+        "tags": [],
         "url": "",
         "licenseInfo": "Apache Software License"
-    },
-    "codeEnvs": {
-        "python": {
-            "desc": "Python environment for well log analysis webapp",
-            "type": "python38",
-            "installCorePackages": true,
-            "installJupyterSupport": false,
-            "spec": {
-                "requirements": "code-env/python/spec/requirements.txt"
-            }
-        }
-    },
-    "webApps": [
-        {
-            "id": "webappv1",
-            "type": "STANDARD",
-            "label": "Well Log Analysis",
-            "desc": "Interactive well log analysis tool for petrophysical calculations and plotting",
-            "codeEnvId": "python",
-            "hasBackend": true,
-            "standardWebApp": {
-                "urlPrefix": "/well-log-analysis",
-                "directory": "webapps/webappv1"
-            }
-        }
-    ]
+    }
 }
