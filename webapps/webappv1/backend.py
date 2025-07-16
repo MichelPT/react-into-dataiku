@@ -849,6 +849,18 @@ def get_available_columns():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+def first_api_call():
+    """First API call endpoint for webapp initialization"""
+    try:
+        return {
+            "status": "success", 
+            "message": "Well Log Analysis backend is running",
+            "timestamp": datetime.now().isoformat(),
+            "backend_version": "1.0.0"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 # Example usage in Dataiku WebApp:
 """
 Frontend JavaScript Integration Examples:

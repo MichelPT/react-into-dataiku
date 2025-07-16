@@ -293,11 +293,40 @@ async function submitParameters() {
 
 // Initialize
 window.onload = function () {
-    loadWells();
-    // Add other initialization as needed
+    initializeApp();
 };
-$.getJSON(getWebAppBackendUrl('/first_api_call'), function(data) {
-    console.log('Received data from backend', data)
-    const output = $('<pre />').text('Backend reply: ' + JSON.stringify(data));
-    $('body').append(output)
-});
+
+async function initializeApp() {
+    try {
+        // Test backend connection
+        const response = await fetchJson('/first_api_call');
+        console.log('Backend connected:', response);
+
+        // Initialize the app
+        await loadDatasets();
+        showSuccess('Application initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize app:', error);
+        showError('Failed to connect to backend');
+    }
+}
+
+// Add dataset loading function
+async function loadDatasets() {
+    try {
+        const response = await fetchJson('/get_datasets');
+        console.log('Available datasets:', response);
+
+        if (response.status === 'success') {
+            // Update UI with available datasets
+            updateDatasetList(response.datasets);
+        }
+    } catch (error) {
+        console.error('Failed to load datasets:', error);
+    }
+}
+
+function updateDatasetList(datasets) {
+    // You can implement this to show datasets in your UI
+    console.log('Datasets loaded:', datasets);
+}
