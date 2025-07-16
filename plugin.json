@@ -15,28 +15,15 @@
         "url": "",
         "licenseInfo": "Apache Software License"
     },
-    "pythonEnvs": {
-        "python38": {
-            "desc": "Python 3.8 environment for well log analysis webapp",
-            "interpretationTimeoutSeconds": 300,
+    "codeEnvs": {
+        "python": {
+            "desc": "Python environment for well log analysis webapp",
+            "type": "python38",
             "installCorePackages": true,
             "installJupyterSupport": false,
-            "useConda": false,
-            "condaPackages": [],
-            "pipPackages": [
-                "lasio>=0.30",
-                "plotly>=5.0.0",
-                "scipy>=1.7.0",
-                "pandas>=1.3.0",
-                "numpy>=1.21.0",
-                "matplotlib>=3.5.0",
-                "seaborn>=0.11.0",
-                "scikit-learn>=1.0.0",
-                "openpyxl>=3.0.0",
-                "xlrd>=2.0.0",
-                "requests>=2.25.0",
-                "kaleido>=0.2.1"
-            ]
+            "spec": {
+                "requirements": "code-env/python/spec/requirements.txt"
+            }
         }
     },
     "webApps": [
@@ -45,7 +32,7 @@
             "type": "STANDARD",
             "label": "Well Log Analysis",
             "desc": "Interactive well log analysis tool for petrophysical calculations and plotting",
-            "pythonEnvId": "python38",
+            "codeEnvId": "python",
             "hasBackend": true,
             "standardWebApp": {
                 "urlPrefix": "/well-log-analysis",
