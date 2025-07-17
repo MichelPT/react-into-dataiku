@@ -575,6 +575,18 @@ async function submitParameters() {
 
 // Initialize
 window.onload = function () {
+    console.log('🚀 Window loaded, starting initialization...');
+
+    // Test if functions are available
+    console.log('🚀 toggleWell function available:', typeof toggleWell);
+    console.log('🚀 state object available:', typeof state);
+    console.log('🚀 fetchJson function available:', typeof fetchJson);
+
+    // Make functions globally accessible for debugging
+    window.toggleWell = toggleWell;
+    window.state = state;
+    window.fetchJson = fetchJson;
+
     initializeApp();
 };
 
@@ -660,7 +672,6 @@ async function loadWellsFromDataset(wells) {
                 const wellItem = document.createElement('div');
                 wellItem.className = 'list-item';
                 wellItem.setAttribute('data-id', wellName);
-                wellItem.setAttribute('onclick', `toggleWell('${wellName}')`);
                 wellItem.textContent = wellName;
                 wellItem.style.cursor = 'pointer'; // Make it clear it's clickable
                 wellItem.style.padding = '8px';
@@ -668,6 +679,12 @@ async function loadWellsFromDataset(wells) {
                 wellItem.style.border = '1px solid #ddd';
                 wellItem.style.borderRadius = '4px';
                 wellItem.style.backgroundColor = '#f9f9f9';
+
+                // Add click event listener - THIS IS THE FIX!
+                wellItem.addEventListener('click', function () {
+                    console.log('🔥 Well clicked via event listener:', wellName);
+                    toggleWell(wellName);
+                });
 
                 // Add hover effect
                 wellItem.addEventListener('mouseenter', function () {
@@ -680,6 +697,7 @@ async function loadWellsFromDataset(wells) {
                 });
 
                 wellList.appendChild(wellItem);
+                console.log('🏗️ Added well with click listener:', wellName);
             });
 
             console.log(`🏗️ Added ${wells.length} wells to the UI with click handlers`);
@@ -990,3 +1008,19 @@ function updateDatasetList(datasets) {
     // You can implement this to show datasets in your UI
     console.log('Datasets loaded:', datasets);
 }
+
+// Debug function to test well clicking manually
+function testWellClick(wellName = 'WELL_001') {
+    console.log('🧪 Testing well click for:', wellName);
+    console.log('🧪 toggleWell function exists:', typeof toggleWell === 'function');
+    console.log('🧪 Current state:', state);
+
+    if (typeof toggleWell === 'function') {
+        toggleWell(wellName);
+    } else {
+        console.error('🧪 toggleWell function not found!');
+    }
+}
+
+// Make test function globally available
+window.testWellClick = testWellClick;
