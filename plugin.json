@@ -3,11 +3,20 @@
     "version": "0.0.1",
     "meta": {
         "label": "Standard webapp v1",
-        "description": "",
+        "description": "Well log analysis webapp",
         "author": "admin",
         "icon": "fas fa-puzzle-piece",
         "tags": [],
         "url": "",
         "licenseInfo": "Apache Software License"
-    }
+    },
+    "webapps": [
+        {
+            "id": "webappv1",
+            "type": "STANDARD",
+            "label": "Well Log Analysis",
+            "description": "A webapp for well log analysis and visualization",
+            "icon": "fas fa-chart-line"
+        }
+    ]
 }
