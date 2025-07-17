@@ -138,6 +138,7 @@ function toggleWell(wellId) {
 async function loadWellPlotAndUpdateIntervals(wellName) {
     try {
         console.log('Loading plot for well:', wellName);
+        console.log('Fetching from endpoint: /get_well_plot');
         showLoading();
 
         const response = await fetchJson('/get_well_plot', {
@@ -145,18 +146,27 @@ async function loadWellPlotAndUpdateIntervals(wellName) {
             body: JSON.stringify({ well_name: wellName })
         });
 
+        console.log('Plot response received:', response);
+
         if (response.status === 'success') {
             // Display the plot using Plotly
             const plotArea = document.getElementById('plotArea');
+            console.log('Plot area element:', plotArea);
+
             if (plotArea && response.figure) {
+                console.log('Creating Plotly plot with data:', response.figure);
                 Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, { responsive: true });
                 console.log('Plot loaded for well:', wellName);
 
                 // After successful plot loading, update intervals for the selected well(s)
                 await updateIntervalsForSelectedWells();
+            } else {
+                console.error('Missing plot area or figure data');
+                showError('Plot area not found or missing figure data');
             }
         } else {
-            showError('Failed to load plot: ' + response.message);
+            console.error('Plot request failed:', response);
+            showError('Failed to load plot: ' + (response.message || 'Unknown error'));
         }
 
         hideLoading();
@@ -511,15 +521,20 @@ async function updateIntervalsForSelectedWells() {
         console.log('Updating intervals for selected wells:', state.selectedWells);
 
         if (state.selectedWells.length === 0) {
+            console.log('No wells selected, clearing intervals');
             clearIntervals();
             return;
         }
 
         // Get intervals/markers that are relevant to the selected wells
+        console.log('Fetching markers from /get_markers endpoint');
         const response = await fetchJson('/get_markers');
+        console.log('Markers response:', response);
 
         if (response.status === 'success') {
             const intervalList = document.getElementById('intervalList');
+            console.log('Interval list element:', intervalList);
+
             if (intervalList) {
                 intervalList.innerHTML = ''; // Clear existing intervals
 
@@ -534,10 +549,16 @@ async function updateIntervalsForSelectedWells() {
 
                 console.log(`Updated ${response.markers.length} intervals for selected wells`);
                 showSuccess(`Loaded ${response.markers.length} intervals for selected wells`);
+            } else {
+                console.error('Interval list element not found');
             }
+        } else {
+            console.error('Failed to get markers:', response);
+            showError('Failed to load intervals: ' + (response.message || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error updating intervals:', error);
+        showError('Error loading intervals: ' + error.message);
     }
 }
 
@@ -762,21 +783,6 @@ async function createCalculationPlot(calculationType) {
         }
     } catch (error) {
         console.error('Error creating calculation plot:', error);
-    }
-}
-
-// Add dataset loading function (kept for compatibility)
-async function loadDatasets() {
-    try {
-        const response = await fetchJson('/get_datasets');
-        console.log('Available datasets:', response);
-
-        if (response.status === 'success') {
-            // Update UI with available datasets
-            updateDatasetList(response.datasets);
-        }
-    } catch (error) {
-        console.error('Failed to load datasets:', error);
     }
 }
 
