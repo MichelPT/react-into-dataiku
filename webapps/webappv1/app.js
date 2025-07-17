@@ -115,20 +115,32 @@ async function loadWells() {
 }
 
 function toggleWell(wellId) {
+    console.log('🔥 toggleWell called with:', wellId);
+    console.log('🔥 Current selected wells before:', state.selectedWells);
+
     const index = state.selectedWells.indexOf(wellId);
     if (index === -1) {
         state.selectedWells.push(wellId);
+        console.log('🔥 Well added to selection:', wellId);
+        console.log('🔥 Selected wells after adding:', state.selectedWells);
+
         // Auto-load well plot when selected, then update intervals
         loadWellPlotAndUpdateIntervals(wellId);
     } else {
         state.selectedWells.splice(index, 1);
+        console.log('🔥 Well removed from selection:', wellId);
+        console.log('🔥 Selected wells after removing:', state.selectedWells);
+
         // Clear plot if no wells selected
         if (state.selectedWells.length === 0) {
+            console.log('🔥 No wells selected, clearing plot and intervals');
             clearPlotArea();
             clearIntervals(); // Clear intervals when no wells selected
         } else {
             // Load plot for the last selected well
-            loadWellPlotAndUpdateIntervals(state.selectedWells[state.selectedWells.length - 1]);
+            const lastWell = state.selectedWells[state.selectedWells.length - 1];
+            console.log('🔥 Loading plot for last selected well:', lastWell);
+            loadWellPlotAndUpdateIntervals(lastWell);
         }
     }
     updateWellSelection();
@@ -137,47 +149,58 @@ function toggleWell(wellId) {
 // Load well plot and then update intervals
 async function loadWellPlotAndUpdateIntervals(wellName) {
     try {
-        console.log('Loading plot for well:', wellName);
-        console.log('Fetching from endpoint: /get_well_plot');
+        console.log('🚀 Loading plot for well:', wellName);
+        console.log('🚀 Fetching from endpoint: /get_well_plot');
         showLoading();
 
-        const response = await fetchJson('/get_well_plot', {
-            method: 'POST',
-            body: JSON.stringify({ well_name: wellName })
-        });
+        try {
+            const response = await fetchJson('/get_well_plot', {
+                method: 'POST',
+                body: JSON.stringify({ well_name: wellName })
+            });
 
-        console.log('Plot response received:', response);
+            console.log('🚀 Plot response received:', response);
 
-        if (response.status === 'success') {
-            // Display the plot using Plotly
-            const plotArea = document.getElementById('plotArea');
-            console.log('Plot area element:', plotArea);
+            if (response.status === 'success') {
+                // Display the plot using Plotly
+                const plotArea = document.getElementById('plotArea');
+                console.log('🚀 Plot area element:', plotArea);
 
-            if (plotArea && response.figure) {
-                console.log('Creating Plotly plot with data:', response.figure);
-                Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, { responsive: true });
-                console.log('Plot loaded for well:', wellName);
+                if (plotArea && response.figure) {
+                    console.log('🚀 Creating Plotly plot with data:', response.figure);
+                    Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, { responsive: true });
+                    console.log('🚀 Plot loaded for well:', wellName);
 
-                // After successful plot loading, update intervals for the selected well(s)
-                await updateIntervalsForSelectedWells();
+                    // After successful plot loading, update intervals for the selected well(s)
+                    await updateIntervalsForSelectedWells();
+                } else {
+                    console.error('🚀 Missing plot area or figure data');
+                    showError('Plot area not found or missing figure data');
+                }
             } else {
-                console.error('Missing plot area or figure data');
-                showError('Plot area not found or missing figure data');
+                console.error('🚀 Plot request failed:', response);
+                showError('Failed to load plot: ' + (response.message || 'Unknown error'));
             }
-        } else {
-            console.error('Plot request failed:', response);
-            showError('Failed to load plot: ' + (response.message || 'Unknown error'));
+        } catch (apiError) {
+            console.log('🚀 API not available, using mock plot for well:', wellName);
+            console.log('🚀 API Error:', apiError.message);
+
+            // Create a mock plot when API is not available
+            createMockPlot(wellName);
+
+            // Update intervals with mock data
+            await updateIntervalsWithMockData();
+
+            showSuccess(`Mock plot displayed for ${wellName} (API not available)`);
         }
 
         hideLoading();
     } catch (error) {
-        console.error('Error loading well plot:', error);
+        console.error('🚀 Error loading well plot:', error);
         showError('Error loading well plot: ' + error.message);
         hideLoading();
     }
-}
-
-// Legacy function for backward compatibility
+}// Legacy function for backward compatibility
 async function loadWellPlot(wellName) {
     return loadWellPlotAndUpdateIntervals(wellName);
 }
@@ -190,12 +213,139 @@ function clearPlotArea() {
     }
 }
 
+// Create a mock plot when backend is not available
+function createMockPlot(wellName) {
+    console.log('📊 Creating mock plot for well:', wellName);
+
+    const plotArea = document.getElementById('plotArea');
+    if (!plotArea) {
+        console.error('📊 Plot area not found');
+        return;
+    }
+
+    // Generate mock data
+    const depth = [];
+    const gr = [];
+    const nphi = [];
+    const rhob = [];
+    const rt = [];
+
+    for (let i = 0; i < 100; i++) {
+        const d = 1000 + i * 5; // Depth from 1000 to 1500 ft
+        depth.push(d);
+        gr.push(30 + 50 * Math.random() + 20 * Math.sin(d / 50));
+        nphi.push(0.15 + 0.1 * Math.random() + 0.05 * Math.sin(d / 30));
+        rhob.push(2.3 + 0.3 * Math.random() + 0.1 * Math.cos(d / 40));
+        rt.push(1 + 10 * Math.random() * Math.exp(-Math.pow(d - 1200, 2) / 10000));
+    }
+
+    const mockFigure = {
+        data: [
+            {
+                x: gr,
+                y: depth,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Gamma Ray',
+                line: { color: 'green', width: 2 },
+                xaxis: 'x1',
+                yaxis: 'y1'
+            },
+            {
+                x: nphi,
+                y: depth,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Neutron Porosity',
+                line: { color: 'blue', width: 2 },
+                xaxis: 'x2',
+                yaxis: 'y1'
+            },
+            {
+                x: rhob,
+                y: depth,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Bulk Density',
+                line: { color: 'red', width: 2 },
+                xaxis: 'x3',
+                yaxis: 'y1'
+            },
+            {
+                x: rt,
+                y: depth,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Resistivity',
+                line: { color: 'purple', width: 2 },
+                xaxis: 'x4',
+                yaxis: 'y1'
+            }
+        ],
+        layout: {
+            title: `Mock Well Log Plot - ${wellName}`,
+            height: 600,
+            grid: { rows: 1, columns: 4, pattern: 'independent' },
+            xaxis1: { domain: [0, 0.22], title: 'GR (API)' },
+            xaxis2: { domain: [0.26, 0.48], title: 'NPHI (v/v)' },
+            xaxis3: { domain: [0.52, 0.74], title: 'RHOB (g/cm3)' },
+            xaxis4: { domain: [0.78, 1.0], title: 'RT (ohm.m)' },
+            yaxis1: { title: 'Depth (ft)', autorange: 'reversed' },
+            showlegend: true
+        }
+    };
+
+    console.log('📊 Plotting mock data with Plotly');
+    Plotly.newPlot(plotArea, mockFigure.data, mockFigure.layout, { responsive: true });
+}
+
+// Update intervals with mock data when backend is not available
+async function updateIntervalsWithMockData() {
+    console.log('📋 Loading mock intervals for selected wells');
+
+    const mockIntervals = [
+        'TOP_RESERVOIR',
+        'MIDDLE_RESERVOIR',
+        'BOTTOM_RESERVOIR',
+        'WATER_CONTACT',
+        'OIL_CONTACT',
+        'GAS_CONTACT'
+    ];
+
+    const intervalList = document.getElementById('intervalList');
+    if (intervalList) {
+        intervalList.innerHTML = ''; // Clear existing intervals
+
+        mockIntervals.forEach(interval => {
+            const intervalItem = document.createElement('div');
+            intervalItem.className = 'list-item';
+            intervalItem.setAttribute('data-id', interval);
+            intervalItem.setAttribute('onclick', `toggleInterval('${interval}')`);
+            intervalItem.textContent = interval;
+            intervalList.appendChild(intervalItem);
+        });
+
+        console.log(`📋 Added ${mockIntervals.length} mock intervals to the UI`);
+    }
+}
+
 function updateWellSelection() {
+    console.log('🎨 Updating well selection visual feedback');
     const wells = document.querySelectorAll('#wellList .list-item');
     wells.forEach(well => {
         const wellId = well.getAttribute('data-id');
-        well.classList.toggle('selected', state.selectedWells.includes(wellId));
+        if (state.selectedWells.includes(wellId)) {
+            well.classList.add('selected');
+            well.style.backgroundColor = '#007bff';
+            well.style.color = 'white';
+            console.log('🎨 Marked well as selected:', wellId);
+        } else {
+            well.classList.remove('selected');
+            well.style.backgroundColor = '#f9f9f9';
+            well.style.color = 'black';
+        }
     });
+    console.log('🎨 Updated visual feedback for', wells.length, 'wells');
 }
 
 // Module handling
@@ -430,31 +580,41 @@ window.onload = function () {
 
 async function initializeApp() {
     try {
-        console.log('Initializing webapp...');
+        console.log('🚀 Initializing webapp...');
 
         // Test if Dataiku APIs are available
         if (window.dataiku && window.dataiku.getWebAppBackendUrl) {
-            console.log('Dataiku APIs available');
+            console.log('🚀 Dataiku APIs available');
         } else {
-            console.log('Using fallback mode');
+            console.log('🚀 Using fallback mode (no Dataiku APIs)');
         }
 
-        // Test backend connection and check if dataset is already loaded
-        const response = await fetchJson('/first_api_call');
-        console.log('Backend connected:', response);
+        try {
+            // Test backend connection and check if dataset is already loaded
+            const response = await fetchJson('/first_api_call');
+            console.log('🚀 Backend connected:', response);
 
-        if (response.dataset_loaded && response.wells) {
-            // Dataset is already loaded from backend initialization
-            console.log('Dataset already loaded:', response.current_dataset);
-            await loadWellsFromDataset(response.wells);
-            showSuccess(`Application initialized with ${response.well_count} wells from ${response.current_dataset} dataset`);
-        } else {
-            // Auto-load fix_pass_qc dataset if not already loaded
-            await autoLoadDefaultDataset();
+            if (response.dataset_loaded && response.wells) {
+                // Dataset is already loaded from backend initialization
+                console.log('🚀 Dataset already loaded:', response.current_dataset);
+                await loadWellsFromDataset(response.wells);
+                showSuccess(`Application initialized with ${response.well_count} wells from ${response.current_dataset} dataset`);
+            } else {
+                // Auto-load fix_pass_qc dataset if not already loaded
+                await autoLoadDefaultDataset();
+            }
+        } catch (apiError) {
+            console.log('🚀 Backend not available, loading mock wells');
+            console.log('🚀 API Error:', apiError.message);
+
+            // Load mock wells when backend is not available
+            const mockWells = ['WELL_001', 'WELL_002', 'WELL_003', 'WELL_004', 'WELL_005'];
+            await loadWellsFromDataset(mockWells);
+            showSuccess(`Loaded ${mockWells.length} mock wells (backend not available)`);
         }
     } catch (error) {
-        console.error('Failed to initialize app:', error);
-        showError('Failed to connect to backend: ' + error.message);
+        console.error('🚀 Failed to initialize app:', error);
+        showError('Failed to initialize application: ' + error.message);
     }
 }
 
@@ -489,7 +649,7 @@ async function autoLoadDefaultDataset() {
 // Load wells into the UI with proper integration
 async function loadWellsFromDataset(wells) {
     try {
-        console.log('Loading wells into UI:', wells);
+        console.log('🏗️ Loading wells into UI:', wells);
 
         // Update the well list in the UI
         const wellList = document.getElementById('wellList');
@@ -502,67 +662,92 @@ async function loadWellsFromDataset(wells) {
                 wellItem.setAttribute('data-id', wellName);
                 wellItem.setAttribute('onclick', `toggleWell('${wellName}')`);
                 wellItem.textContent = wellName;
+                wellItem.style.cursor = 'pointer'; // Make it clear it's clickable
+                wellItem.style.padding = '8px';
+                wellItem.style.margin = '2px 0';
+                wellItem.style.border = '1px solid #ddd';
+                wellItem.style.borderRadius = '4px';
+                wellItem.style.backgroundColor = '#f9f9f9';
+
+                // Add hover effect
+                wellItem.addEventListener('mouseenter', function () {
+                    this.style.backgroundColor = '#e9e9e9';
+                });
+                wellItem.addEventListener('mouseleave', function () {
+                    if (!state.selectedWells.includes(wellName)) {
+                        this.style.backgroundColor = '#f9f9f9';
+                    }
+                });
+
                 wellList.appendChild(wellItem);
             });
 
-            console.log(`Added ${wells.length} wells to the UI`);
+            console.log(`🏗️ Added ${wells.length} wells to the UI with click handlers`);
+        } else {
+            console.error('🏗️ Well list element not found in DOM');
         }
 
         // Don't load intervals initially - they will be loaded when wells are selected
 
     } catch (error) {
-        console.error('Error loading wells into UI:', error);
+        console.error('🏗️ Error loading wells into UI:', error);
     }
 }
 
 // Update intervals based on selected wells
 async function updateIntervalsForSelectedWells() {
     try {
-        console.log('Updating intervals for selected wells:', state.selectedWells);
+        console.log('📋 Updating intervals for selected wells:', state.selectedWells);
 
         if (state.selectedWells.length === 0) {
-            console.log('No wells selected, clearing intervals');
+            console.log('📋 No wells selected, clearing intervals');
             clearIntervals();
             return;
         }
 
-        // Get intervals/markers that are relevant to the selected wells
-        console.log('Fetching markers from /get_markers endpoint');
-        const response = await fetchJson('/get_markers');
-        console.log('Markers response:', response);
+        try {
+            // Try to get intervals/markers from the API
+            console.log('📋 Fetching markers from /get_markers endpoint');
+            const response = await fetchJson('/get_markers');
+            console.log('📋 Markers response:', response);
 
-        if (response.status === 'success') {
-            const intervalList = document.getElementById('intervalList');
-            console.log('Interval list element:', intervalList);
+            if (response.status === 'success') {
+                const intervalList = document.getElementById('intervalList');
+                console.log('📋 Interval list element:', intervalList);
 
-            if (intervalList) {
-                intervalList.innerHTML = ''; // Clear existing intervals
+                if (intervalList) {
+                    intervalList.innerHTML = ''; // Clear existing intervals
 
-                response.markers.forEach(marker => {
-                    const intervalItem = document.createElement('div');
-                    intervalItem.className = 'list-item';
-                    intervalItem.setAttribute('data-id', marker);
-                    intervalItem.setAttribute('onclick', `toggleInterval('${marker}')`);
-                    intervalItem.textContent = marker;
-                    intervalList.appendChild(intervalItem);
-                });
+                    response.markers.forEach(marker => {
+                        const intervalItem = document.createElement('div');
+                        intervalItem.className = 'list-item';
+                        intervalItem.setAttribute('data-id', marker);
+                        intervalItem.setAttribute('onclick', `toggleInterval('${marker}')`);
+                        intervalItem.textContent = marker;
+                        intervalList.appendChild(intervalItem);
+                    });
 
-                console.log(`Updated ${response.markers.length} intervals for selected wells`);
-                showSuccess(`Loaded ${response.markers.length} intervals for selected wells`);
+                    console.log(`📋 Updated ${response.markers.length} intervals for selected wells`);
+                    showSuccess(`Loaded ${response.markers.length} intervals for selected wells`);
+                } else {
+                    console.error('📋 Interval list element not found');
+                }
             } else {
-                console.error('Interval list element not found');
+                console.error('📋 Failed to get markers:', response);
+                showError('Failed to load intervals: ' + (response.message || 'Unknown error'));
             }
-        } else {
-            console.error('Failed to get markers:', response);
-            showError('Failed to load intervals: ' + (response.message || 'Unknown error'));
+        } catch (apiError) {
+            console.log('📋 API not available, using mock intervals');
+            console.log('📋 API Error:', apiError.message);
+
+            // Use mock intervals when API is not available
+            await updateIntervalsWithMockData();
         }
     } catch (error) {
-        console.error('Error updating intervals:', error);
+        console.error('📋 Error updating intervals:', error);
         showError('Error loading intervals: ' + error.message);
     }
-}
-
-// Clear intervals list
+}// Clear intervals list
 function clearIntervals() {
     const intervalList = document.getElementById('intervalList');
     if (intervalList) {
