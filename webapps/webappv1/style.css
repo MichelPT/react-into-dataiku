@@ -212,3 +212,34 @@ input[type="checkbox"] {
     border-radius: 0.25rem;
     margin: 1rem 0;
 }
+
+/* Well item styles for auto-loaded wells */
+.well-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+    background-color: white;
+    transition: background-color 0.2s;
+}
+
+.well-item:hover {
+    background-color: var(--bg-gray);
+}
+
+.well-item input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+
+.well-item label {
+    cursor: pointer;
+    flex: 1;
+    font-size: 0.875rem;
+}
+
+.well-item input[type="checkbox"]:checked+label {
+    font-weight: bold;
+    color: var(--primary-color);
+}

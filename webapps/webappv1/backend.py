@@ -40,13 +40,29 @@ from standardwebappv1.services.plotting_service import (
 
 class WellLogAnalysis:
     def __init__(self, project_key=None):
-        """Initialize with optional project key"""
+        """Initialize with optional project key and auto-load fix_pass_qc dataset"""
         self.project_key = project_key
         if project_key:
             self.project = dataiku.Project(project_key)
         self.current_dataset = None
         self.current_well_data = None
         self.available_datasets = []
+        
+        # Auto-load the fix_pass_qc dataset
+        self.auto_load_default_dataset()
+    
+    def auto_load_default_dataset(self):
+        """Automatically load the fix_pass_qc dataset on initialization"""
+        try:
+            dataset_name = "fix_pass_qc"
+            result = self.select_dataset(dataset_name)
+            if result.get("status") == "success":
+                print(f"Successfully auto-loaded dataset: {dataset_name}")
+            else:
+                print(f"Failed to auto-load dataset {dataset_name}: {result.get('message', 'Unknown error')}")
+        except Exception as e:
+            print(f"Error auto-loading dataset: {str(e)}")
+            # Don't raise exception, just log the error so webapp can still start
     
     # Dataset Management Methods
     def get_available_datasets(self):
@@ -885,11 +901,58 @@ def get_available_columns():
 def first_api_call():
     """First API call endpoint for webapp initialization"""
     try:
-        return json.dumps({
+        # Get the analysis instance to check if dataset is already loaded
+        analysis = get_analysis_instance()
+        
+        result = {
             "status": "success", 
             "message": "Well Log Analysis backend is running",
             "timestamp": datetime.now().isoformat(),
-            "backend_version": "1.0.0"
+            "backend_version": "1.0.0",
+            "current_dataset": analysis.current_dataset,
+            "dataset_loaded": analysis.current_dataset is not None
+        }
+        
+        # If dataset is loaded, include basic info
+        if analysis.current_dataset and analysis.current_well_data is not None:
+            wells = analysis.current_well_data['WELL_NAME'].unique().tolist() if 'WELL_NAME' in analysis.current_well_data.columns else []
+            result["wells"] = wells
+            result["well_count"] = len(wells)
+            result["total_rows"] = len(analysis.current_well_data)
+        
+        return json.dumps(result)
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
+
+@app.route('/get_current_status')
+def get_current_status():
+    """Get current dataset and well loading status"""
+    try:
+        analysis = get_analysis_instance()
+        
+        if not analysis.current_dataset:
+            return json.dumps({
+                "status": "success",
+                "dataset_loaded": False,
+                "message": "No dataset currently loaded"
+            })
+        
+        # Get current dataset info
+        wells = []
+        markers = []
+        if analysis.current_well_data is not None:
+            wells = analysis.current_well_data['WELL_NAME'].unique().tolist() if 'WELL_NAME' in analysis.current_well_data.columns else []
+            markers = analysis.current_well_data['MARKER'].unique().tolist() if 'MARKER' in analysis.current_well_data.columns else []
+        
+        return json.dumps({
+            "status": "success",
+            "dataset_loaded": True,
+            "current_dataset": analysis.current_dataset,
+            "wells": wells,
+            "well_count": len(wells),
+            "markers": markers,
+            "marker_count": len(markers),
+            "total_rows": len(analysis.current_well_data) if analysis.current_well_data is not None else 0
         })
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})

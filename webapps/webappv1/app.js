@@ -325,20 +325,81 @@ async function initializeApp() {
             console.log('Using fallback mode');
         }
 
-        // Test backend connection
+        // Test backend connection and check if dataset is already loaded
         const response = await fetchJson('/first_api_call');
         console.log('Backend connected:', response);
 
-        // Initialize the app
-        await loadDatasets();
-        showSuccess('Application initialized successfully');
+        if (response.dataset_loaded && response.wells) {
+            // Dataset is already loaded from backend initialization
+            console.log('Dataset already loaded:', response.current_dataset);
+            await loadWellsFromDataset(response.wells);
+            showSuccess(`Application initialized with ${response.well_count} wells from ${response.current_dataset} dataset`);
+        } else {
+            // Auto-load fix_pass_qc dataset if not already loaded
+            await autoLoadDefaultDataset();
+        }
     } catch (error) {
         console.error('Failed to initialize app:', error);
         showError('Failed to connect to backend: ' + error.message);
     }
 }
 
-// Add dataset loading function
+// Auto-load the fix_pass_qc dataset
+async function autoLoadDefaultDataset() {
+    try {
+        console.log('Auto-loading fix_pass_qc dataset...');
+
+        // Select the fix_pass_qc dataset
+        const selectResponse = await fetchJson('/select_dataset', {
+            method: 'POST',
+            body: JSON.stringify({ dataset_name: 'fix_pass_qc' })
+        });
+
+        if (selectResponse.status === 'success') {
+            console.log('Successfully loaded fix_pass_qc dataset:', selectResponse);
+
+            // Load wells from the dataset
+            await loadWellsFromDataset(selectResponse.wells);
+
+            showSuccess(`Loaded ${selectResponse.wells.length} wells from fix_pass_qc dataset`);
+        } else {
+            console.error('Failed to load fix_pass_qc dataset:', selectResponse.message);
+            showError('Failed to load fix_pass_qc dataset: ' + selectResponse.message);
+        }
+    } catch (error) {
+        console.error('Error auto-loading dataset:', error);
+        showError('Error loading dataset: ' + error.message);
+    }
+}
+
+// Load wells into the UI
+async function loadWellsFromDataset(wells) {
+    try {
+        console.log('Loading wells into UI:', wells);
+
+        // Update the well list in the UI
+        const wellList = document.getElementById('wellList');
+        if (wellList) {
+            wellList.innerHTML = ''; // Clear existing wells
+
+            wells.forEach(wellName => {
+                const wellItem = document.createElement('div');
+                wellItem.className = 'well-item';
+                wellItem.innerHTML = `
+                    <input type="checkbox" id="well_${wellName}" value="${wellName}">
+                    <label for="well_${wellName}">${wellName}</label>
+                `;
+                wellList.appendChild(wellItem);
+            });
+
+            console.log(`Added ${wells.length} wells to the UI`);
+        }
+    } catch (error) {
+        console.error('Error loading wells into UI:', error);
+    }
+}
+
+// Add dataset loading function (kept for compatibility)
 async function loadDatasets() {
     try {
         const response = await fetchJson('/get_datasets');
