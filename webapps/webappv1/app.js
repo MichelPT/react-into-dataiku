@@ -118,10 +118,57 @@ function toggleWell(wellId) {
     const index = state.selectedWells.indexOf(wellId);
     if (index === -1) {
         state.selectedWells.push(wellId);
+        // Auto-load well plot when selected
+        loadWellPlot(wellId);
     } else {
         state.selectedWells.splice(index, 1);
+        // Clear plot if no wells selected
+        if (state.selectedWells.length === 0) {
+            clearPlotArea();
+        } else {
+            // Load plot for the last selected well
+            loadWellPlot(state.selectedWells[state.selectedWells.length - 1]);
+        }
     }
     updateWellSelection();
+}
+
+// Load and display well plot
+async function loadWellPlot(wellName) {
+    try {
+        console.log('Loading plot for well:', wellName);
+        showLoading();
+
+        const response = await fetchJson('/get_well_plot', {
+            method: 'POST',
+            body: JSON.stringify({ well_name: wellName })
+        });
+
+        if (response.status === 'success') {
+            // Display the plot using Plotly
+            const plotArea = document.getElementById('plotArea');
+            if (plotArea && response.figure) {
+                Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, { responsive: true });
+                console.log('Plot loaded for well:', wellName);
+            }
+        } else {
+            showError('Failed to load plot: ' + response.message);
+        }
+
+        hideLoading();
+    } catch (error) {
+        console.error('Error loading well plot:', error);
+        showError('Error loading well plot: ' + error.message);
+        hideLoading();
+    }
+}
+
+// Clear the plot area
+function clearPlotArea() {
+    const plotArea = document.getElementById('plotArea');
+    if (plotArea) {
+        plotArea.innerHTML = '';
+    }
 }
 
 function updateWellSelection() {
@@ -143,7 +190,14 @@ async function loadModule(moduleName) {
     showLoading();
 
     try {
+        // Get the first selected well for single-well operations
+        const wellName = state.selectedWells[0];
+
         switch (moduleName) {
+            case 'default-log':
+            case 'log-plot':
+                await createDefaultLogPlot(wellName);
+                break;
             case 'rgbe-rpbe':
                 await handleRgbeRpbe();
                 break;
@@ -159,6 +213,21 @@ async function loadModule(moduleName) {
             case 'histogram':
                 await handleHistogram();
                 break;
+            case 'vsh-calculation':
+                await handleVshCalculation();
+                break;
+            case 'porosity-calculation':
+                await handlePorosityCalculation();
+                break;
+            case 'sw-calculation':
+                await handleSwCalculation();
+                break;
+            case 'rgsa-ngsa-dgsa':
+                await handleGsaCalculation();
+                break;
+            case 'normalization':
+                await handleNormalization();
+                break;
             // Add other modules...
             default:
                 showError('Module not implemented yet');
@@ -168,6 +237,32 @@ async function loadModule(moduleName) {
         showError(error.message);
     } finally {
         hideLoading();
+    }
+}
+
+// Create default log plot for selected well
+async function createDefaultLogPlot(wellName) {
+    try {
+        const response = await fetchJson('/get_plot_for_calculation', {
+            method: 'POST',
+            body: JSON.stringify({
+                calculation_type: 'default',
+                well_name: wellName
+            })
+        });
+
+        if (response.status === 'success') {
+            const plotArea = document.getElementById('plotArea');
+            if (plotArea && response.figure) {
+                Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, { responsive: true });
+                showSuccess(`Default log plot created for ${wellName}`);
+            }
+        } else {
+            showError('Failed to create log plot: ' + response.message);
+        }
+    } catch (error) {
+        console.error('Error creating default log plot:', error);
+        showError('Error creating log plot: ' + error.message);
     }
 }
 
@@ -372,7 +467,7 @@ async function autoLoadDefaultDataset() {
     }
 }
 
-// Load wells into the UI
+// Load wells into the UI with proper integration
 async function loadWellsFromDataset(wells) {
     try {
         console.log('Loading wells into UI:', wells);
@@ -384,18 +479,264 @@ async function loadWellsFromDataset(wells) {
 
             wells.forEach(wellName => {
                 const wellItem = document.createElement('div');
-                wellItem.className = 'well-item';
-                wellItem.innerHTML = `
-                    <input type="checkbox" id="well_${wellName}" value="${wellName}">
-                    <label for="well_${wellName}">${wellName}</label>
-                `;
+                wellItem.className = 'list-item';
+                wellItem.setAttribute('data-id', wellName);
+                wellItem.setAttribute('onclick', `toggleWell('${wellName}')`);
+                wellItem.textContent = wellName;
                 wellList.appendChild(wellItem);
             });
 
             console.log(`Added ${wells.length} wells to the UI`);
         }
+
+        // Load intervals/markers from the dataset
+        await loadIntervals();
+
     } catch (error) {
         console.error('Error loading wells into UI:', error);
+    }
+}
+
+// Load intervals/markers for the current dataset
+async function loadIntervals() {
+    try {
+        console.log('Loading intervals/markers...');
+
+        const response = await fetchJson('/get_markers');
+
+        if (response.status === 'success') {
+            const intervalList = document.getElementById('intervalList');
+            if (intervalList) {
+                intervalList.innerHTML = ''; // Clear existing intervals
+
+                response.markers.forEach(marker => {
+                    const intervalItem = document.createElement('div');
+                    intervalItem.className = 'list-item';
+                    intervalItem.setAttribute('data-id', marker);
+                    intervalItem.setAttribute('onclick', `toggleInterval('${marker}')`);
+                    intervalItem.textContent = marker;
+                    intervalList.appendChild(intervalItem);
+                });
+
+                console.log(`Added ${response.markers.length} intervals to the UI`);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading intervals:', error);
+    }
+}
+
+// Toggle interval selection
+function toggleInterval(intervalId) {
+    const index = state.selectedIntervals.indexOf(intervalId);
+    if (index === -1) {
+        state.selectedIntervals.push(intervalId);
+    } else {
+        state.selectedIntervals.splice(index, 1);
+    }
+    updateIntervalSelection();
+}
+
+// Update interval selection display
+function updateIntervalSelection() {
+    const intervals = document.querySelectorAll('#intervalList .list-item');
+    intervals.forEach(interval => {
+        const intervalId = interval.getAttribute('data-id');
+        if (state.selectedIntervals.includes(intervalId)) {
+            interval.classList.add('selected');
+        } else {
+            interval.classList.remove('selected');
+        }
+    });
+}// Add dataset loading function (kept for compatibility)
+// Handle VSH calculation
+async function handleVshCalculation() {
+    try {
+        // Get calculation parameters
+        const paramResponse = await fetchJson('/get_calculation_params', {
+            method: 'POST',
+            body: JSON.stringify({ calculation_type: 'vsh' })
+        });
+
+        if (paramResponse.status === 'success') {
+            // For now, use default parameters
+            const defaultParams = {
+                GR_MA: 30,
+                GR_SH: 120,
+                input_log: 'GR',
+                output_log: 'VSH_GR'
+            };
+
+            // Run the calculation
+            const calcResponse = await fetchJson('/run_calculation_endpoint', {
+                method: 'POST',
+                body: JSON.stringify({
+                    calculation_type: 'vsh',
+                    params: defaultParams
+                })
+            });
+
+            if (calcResponse.status === 'success') {
+                showSuccess('VSH calculation completed');
+                // Create VSH plot
+                await createCalculationPlot('vsh');
+            } else {
+                showError('VSH calculation failed: ' + calcResponse.message);
+            }
+        }
+    } catch (error) {
+        console.error('Error in VSH calculation:', error);
+        showError('VSH calculation error: ' + error.message);
+    }
+}
+
+// Handle porosity calculation
+async function handlePorosityCalculation() {
+    try {
+        const defaultParams = {
+            PHIE_METHOD: 'density',
+            RHO_MA: 2.65,
+            RHO_FL: 1.0,
+            NPHI_MA: 0.0
+        };
+
+        const calcResponse = await fetchJson('/run_calculation_endpoint', {
+            method: 'POST',
+            body: JSON.stringify({
+                calculation_type: 'porosity',
+                params: defaultParams
+            })
+        });
+
+        if (calcResponse.status === 'success') {
+            showSuccess('Porosity calculation completed');
+            await createCalculationPlot('porosity');
+        } else {
+            showError('Porosity calculation failed: ' + calcResponse.message);
+        }
+    } catch (error) {
+        console.error('Error in porosity calculation:', error);
+        showError('Porosity calculation error: ' + error.message);
+    }
+}
+
+// Handle GSA calculation
+async function handleGsaCalculation() {
+    try {
+        const defaultParams = {
+            window_size: 50,
+            overlap: 25,
+            min_samples: 10
+        };
+
+        const calcResponse = await fetchJson('/run_calculation_endpoint', {
+            method: 'POST',
+            body: JSON.stringify({
+                calculation_type: 'gsa',
+                params: defaultParams
+            })
+        });
+
+        if (calcResponse.status === 'success') {
+            showSuccess('GSA calculation completed');
+            await createCalculationPlot('gsa');
+        } else {
+            showError('GSA calculation failed: ' + calcResponse.message);
+        }
+    } catch (error) {
+        console.error('Error in GSA calculation:', error);
+        showError('GSA calculation error: ' + error.message);
+    }
+}
+
+// Handle SW calculation
+async function handleSwCalculation() {
+    try {
+        const defaultParams = {
+            rw: 0.1,
+            a: 1.0,
+            m: 2.0,
+            n: 2.0
+        };
+
+        const calcResponse = await fetchJson('/run_calculation_endpoint', {
+            method: 'POST',
+            body: JSON.stringify({
+                calculation_type: 'sw',
+                params: defaultParams
+            })
+        });
+
+        if (calcResponse.status === 'success') {
+            showSuccess('Water saturation calculation completed');
+            await createCalculationPlot('sw');
+        } else {
+            showError('SW calculation failed: ' + calcResponse.message);
+        }
+    } catch (error) {
+        console.error('Error in SW calculation:', error);
+        showError('SW calculation error: ' + error.message);
+    }
+}
+
+// Handle normalization
+async function handleNormalization() {
+    try {
+        const defaultParams = {
+            LOG_IN: 'GR',
+            LOG_OUT: 'GR_NORM',
+            LOW_REF: 40,
+            HIGH_REF: 140,
+            LOW_IN: 3,
+            HIGH_IN: 97,
+            CUTOFF_MIN: 0.0,
+            CUTOFF_MAX: 250.0,
+            intervals: state.selectedIntervals
+        };
+
+        const calcResponse = await fetchJson('/run_calculation_endpoint', {
+            method: 'POST',
+            body: JSON.stringify({
+                calculation_type: 'normalization',
+                params: defaultParams
+            })
+        });
+
+        if (calcResponse.status === 'success') {
+            showSuccess('Normalization completed');
+            await createCalculationPlot('normalization');
+        } else {
+            showError('Normalization failed: ' + calcResponse.message);
+        }
+    } catch (error) {
+        console.error('Error in normalization:', error);
+        showError('Normalization error: ' + error.message);
+    }
+}
+
+// Create plot for calculation results
+async function createCalculationPlot(calculationType) {
+    try {
+        const wellName = state.selectedWells.length > 0 ? state.selectedWells[0] : null;
+
+        const response = await fetchJson('/get_plot_for_calculation', {
+            method: 'POST',
+            body: JSON.stringify({
+                calculation_type: calculationType,
+                well_name: wellName
+            })
+        });
+
+        if (response.status === 'success') {
+            const plotArea = document.getElementById('plotArea');
+            if (plotArea && response.figure) {
+                Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, { responsive: true });
+            }
+        } else {
+            console.error('Failed to create plot:', response.message);
+        }
+    } catch (error) {
+        console.error('Error creating calculation plot:', error);
     }
 }
 
@@ -412,6 +753,18 @@ async function loadDatasets() {
     } catch (error) {
         console.error('Failed to load datasets:', error);
     }
+}
+try {
+    const response = await fetchJson('/get_datasets');
+    console.log('Available datasets:', response);
+
+    if (response.status === 'success') {
+        // Update UI with available datasets
+        updateDatasetList(response.datasets);
+    }
+} catch (error) {
+    console.error('Failed to load datasets:', error);
+}
 }
 
 function updateDatasetList(datasets) {
