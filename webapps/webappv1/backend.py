@@ -550,10 +550,31 @@ class WellLogAnalysis:
 
     def _create_default_log_plot(self, df):
         """Create default log plot"""
+        print(f"🔍 Creating default log plot for {len(df)} rows")
+        print(f"🔍 DataFrame columns: {list(df.columns)}")
+        print(f"🔍 DataFrame shape: {df.shape}")
+        
+        # Check if we have essential columns
+        required_cols = ['DEPTH', 'GR', 'RT', 'NPHI', 'RHOB']
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            print(f"❌ Missing required columns: {missing_cols}")
+            return {"status": "error", "message": f"Missing required columns: {missing_cols}"}
+        
+        # Check for data availability
+        for col in required_cols:
+            non_null_count = df[col].notna().sum()
+            print(f"🔍 Column {col}: {non_null_count}/{len(df)} non-null values")
+            if non_null_count == 0:
+                print(f"❌ Column {col} has no data")
+        
         # Extract markers and normalize data
         df_marker = extract_markers_with_mean_depth(df)
         df_normalized = normalize_xover(df, 'NPHI', 'RHOB')
         df_normalized = normalize_xover(df_normalized, 'RT', 'RHOB')
+        
+        print(f"🔍 After normalization: {df_normalized.shape}")
+        print(f"🔍 Marker data: {len(df_marker) if df_marker is not None else 'None'}")
         
         # Create plot
         fig = plot_log_default(
@@ -561,6 +582,15 @@ class WellLogAnalysis:
             df_marker=df_marker,
             df_well_marker=df_normalized
         )
+        
+        # Debug the figure
+        if fig and hasattr(fig, 'data'):
+            print(f"🔍 Figure has {len(fig.data)} traces")
+            for i, trace in enumerate(fig.data):
+                if hasattr(trace, 'x') and hasattr(trace, 'y'):
+                    x_len = len(trace.x) if trace.x is not None else 0
+                    y_len = len(trace.y) if trace.y is not None else 0
+                    print(f"🔍 Trace {i}: x={x_len} points, y={y_len} points")
         
         return {"status": "success", "figure": fig.to_dict()}
 

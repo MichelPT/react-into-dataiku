@@ -237,6 +237,25 @@ function updateWellSelection() {
     console.log('🎨 Updated visual feedback for', wells.length, 'wells');
 }
 
+function updateIntervalSelection() {
+    console.log('🎨 Updating interval selection visual feedback');
+    const intervals = document.querySelectorAll('#intervalList .list-item');
+    intervals.forEach(interval => {
+        const intervalId = interval.getAttribute('data-id');
+        if (state.selectedIntervals.includes(intervalId)) {
+            interval.classList.add('selected');
+            interval.style.backgroundColor = '#28a745';
+            interval.style.color = 'white';
+            console.log('🎨 Marked interval as selected:', intervalId);
+        } else {
+            interval.classList.remove('selected');
+            interval.style.backgroundColor = '#f9f9f9';
+            interval.style.color = 'black';
+        }
+    });
+    console.log('🎨 Updated visual feedback for', intervals.length, 'intervals');
+}
+
 // Module handling
 async function loadModule(moduleName) {
     if (state.selectedWells.length === 0) {
@@ -913,4 +932,68 @@ async function loadDatasets() {
 function updateDatasetList(datasets) {
     // You can implement this to show datasets in your UI
     console.log('Datasets loaded:', datasets);
+}
+
+// Select All / Deselect All functions
+function toggleAllWells() {
+    const checkbox = document.getElementById('selectAllWells');
+    const wellItems = document.querySelectorAll('#wellList .list-item');
+
+    console.log('🔄 Toggle All Wells:', checkbox.checked);
+
+    if (checkbox.checked) {
+        // Select all wells
+        state.selectedWells = [];
+        wellItems.forEach(item => {
+            const wellId = item.getAttribute('data-id');
+            if (wellId && !state.selectedWells.includes(wellId)) {
+                state.selectedWells.push(wellId);
+            }
+        });
+        console.log('✅ Selected all wells:', state.selectedWells);
+    } else {
+        // Deselect all wells
+        state.selectedWells = [];
+        clearPlotArea();
+        clearIntervals();
+        console.log('❌ Deselected all wells');
+    }
+
+    updateWellSelection();
+
+    // Load plot for first selected well if any
+    if (state.selectedWells.length > 0) {
+        loadWellPlotAndUpdateIntervals(state.selectedWells[0]);
+    }
+}
+
+function toggleAllIntervals() {
+    const checkbox = document.getElementById('selectAllIntervals');
+    const intervalItems = document.querySelectorAll('#intervalList .list-item');
+
+    console.log('🔄 Toggle All Intervals:', checkbox.checked);
+
+    if (checkbox.checked) {
+        // Select all intervals
+        state.selectedIntervals = [];
+        intervalItems.forEach(item => {
+            const intervalId = item.getAttribute('data-id');
+            if (intervalId && !state.selectedIntervals.includes(intervalId)) {
+                state.selectedIntervals.push(intervalId);
+            }
+        });
+        console.log('✅ Selected all intervals:', state.selectedIntervals);
+    } else {
+        // Deselect all intervals
+        state.selectedIntervals = [];
+        console.log('❌ Deselected all intervals');
+    }
+
+    updateIntervalSelection();
+}
+
+function toggleAllSets() {
+    const checkbox = document.getElementById('selectAllSets');
+    // TODO: Implement saved sets functionality
+    console.log('🔄 Toggle All Sets:', checkbox.checked);
 }

@@ -14,16 +14,33 @@
         <!-- Left Sidebar -->
         <aside id="leftSidebar" class="sidebar">
             <div class="sidebar-section">
-                <h3>Well Selection</h3>
-                <div id="wellList" class="list-container"></div>
+                <div class="section-header">
+                    <h3>Well Selection</h3>
+                    <div class="checkbox-controls">
+                        <label><input type="checkbox" id="selectAllWells" onchange="toggleAllWells()"> Select
+                            All</label>
+                    </div>
+                </div>
+                <div id="wellList" class="list-container scrollable-list"></div>
             </div>
             <div class="sidebar-section">
-                <h3>Interval Selection</h3>
-                <div id="intervalList" class="list-container"></div>
+                <div class="section-header">
+                    <h3>Interval Selection</h3>
+                    <div class="checkbox-controls">
+                        <label><input type="checkbox" id="selectAllIntervals" onchange="toggleAllIntervals()"> Select
+                            All</label>
+                    </div>
+                </div>
+                <div id="intervalList" class="list-container scrollable-list"></div>
             </div>
             <div class="sidebar-section">
-                <h3>Saved Sets</h3>
-                <div id="savedSets" class="list-container"></div>
+                <div class="section-header">
+                    <h3>Saved Sets</h3>
+                    <div class="checkbox-controls">
+                        <label><input type="checkbox" id="selectAllSets" onchange="toggleAllSets()"> Select All</label>
+                    </div>
+                </div>
+                <div id="savedSets" class="list-container scrollable-list"></div>
             </div>
         </aside>
 
