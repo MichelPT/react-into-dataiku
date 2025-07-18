@@ -600,12 +600,19 @@ window.onload = function () {
     console.log('🚀 state object available:', typeof state);
     console.log('🚀 fetchJson function available:', typeof fetchJson);
 
-    // Make functions globally accessible for debugging
+    // Make functions globally accessible for debugging and HTML onclick handlers
     window.toggleWell = toggleWell;
     window.state = state;
     window.fetchJson = fetchJson;
     window.createDefaultLogPlot = createDefaultLogPlot;
+    window.loadModule = loadModule;
+    window.toggleAllWells = toggleAllWells;
+    window.toggleAllIntervals = toggleAllIntervals;
+    window.toggleAllSets = toggleAllSets;
+    window.createTestPlot = createTestPlot;
     window.Plotly = Plotly; // Make sure Plotly is accessible globally
+
+    console.log('✅ All functions exposed globally');
 
     initializeApp();
 };
