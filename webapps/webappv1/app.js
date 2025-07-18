@@ -256,6 +256,44 @@ function updateIntervalSelection() {
     console.log('🎨 Updated visual feedback for', intervals.length, 'intervals');
 }
 
+// Test function to verify Plotly is working
+function createTestPlot() {
+    console.log('🧪 Creating test plot...');
+    const plotArea = document.getElementById('plotArea');
+    if (!plotArea) {
+        console.error('❌ Plot area not found');
+        return;
+    }
+
+    const testData = [{
+        x: [1, 2, 3, 4, 5],
+        y: [10, 11, 12, 13, 14],
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Test Line'
+    }];
+
+    const layout = {
+        title: 'Test Plot - Plotly is Working!',
+        xaxis: { title: 'X Axis' },
+        yaxis: { title: 'Y Axis' },
+        height: 400,
+        margin: { l: 50, r: 50, t: 50, b: 50 }
+    };
+
+    const config = { responsive: true };
+
+    Plotly.newPlot(plotArea, testData, layout, config)
+        .then(() => {
+            console.log('✅ Test plot created successfully');
+            showSuccess('Test plot created - Plotly is working!');
+        })
+        .catch(error => {
+            console.error('❌ Test plot failed:', error);
+            showError('Test plot failed: ' + error.message);
+        });
+}
+
 // Module handling
 async function loadModule(moduleName) {
     if (state.selectedWells.length === 0) {
@@ -320,6 +358,8 @@ async function loadModule(moduleName) {
 // Create default log plot for selected well
 async function createDefaultLogPlot(wellName) {
     try {
+        console.log('📊 Creating default log plot for well:', wellName);
+
         const response = await fetchJson('/get_plot_for_calculation', {
             method: 'POST',
             body: JSON.stringify({
@@ -328,17 +368,69 @@ async function createDefaultLogPlot(wellName) {
             })
         });
 
+        console.log('📊 Plot response:', response);
+
         if (response.status === 'success') {
             const plotArea = document.getElementById('plotArea');
             if (plotArea && response.figure) {
-                Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, { responsive: true });
+                console.log('📊 Figure data structure:', {
+                    data: response.figure.data ? response.figure.data.length : 'undefined',
+                    layout: response.figure.layout ? 'present' : 'undefined'
+                });
+
+                // Debug the data traces
+                if (response.figure.data) {
+                    response.figure.data.forEach((trace, index) => {
+                        console.log(`📊 Trace ${index}:`, {
+                            type: trace.type,
+                            name: trace.name,
+                            x_length: trace.x ? trace.x.length : 0,
+                            y_length: trace.y ? trace.y.length : 0,
+                            x_sample: trace.x ? trace.x.slice(0, 3) : 'no x data',
+                            y_sample: trace.y ? trace.y.slice(0, 3) : 'no y data'
+                        });
+                    });
+                }
+
+                // Clear any existing plot
+                plotArea.innerHTML = '';
+
+                // Create the plot with enhanced configuration
+                const config = {
+                    responsive: true,
+                    displayModeBar: true,
+                    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                    toImageButtonOptions: {
+                        format: 'png',
+                        filename: `well_log_${wellName}`,
+                        height: 1500,
+                        width: 1200,
+                        scale: 1
+                    }
+                };
+
+                await Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, config);
+                console.log('📊 Plot created successfully');
                 showSuccess(`Default log plot created for ${wellName}`);
+
+                // Verify the plot was created
+                const plotDiv = document.getElementById('plotArea');
+                if (plotDiv && plotDiv.data && plotDiv.data.length > 0) {
+                    console.log('✅ Plot verification: Plot has', plotDiv.data.length, 'traces');
+                } else {
+                    console.log('⚠️ Plot verification: No traces found in plot');
+                }
+
+            } else {
+                console.error('❌ Missing plot area or figure data');
+                showError('Plot area not found or no figure data received');
             }
         } else {
+            console.error('❌ Backend error:', response.message);
             showError('Failed to create log plot: ' + response.message);
         }
     } catch (error) {
-        console.error('Error creating default log plot:', error);
+        console.error('❌ Error creating default log plot:', error);
         showError('Error creating log plot: ' + error.message);
     }
 }
@@ -485,6 +577,24 @@ async function submitParameters() {
 window.onload = function () {
     console.log('🚀 Window loaded, starting initialization...');
 
+    // Test if Plotly is available
+    if (typeof Plotly !== 'undefined') {
+        console.log('✅ Plotly.js is loaded, version:', Plotly.version);
+        // Test basic Plotly functionality
+        try {
+            const testDiv = document.createElement('div');
+            testDiv.style.display = 'none';
+            document.body.appendChild(testDiv);
+            Plotly.newPlot(testDiv, [{ x: [1, 2, 3], y: [1, 2, 3], type: 'scatter' }]);
+            console.log('✅ Plotly basic functionality test passed');
+            document.body.removeChild(testDiv);
+        } catch (e) {
+            console.error('❌ Plotly basic functionality test failed:', e);
+        }
+    } else {
+        console.error('❌ Plotly.js is not loaded!');
+    }
+
     // Test if functions are available
     console.log('🚀 toggleWell function available:', typeof toggleWell);
     console.log('🚀 state object available:', typeof state);
@@ -494,6 +604,8 @@ window.onload = function () {
     window.toggleWell = toggleWell;
     window.state = state;
     window.fetchJson = fetchJson;
+    window.createDefaultLogPlot = createDefaultLogPlot;
+    window.Plotly = Plotly; // Make sure Plotly is accessible globally
 
     initializeApp();
 };
