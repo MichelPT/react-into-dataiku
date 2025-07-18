@@ -189,38 +189,17 @@ async function loadWellPlotAndUpdateIntervals(wellName) {
                 console.log('🚀 Layout height:', response.figure.layout ? response.figure.layout.height : 'undefined');
 
                 // Clear any existing plot completely
-                Plotly.purge(plotArea);
-
-                // Ensure the plot area is properly sized
-                plotArea.style.width = '100%';
-                plotArea.style.height = '70vh';
-                plotArea.style.minHeight = '600px';
-
-                // Create enhanced config for better performance
-                const config = {
+                Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, {
                     responsive: true,
-                    displayModeBar: true,
-                    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d'],
-                    scrollZoom: false,
-                    doubleClick: 'reset',
-                    toImageButtonOptions: {
-                        format: 'png',
-                        filename: `well_log_${wellName}`,
-                        height: 1500,
-                        width: 1200,
-                        scale: 1
-                    }
-                };
+                    displayModeBar: true
+                });
 
-                // Override layout for better display
-                const enhancedLayout = {
-                    ...response.figure.layout,
-                    autosize: true,
-                    height: 600, // Force a reasonable height
-                    margin: { l: 60, r: 60, t: 60, b: 60 },
-                    showlegend: false,
-                    hovermode: 'closest'
-                };
+                console.log('✅ Plot created successfully');
+                showSuccess(`Plot loaded for well: ${wellName}`);
+
+
+                // After successful plot loading, update intervals for the selected well(s)
+                await updateIntervalsForSelectedWells();
 
                 try {
                     await Plotly.newPlot(plotArea, response.figure.data, enhancedLayout, config);
