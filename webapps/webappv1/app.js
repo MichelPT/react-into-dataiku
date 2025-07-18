@@ -165,10 +165,10 @@ function toggleWell(wellId) {
 }
 
 // Load well plot and then update intervals
+// Load well plot and then update intervals
 async function loadWellPlotAndUpdateIntervals(wellName) {
     try {
         console.log('🚀 Loading plot for well:', wellName);
-        console.log('🚀 Fetching from endpoint: /get_well_plot');
         showLoading();
 
         const response = await fetchJson('/get_well_plot', {
@@ -179,16 +179,13 @@ async function loadWellPlotAndUpdateIntervals(wellName) {
         console.log('🚀 Plot response received:', response);
 
         if (response.status === 'success') {
-            // Display the plot using Plotly
             const plotArea = document.getElementById('plotArea');
             console.log('🚀 Plot area element:', plotArea);
 
             if (plotArea && response.figure) {
                 console.log('🚀 Creating Plotly plot with data:', response.figure);
-                console.log('🚀 Number of traces:', response.figure.data ? response.figure.data.length : 'undefined');
-                console.log('🚀 Layout height:', response.figure.layout ? response.figure.layout.height : 'undefined');
 
-                // Clear any existing plot completely
+                // Simple, clean plot creation
                 Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, {
                     responsive: true,
                     displayModeBar: true
@@ -196,37 +193,6 @@ async function loadWellPlotAndUpdateIntervals(wellName) {
 
                 console.log('✅ Plot created successfully');
                 showSuccess(`Plot loaded for well: ${wellName}`);
-
-
-                // After successful plot loading, update intervals for the selected well(s)
-                await updateIntervalsForSelectedWells();
-
-                try {
-                    await Plotly.newPlot(plotArea, response.figure.data, enhancedLayout, config);
-                    console.log('✅ Plot created successfully');
-
-                    // Force a resize to ensure proper display
-                    setTimeout(() => {
-                        Plotly.Plots.resize(plotArea);
-                        console.log('✅ Plot resized');
-                    }, 100);
-
-                    showSuccess(`Plot loaded for well: ${wellName}`);
-                } catch (plotError) {
-                    console.error('❌ Plotly newPlot failed:', plotError);
-                    showError('Failed to create plot: ' + plotError.message);
-
-                    // Fallback: try with reduced data
-                    try {
-                        console.log('� Trying with reduced trace set...');
-                        const reducedData = response.figure.data.slice(0, 20); // Only first 20 traces
-                        await Plotly.newPlot(plotArea, reducedData, enhancedLayout, config);
-                        showSuccess(`Plot loaded for well: ${wellName} (simplified view)`);
-                    } catch (fallbackError) {
-                        console.error('❌ Fallback plot also failed:', fallbackError);
-                        showError('Plot creation failed completely');
-                    }
-                }
 
                 // After successful plot loading, update intervals for the selected well(s)
                 await updateIntervalsForSelectedWells();
@@ -245,7 +211,81 @@ async function loadWellPlotAndUpdateIntervals(wellName) {
         showError('Error loading well plot: ' + error.message);
         hideLoading();
     }
-}// Legacy function for backward compatibility
+}
+
+// Legacy function for backward compatibility
+
+const response = await fetchJson('/get_well_plot', {
+    method: 'POST',
+    body: JSON.stringify({ well_name: wellName })
+});
+
+console.log('🚀 Plot response received:', response);
+
+if (response.status === 'success') {
+    // Display the plot using Plotly
+    const plotArea = document.getElementById('plotArea');
+    console.log('🚀 Plot area element:', plotArea);
+
+    if (plotArea && response.figure) {
+        console.log('🚀 Creating Plotly plot with data:', response.figure);
+        console.log('🚀 Number of traces:', response.figure.data ? response.figure.data.length : 'undefined');
+        console.log('🚀 Layout height:', response.figure.layout ? response.figure.layout.height : 'undefined');
+
+        // Clear any existing plot completely
+        Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, {
+            responsive: true,
+            displayModeBar: true
+        });
+
+        console.log('✅ Plot created successfully');
+        showSuccess(`Plot loaded for well: ${wellName}`);
+
+
+        // After successful plot loading, update intervals for the selected well(s)
+        await updateIntervalsForSelectedWells();
+        console.log('✅ Plot created successfully');
+
+        // Force a resize to ensure proper display
+        setTimeout(() => {
+            Plotly.Plots.resize(plotArea);
+            console.log('✅ Plot resized');
+        }, 100);
+
+
+
+        // Fallback: try with reduced data
+        try {
+            console.log('� Trying with reduced trace set...');
+            const reducedData = response.figure.data.slice(0, 20); // Only first 20 traces
+            await Plotly.newPlot(plotArea, reducedData, enhancedLayout, config);
+            showSuccess(`Plot loaded for well: ${wellName} (simplified view)`);
+        } catch (fallbackError) {
+            console.error('❌ Fallback plot also failed:', fallbackError);
+            showError('Plot creation failed completely');
+        }
+    }
+
+    // After successful plot loading, update intervals for the selected well(s)
+    await updateIntervalsForSelectedWells();
+} else {
+    console.error('🚀 Missing plot area or figure data');
+    showError('Plot area not found or missing figure data');
+}
+        } else {
+    console.error('🚀 Plot request failed:', response);
+    showError('Failed to load plot: ' + (response.message || 'Unknown error'));
+}
+
+hideLoading();
+    } catch (error) {
+    console.error('🚀 Error loading well plot:', error);
+    showError('Error loading well plot: ' + error.message);
+    hideLoading();
+}
+}
+
+// Legacy function for backward compatibility
 async function loadWellPlot(wellName) {
     return loadWellPlotAndUpdateIntervals(wellName);
 }
