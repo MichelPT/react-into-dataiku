@@ -185,8 +185,69 @@ async function loadWellPlotAndUpdateIntervals(wellName) {
 
             if (plotArea && response.figure) {
                 console.log('🚀 Creating Plotly plot with data:', response.figure);
-                Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, { responsive: true });
-                console.log('🚀 Plot loaded for well:', wellName);
+                console.log('🚀 Number of traces:', response.figure.data ? response.figure.data.length : 'undefined');
+                console.log('🚀 Layout height:', response.figure.layout ? response.figure.layout.height : 'undefined');
+
+                // Clear any existing plot completely
+                Plotly.purge(plotArea);
+
+                // Ensure the plot area is properly sized
+                plotArea.style.width = '100%';
+                plotArea.style.height = '70vh';
+                plotArea.style.minHeight = '600px';
+
+                // Create enhanced config for better performance
+                const config = {
+                    responsive: true,
+                    displayModeBar: true,
+                    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d'],
+                    scrollZoom: false,
+                    doubleClick: 'reset',
+                    toImageButtonOptions: {
+                        format: 'png',
+                        filename: `well_log_${wellName}`,
+                        height: 1500,
+                        width: 1200,
+                        scale: 1
+                    }
+                };
+
+                // Override layout for better display
+                const enhancedLayout = {
+                    ...response.figure.layout,
+                    autosize: true,
+                    height: 600, // Force a reasonable height
+                    margin: { l: 60, r: 60, t: 60, b: 60 },
+                    showlegend: false,
+                    hovermode: 'closest'
+                };
+
+                try {
+                    await Plotly.newPlot(plotArea, response.figure.data, enhancedLayout, config);
+                    console.log('✅ Plot created successfully');
+
+                    // Force a resize to ensure proper display
+                    setTimeout(() => {
+                        Plotly.Plots.resize(plotArea);
+                        console.log('✅ Plot resized');
+                    }, 100);
+
+                    showSuccess(`Plot loaded for well: ${wellName}`);
+                } catch (plotError) {
+                    console.error('❌ Plotly newPlot failed:', plotError);
+                    showError('Failed to create plot: ' + plotError.message);
+
+                    // Fallback: try with reduced data
+                    try {
+                        console.log('� Trying with reduced trace set...');
+                        const reducedData = response.figure.data.slice(0, 20); // Only first 20 traces
+                        await Plotly.newPlot(plotArea, reducedData, enhancedLayout, config);
+                        showSuccess(`Plot loaded for well: ${wellName} (simplified view)`);
+                    } catch (fallbackError) {
+                        console.error('❌ Fallback plot also failed:', fallbackError);
+                        showError('Plot creation failed completely');
+                    }
+                }
 
                 // After successful plot loading, update intervals for the selected well(s)
                 await updateIntervalsForSelectedWells();
@@ -291,6 +352,119 @@ function createTestPlot() {
         .catch(error => {
             console.error('❌ Test plot failed:', error);
             showError('Test plot failed: ' + error.message);
+        });
+}
+
+// Debug function to check plot area state
+function debugPlotArea() {
+    const plotArea = document.getElementById('plotArea');
+    console.log('🔍 Plot Area Debug:');
+    console.log('  - Element:', plotArea);
+    console.log('  - innerHTML length:', plotArea ? plotArea.innerHTML.length : 'N/A');
+    console.log('  - Style width:', plotArea ? plotArea.style.width : 'N/A');
+    console.log('  - Style height:', plotArea ? plotArea.style.height : 'N/A');
+    console.log('  - Computed style:', plotArea ? window.getComputedStyle(plotArea) : 'N/A');
+    console.log('  - Children count:', plotArea ? plotArea.children.length : 'N/A');
+
+    if (plotArea && plotArea.children.length > 0) {
+        console.log('  - First child:', plotArea.children[0]);
+        console.log('  - First child classes:', plotArea.children[0].className);
+    }
+
+    // Check if Plotly data exists
+    if (plotArea && plotArea.data) {
+        console.log('  - Plotly data traces:', plotArea.data.length);
+    } else {
+        console.log('  - No Plotly data found');
+    }
+
+    // Check if there are any SVG elements
+    const svgs = plotArea ? plotArea.querySelectorAll('svg') : [];
+    console.log('  - SVG elements found:', svgs.length);
+    svgs.forEach((svg, i) => {
+        console.log(`    SVG ${i}:`, svg.getAttribute('width'), 'x', svg.getAttribute('height'));
+    });
+}
+
+// Simple function to test basic well log plotting
+function createSimpleWellPlot() {
+    console.log('📊 Creating simple well log plot...');
+    const plotArea = document.getElementById('plotArea');
+    if (!plotArea) {
+        console.error('❌ Plot area not found');
+        return;
+    }
+
+    // Clear existing plot
+    Plotly.purge(plotArea);
+
+    // Create simple well log data
+    const depths = [];
+    const gr = [];
+    const rt = [];
+
+    for (let i = 0; i < 100; i++) {
+        depths.push(3000 + i * 2); // Depth from 3000 to 3200
+        gr.push(50 + Math.random() * 100); // GR values 50-150
+        rt.push(1 + Math.random() * 10); // RT values 1-11
+    }
+
+    const traces = [
+        {
+            x: gr,
+            y: depths,
+            type: 'scatter',
+            mode: 'lines',
+            name: 'Gamma Ray',
+            line: { color: 'green', width: 2 },
+            xaxis: 'x',
+            yaxis: 'y'
+        },
+        {
+            x: rt,
+            y: depths,
+            type: 'scatter',
+            mode: 'lines',
+            name: 'Resistivity',
+            line: { color: 'red', width: 2 },
+            xaxis: 'x2',
+            yaxis: 'y'
+        }
+    ];
+
+    const layout = {
+        title: 'Simple Well Log Test',
+        height: 600,
+        xaxis: {
+            title: 'Gamma Ray (API)',
+            domain: [0, 0.45],
+            range: [0, 200]
+        },
+        xaxis2: {
+            title: 'Resistivity (ohm.m)',
+            domain: [0.55, 1],
+            range: [0.1, 100],
+            type: 'log'
+        },
+        yaxis: {
+            title: 'Depth (ft)',
+            autorange: 'reversed',
+            side: 'right'
+        },
+        showlegend: true,
+        margin: { l: 60, r: 60, t: 60, b: 60 }
+    };
+
+    const config = { responsive: true };
+
+    Plotly.newPlot(plotArea, traces, layout, config)
+        .then(() => {
+            console.log('✅ Simple well log plot created successfully');
+            showSuccess('Simple well log plot created successfully!');
+        })
+        .catch(error => {
+            console.error('❌ Simple plot failed:', error);
+            showError('Simple plot failed: ' + error.message);
         });
 }
 
@@ -610,6 +784,8 @@ window.onload = function () {
     window.toggleAllIntervals = toggleAllIntervals;
     window.toggleAllSets = toggleAllSets;
     window.createTestPlot = createTestPlot;
+    window.debugPlotArea = debugPlotArea;
+    window.createSimpleWellPlot = createSimpleWellPlot;
     window.Plotly = Plotly; // Make sure Plotly is accessible globally
 
     console.log('✅ All functions exposed globally');

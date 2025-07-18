@@ -103,15 +103,23 @@
     width: 100%;
     height: 70vh;
     min-height: 600px;
-    border: 1px solid var(--border-color);
+    max-height: 800px;
+    border: 2px solid var(--border-color);
     border-radius: 0.5rem;
     background-color: white;
     position: relative;
     overflow: visible;
+    display: block;
 }
 
 /* Ensure Plotly container is properly sized */
 #plotArea .plotly-graph-div {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Ensure SVG elements are visible */
+#plotArea svg {
     width: 100% !important;
     height: 100% !important;
 }
@@ -125,6 +133,11 @@
     transform: translate(-50%, -50%);
     color: #9ca3af;
     font-style: italic;
+}
+
+/* When plot has content, hide the placeholder */
+#plotArea:not(:empty)::before {
+    display: none;
 }
 
 .module-section {
