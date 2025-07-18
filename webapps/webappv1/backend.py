@@ -161,19 +161,43 @@ class WellLogAnalysis:
     def create_log_plot(self, well_name):
         """Create log plot for a specific well"""
         try:
+            print(f"🔍 Creating log plot for well: {well_name}")
+            
             if self.current_well_data is None:
+                print("❌ No dataset selected")
                 return {"status": "error", "message": "No dataset selected"}
             
             # Get well data
             well_data = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]
+            print(f"🔍 Found {len(well_data)} rows for well {well_name}")
             
             if well_data.empty:
-                return {"status": "error", "message": f"No data found for well {well_name}"}
+                print(f"❌ No data found for well {well_name}")
+                available_wells = self.current_well_data['WELL_NAME'].unique().tolist()
+                print(f"🔍 Available wells: {available_wells}")
+                return {"status": "error", "message": f"No data found for well {well_name}. Available wells: {available_wells}"}
+            
+            # Check if we have essential columns
+            required_cols = ['DEPTH', 'GR', 'RT', 'NPHI', 'RHOB']
+            missing_cols = [col for col in required_cols if col not in well_data.columns]
+            if missing_cols:
+                print(f"❌ Missing required columns: {missing_cols}")
+                return {"status": "error", "message": f"Missing required columns: {missing_cols}"}
+            
+            # Check for data availability
+            for col in required_cols:
+                non_null_count = well_data[col].notna().sum()
+                print(f"🔍 Column {col}: {non_null_count}/{len(well_data)} non-null values")
+                if non_null_count == 0:
+                    print(f"❌ Column {col} has no data")
             
             # Extract markers and normalize data
             df_marker = extract_markers_with_mean_depth(well_data)
             well_data_normalized = normalize_xover(well_data, 'NPHI', 'RHOB')
             well_data_normalized = normalize_xover(well_data_normalized, 'RT', 'RHOB')
+            
+            print(f"🔍 After normalization: {well_data_normalized.shape}")
+            print(f"🔍 Marker data: {len(df_marker) if df_marker is not None else 'None'}")
             
             # Create plot
             fig = plot_log_default(
@@ -182,12 +206,24 @@ class WellLogAnalysis:
                 df_well_marker=well_data_normalized
             )
             
+            # Debug the figure
+            if fig and hasattr(fig, 'data'):
+                print(f"🔍 Figure has {len(fig.data)} traces")
+                for i, trace in enumerate(fig.data):
+                    if hasattr(trace, 'x') and hasattr(trace, 'y'):
+                        x_len = len(trace.x) if trace.x is not None else 0
+                        y_len = len(trace.y) if trace.y is not None else 0
+                        print(f"🔍 Trace {i}: x={x_len} points, y={y_len} points")
+            
             return {
                 "status": "success", 
                 "figure": fig.to_dict(),
                 "well_name": well_name
             }
         except Exception as e:
+            print(f"❌ Error creating log plot: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {"status": "error", "message": f"Error creating log plot: {str(e)}"}
     
     def save_results_to_new_dataset(self, dataset_name, data_dict=None):
