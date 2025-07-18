@@ -686,7 +686,10 @@ class WellLogAnalysis:
             if 'MARKER' not in self.current_well_data.columns:
                 return {"status": "error", "message": "MARKER column not found"}
             
-            markers = self.current_well_data['MARKER'].unique().tolist()
+            # Get unique markers and filter out NaN/null values
+            markers_series = self.current_well_data['MARKER'].dropna().unique()
+            markers = [str(marker) for marker in markers_series if pd.notna(marker) and str(marker).strip() != '']
+            
             return {
                 "status": "success",
                 "markers": markers,

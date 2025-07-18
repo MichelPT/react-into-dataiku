@@ -48,7 +48,16 @@ async function fetchJson(endpoint, options = {}) {
                 const error = await response.json().catch(() => ({ error: 'Network error' }));
                 throw new Error(error.error || `Server error: ${response.status}`);
             }
-            return response.json();
+
+            // Handle malformed JSON responses
+            try {
+                return await response.json();
+            } catch (jsonError) {
+                console.error('Invalid JSON response:', jsonError);
+                const text = await response.text();
+                console.error('Response text:', text);
+                throw new Error('Server returned invalid JSON: ' + jsonError.message);
+            }
         } else {
             // Fallback for direct relative paths
             const response = await fetch(endpoint, {
@@ -64,7 +73,16 @@ async function fetchJson(endpoint, options = {}) {
                 const error = await response.json().catch(() => ({ error: 'Network error' }));
                 throw new Error(error.error || `Server error: ${response.status}`);
             }
-            return response.json();
+
+            // Handle malformed JSON responses
+            try {
+                return await response.json();
+            } catch (jsonError) {
+                console.error('Invalid JSON response:', jsonError);
+                const text = await response.text();
+                console.error('Response text:', text);
+                throw new Error('Server returned invalid JSON: ' + jsonError.message);
+            }
         }
     } catch (error) {
         console.error('fetchJson error:', error);
