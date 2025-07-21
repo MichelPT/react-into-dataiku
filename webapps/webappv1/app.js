@@ -736,6 +736,9 @@ window.onload = function () {
     window.createTestPlot = createTestPlot;
     window.debugPlotArea = debugPlotArea;
     window.createSimpleWellPlot = createSimpleWellPlot;
+    window.runNormalization = runNormalization;
+    window.showNormalizationPlot = showNormalizationPlot;
+    window.cancelNormalization = cancelNormalization;
     window.Plotly = Plotly; // Make sure Plotly is accessible globally
 
     console.log('✅ All functions exposed globally');
@@ -1101,35 +1104,367 @@ async function handleSwCalculation() {
 // Handle normalization
 async function handleNormalization() {
     try {
-        const defaultParams = {
-            LOG_IN: 'GR',
-            LOG_OUT: 'GR_NORM',
-            LOW_REF: 40,
-            HIGH_REF: 140,
-            LOW_IN: 3,
-            HIGH_IN: 97,
-            CUTOFF_MIN: 0.0,
-            CUTOFF_MAX: 250.0,
-            intervals: state.selectedIntervals
-        };
+        console.log('🔬 Opening normalization form...');
 
-        const calcResponse = await fetchJson('/run_calculation_endpoint', {
+        // Hide other forms and show normalization form
+        document.getElementById('parameterForm').classList.add('hidden');
+        document.getElementById('normalizationForm').classList.remove('hidden');
+
+        // Update well and interval info
+        updateNormalizationInfo();
+
+        // Load normalization parameters
+        await loadNormalizationParameters();
+
+    } catch (error) {
+        console.error('Error opening normalization form:', error);
+        showError('Error opening normalization form: ' + error.message);
+    }
+}
+
+function updateNormalizationInfo() {
+    const wellsSpan = document.getElementById('normSelectedWells');
+    const intervalsSpan = document.getElementById('normSelectedIntervals');
+
+    wellsSpan.textContent = state.selectedWells.length > 0 ? state.selectedWells.join(', ') : 'N/A';
+    intervalsSpan.textContent = state.selectedIntervals.length;
+}
+
+async function loadNormalizationParameters() {
+    try {
+        showLoading();
+
+        const response = await fetchJson('/get_normalization_parameters');
+
+        if (response.status === 'success') {
+            const parameters = response.parameters;
+            const intervals = state.selectedIntervals.length > 0 ? state.selectedIntervals : ['default'];
+
+            createNormalizationTable(parameters, intervals);
+        } else {
+            showError('Failed to load normalization parameters: ' + response.message);
+        }
+
+    } catch (error) {
+        console.error('Error loading normalization parameters:', error);
+        showError('Error loading normalization parameters: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+function createNormalizationTable(parameters, intervals) {
+    const table = document.getElementById('normalizationTable');
+    const thead = table.querySelector('thead tr');
+    const tbody = document.getElementById('normalizationRows');
+
+    // Clear existing content
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    // Create header
+    const staticHeaders = ['Location', 'Mode', 'Comment', 'Unit', 'Name', 'P'];
+    staticHeaders.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        thead.appendChild(th);
+    });
+
+    intervals.forEach(interval => {
+        const th = document.createElement('th');
+        th.textContent = interval;
+        thead.appendChild(th);
+    });
+
+    // Create rows
+    parameters.forEach(param => {
+        const row = document.createElement('tr');
+
+        // Add row class based on location and mode
+        let rowClass = '';
+        if (param.location === 'Parameter') {
+            rowClass = 'norm-row-parameter';
+        } else if (param.location === 'Constant') {
+            rowClass = param.mode === 'Input' ? 'norm-row-constant-input' : 'norm-row-constant-output';
+        } else if (param.location === 'Log') {
+            rowClass = param.mode === 'Input' ? 'norm-row-log-input' : 'norm-row-log-output';
+        }
+
+        if (rowClass) {
+            row.className = rowClass;
+        }
+
+        // Static columns
+        [param.location, param.mode, param.comment, param.unit, param.name].forEach(value => {
+            const td = document.createElement('td');
+            td.textContent = value;
+            row.appendChild(td);
+        });
+
+        // Checkbox column
+        const checkboxTd = document.createElement('td');
+        checkboxTd.style.textAlign = 'center';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'sync-checkbox';
+        checkbox.dataset.paramId = param.id;
+        checkbox.addEventListener('change', (e) => handleRowSync(param.id, e.target.checked));
+        checkboxTd.appendChild(checkbox);
+        row.appendChild(checkboxTd);
+
+        // Interval columns
+        intervals.forEach(interval => {
+            const td = document.createElement('td');
+            td.style.backgroundColor = 'white';
+            td.style.color = 'black';
+
+            if (param.name === 'NORMALIZE_OPT' && param.options) {
+                // Create select dropdown
+                const select = document.createElement('select');
+                select.className = 'param-input';
+                select.dataset.paramId = param.id;
+                select.dataset.interval = interval;
+
+                param.options.forEach(option => {
+                    const optionEl = document.createElement('option');
+                    optionEl.value = option;
+                    optionEl.textContent = option;
+                    if (option === param.default_value) {
+                        optionEl.selected = true;
+                    }
+                    select.appendChild(optionEl);
+                });
+
+                select.addEventListener('change', (e) => handleParameterChange(param.id, interval, e.target.value));
+                td.appendChild(select);
+            } else {
+                // Create input field
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'param-input';
+                input.dataset.paramId = param.id;
+                input.dataset.interval = interval;
+                input.value = param.default_value || '';
+                input.addEventListener('input', (e) => handleParameterChange(param.id, interval, e.target.value));
+                td.appendChild(input);
+            }
+
+            row.appendChild(td);
+        });
+
+        tbody.appendChild(row);
+    });
+}
+
+function handleRowSync(paramId, isSync) {
+    if (isSync) {
+        // Get the first interval value and apply it to all intervals for this parameter
+        const firstInput = document.querySelector(`[data-param-id="${paramId}"][data-interval]`);
+        if (firstInput) {
+            const value = firstInput.value;
+            const allInputs = document.querySelectorAll(`[data-param-id="${paramId}"][data-interval]`);
+            allInputs.forEach(input => {
+                input.value = value;
+            });
+        }
+    }
+}
+
+function handleParameterChange(paramId, interval, value) {
+    // Check if this parameter is synced
+    const checkbox = document.querySelector(`.sync-checkbox[data-param-id="${paramId}"]`);
+    if (checkbox && checkbox.checked) {
+        // Update all intervals for this parameter
+        const allInputs = document.querySelectorAll(`[data-param-id="${paramId}"][data-interval]`);
+        allInputs.forEach(input => {
+            input.value = value;
+        });
+    }
+}
+
+async function runNormalization() {
+    try {
+        if (state.selectedWells.length === 0) {
+            showError('Please select at least one well');
+            return;
+        }
+
+        showLoading();
+
+        // Collect parameters from the form
+        const params = {};
+        const paramInputs = document.querySelectorAll('.param-input');
+
+        // Use the first interval or 'default' if no intervals selected
+        const targetInterval = state.selectedIntervals.length > 0 ? state.selectedIntervals[0] : 'default';
+
+        paramInputs.forEach(input => {
+            const paramName = input.closest('tr').querySelector('td:nth-child(5)').textContent;
+            const interval = input.dataset.interval;
+
+            if (interval === targetInterval) {
+                params[paramName] = input.value;
+            }
+        });
+
+        console.log('📊 Running normalization with params:', params);
+
+        const response = await fetchJson('/run_normalization', {
             method: 'POST',
             body: JSON.stringify({
-                calculation_type: 'normalization',
-                params: defaultParams
+                params: params,
+                selected_wells: state.selectedWells,
+                selected_intervals: state.selectedIntervals
             })
         });
 
-        if (calcResponse.status === 'success') {
-            showSuccess('Normalization completed');
-            await createCalculationPlot('normalization');
+        if (response.status === 'success') {
+            showSuccess(response.message);
+            console.log('✅ Normalization completed:', response);
         } else {
-            showError('Normalization failed: ' + calcResponse.message);
+            showError('Normalization failed: ' + response.message);
         }
+
     } catch (error) {
-        console.error('Error in normalization:', error);
-        showError('Normalization error: ' + error.message);
+        console.error('Error running normalization:', error);
+        showError('Error running normalization: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function showNormalizationPlot() {
+    try {
+        if (state.selectedWells.length === 0) {
+            showError('Please select at least one well');
+            return;
+        }
+
+        showLoading();
+
+        const response = await fetchJson('/get_normalization_plot', {
+            method: 'POST',
+            body: JSON.stringify({
+                selected_wells: state.selectedWells
+            })
+        });
+
+        if (response.status === 'success') {
+            const plotArea = document.getElementById('plotArea');
+            if (plotArea && response.figure) {
+                Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, {
+                    responsive: true,
+                    displayModeBar: true
+                });
+                showSuccess('Normalization plot displayed');
+
+                // Hide the normalization form to show the plot
+                document.getElementById('normalizationForm').classList.add('hidden');
+            }
+        } else {
+            showError('Failed to create normalization plot: ' + response.message);
+        }
+
+    } catch (error) {
+        console.error('Error showing normalization plot:', error);
+        showError('Error showing normalization plot: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+function cancelNormalization() {
+    document.getElementById('normalizationForm').classList.add('hidden');
+}
+
+async function runNormalization() {
+    try {
+        if (state.selectedWells.length === 0) {
+            showError('Please select at least one well');
+            return;
+        }
+
+        showLoading();
+
+        // Collect parameters from the form
+        const params = {};
+        const paramInputs = document.querySelectorAll('.param-input');
+
+        // Use the first interval or 'default' if no intervals selected
+        const targetInterval = state.selectedIntervals.length > 0 ? state.selectedIntervals[0] : 'default';
+
+        paramInputs.forEach(input => {
+            const paramName = input.closest('tr').querySelector('td:nth-child(5)').textContent;
+            const interval = input.dataset.interval;
+
+            if (interval === targetInterval) {
+                params[paramName] = input.value;
+            }
+        });
+
+        console.log('📊 Running normalization with params:', params);
+
+        const response = await fetchJson('/run_normalization', {
+            method: 'POST',
+            body: JSON.stringify({
+                params: params,
+                selected_wells: state.selectedWells,
+                selected_intervals: state.selectedIntervals
+            })
+        });
+
+        if (response.status === 'success') {
+            showSuccess(response.message);
+            console.log('✅ Normalization completed:', response);
+        } else {
+            showError('Normalization failed: ' + response.message);
+        }
+
+    } catch (error) {
+        console.error('Error running normalization:', error);
+        showError('Error running normalization: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function showNormalizationPlot() {
+    try {
+        if (state.selectedWells.length === 0) {
+            showError('Please select at least one well');
+            return;
+        }
+
+        showLoading();
+
+        const response = await fetchJson('/get_normalization_plot', {
+            method: 'POST',
+            body: JSON.stringify({
+                selected_wells: state.selectedWells
+            })
+        });
+
+        if (response.status === 'success') {
+            const plotArea = document.getElementById('plotArea');
+            if (plotArea && response.figure) {
+                Plotly.newPlot(plotArea, response.figure.data, response.figure.layout, {
+                    responsive: true,
+                    displayModeBar: true
+                });
+                showSuccess('Normalization plot displayed');
+
+                // Hide the normalization form to show the plot
+                document.getElementById('normalizationForm').classList.add('hidden');
+            }
+        } else {
+            showError('Failed to create normalization plot: ' + response.message);
+        }
+
+    } catch (error) {
+        console.error('Error showing normalization plot:', error);
+        showError('Error showing normalization plot: ' + error.message);
+    } finally {
+        hideLoading();
     }
 }
 

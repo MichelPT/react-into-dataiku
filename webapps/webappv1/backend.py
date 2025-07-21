@@ -366,6 +366,193 @@ class WellLogAnalysis:
             }
         except Exception as e:
             return {"status": "error", "message": f"Error getting columns: {str(e)}"}
+
+    def get_normalization_parameters(self):
+        """Get normalization parameters template"""
+        try:
+            if self.current_well_data is None:
+                return {"status": "error", "message": "No dataset selected"}
+            
+            # Get available log columns (excluding DEPTH, WELL_NAME, etc.)
+            exclude_cols = ['DEPTH', 'WELL_NAME', 'MARKER', 'INTERVAL']
+            available_logs = [col for col in self.current_well_data.columns if col not in exclude_cols]
+            
+            parameters = [
+                {
+                    "id": 1,
+                    "location": "Parameter",
+                    "mode": "Input",
+                    "comment": "Normalization: Min-Max",
+                    "unit": "ALPHA*15",
+                    "name": "NORMALIZE_OPT",
+                    "default_value": "MIN-MAX",
+                    "options": ["MIN-MAX"]
+                },
+                {
+                    "id": 2,
+                    "location": "Constant",
+                    "mode": "Input",
+                    "comment": "Input low log value",
+                    "unit": "",
+                    "name": "LOW_IN",
+                    "default_value": 5
+                },
+                {
+                    "id": 3,
+                    "location": "Constant",
+                    "mode": "Input",
+                    "comment": "Input high log value",
+                    "unit": "",
+                    "name": "HIGH_IN",
+                    "default_value": 95
+                },
+                {
+                    "id": 4,
+                    "location": "Constant",
+                    "mode": "Input",
+                    "comment": "Reference log low value",
+                    "unit": "",
+                    "name": "LOW_REF",
+                    "default_value": 40
+                },
+                {
+                    "id": 5,
+                    "location": "Constant",
+                    "mode": "Input",
+                    "comment": "Reference log high value",
+                    "unit": "",
+                    "name": "HIGH_REF",
+                    "default_value": 140
+                },
+                {
+                    "id": 6,
+                    "location": "Log",
+                    "mode": "Input",
+                    "comment": "Input Log",
+                    "unit": "LOG_IN",
+                    "name": "LOG_IN",
+                    "default_value": "GR",
+                    "options": available_logs
+                },
+                {
+                    "id": 7,
+                    "location": "Log",
+                    "mode": "Output",
+                    "comment": "Output Log Name",
+                    "unit": "LOG_OUT",
+                    "name": "LOG_OUT",
+                    "default_value": "GR_NORM"
+                }
+            ]
+            
+            return {
+                "status": "success",
+                "parameters": parameters,
+                "available_logs": available_logs
+            }
+        except Exception as e:
+            return {"status": "error", "message": f"Error getting normalization parameters: {str(e)}"}
+
+    def run_normalization_calculation(self, params, selected_wells, selected_intervals):
+        """Run normalization calculation"""
+        try:
+            if self.current_well_data is None:
+                return {"status": "error", "message": "No dataset selected"}
+            
+            # Filter data by selected wells if specified
+            if selected_wells:
+                df = self.current_well_data[self.current_well_data['WELL_NAME'].isin(selected_wells)]
+            else:
+                df = self.current_well_data
+            
+            if df.empty:
+                return {"status": "error", "message": "No data found for selected wells"}
+            
+            # Extract parameters
+            log_in = params.get('LOG_IN', 'GR')
+            log_out = params.get('LOG_OUT', 'GR_NORM')
+            low_in = float(params.get('LOW_IN', 5))
+            high_in = float(params.get('HIGH_IN', 95))
+            low_ref = float(params.get('LOW_REF', 40))
+            high_ref = float(params.get('HIGH_REF', 140))
+            normalize_opt = params.get('NORMALIZE_OPT', 'MIN-MAX')
+            
+            # Check if input log exists
+            if log_in not in df.columns:
+                return {"status": "error", "message": f"Input log '{log_in}' not found in dataset"}
+            
+            # Run normalization (simple Min-Max normalization)
+            def normalize_log_minmax(df, log_in, log_out, low_in, high_in, low_ref, high_ref):
+                """Simple Min-Max normalization"""
+                df_copy = df.copy()
+                
+                # Calculate percentiles for input log
+                input_data = df_copy[log_in].dropna()
+                if len(input_data) == 0:
+                    raise ValueError(f"No valid data in log {log_in}")
+                
+                # Get actual percentile values
+                actual_low = input_data.quantile(low_in / 100.0)
+                actual_high = input_data.quantile(high_in / 100.0)
+                
+                # Normalize using the formula: 
+                # normalized = (value - actual_low) / (actual_high - actual_low) * (high_ref - low_ref) + low_ref
+                df_copy[log_out] = ((df_copy[log_in] - actual_low) / (actual_high - actual_low)) * (high_ref - low_ref) + low_ref
+                
+                return df_copy
+            
+            df_normalized = normalize_log_minmax(
+                df=df,
+                log_in=log_in,
+                log_out=log_out,
+                low_in=low_in,
+                high_in=high_in,
+                low_ref=low_ref,
+                high_ref=high_ref
+            )
+            
+            # Update current dataset with normalized values
+            self.current_well_data = df_normalized
+            
+            return {
+                "status": "success",
+                "message": f"Normalization completed successfully. Output log: {log_out}",
+                "output_log": log_out,
+                "rows_processed": len(df_normalized)
+            }
+            
+        except Exception as e:
+            return {"status": "error", "message": f"Error running normalization: {str(e)}"}
+
+    def create_normalization_plot(self, selected_wells):
+        """Create normalization plot"""
+        try:
+            if self.current_well_data is None:
+                return {"status": "error", "message": "No dataset selected"}
+            
+            # Filter data by selected wells
+            if selected_wells:
+                df = self.current_well_data[self.current_well_data['WELL_NAME'].isin(selected_wells)]
+            else:
+                df = self.current_well_data
+            
+            if df.empty:
+                return {"status": "error", "message": "No data found for selected wells"}
+            
+            # Check if normalized data exists
+            if 'GR_NORM' not in df.columns or df['GR_NORM'].isnull().all():
+                return {"status": "error", "message": "No normalization data found. Please run normalization first."}
+            
+            # Create normalization plot
+            fig = plot_normalization(df)
+            
+            return {
+                "status": "success",
+                "figure": fig.to_dict()
+            }
+            
+        except Exception as e:
+            return {"status": "error", "message": f"Error creating normalization plot: {str(e)}"}
     
     def get_well_data(self, dataset_name):
         """Get well data from Dataiku dataset"""
@@ -1173,3 +1360,44 @@ print(validation)
 columns = analysis.get_available_columns()
 print(columns)
 """
+
+@app.route('/get_normalization_parameters')
+def get_normalization_parameters():
+    """API endpoint to get normalization parameters"""
+    try:
+        analysis = get_analysis_instance()
+        return analysis.get_normalization_parameters()
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.route('/run_normalization', methods=['POST'])
+def run_normalization():
+    """API endpoint to run normalization calculation"""
+    try:
+        data = request.get_json()
+        params = data.get('params', {})
+        selected_wells = data.get('selected_wells', [])
+        selected_intervals = data.get('selected_intervals', [])
+        
+        analysis = get_analysis_instance()
+        return analysis.run_normalization_calculation(params, selected_wells, selected_intervals)
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.route('/get_normalization_plot', methods=['POST'])
+def get_normalization_plot():
+    """API endpoint to get normalization plot"""
+    try:
+        data = request.get_json()
+        selected_wells = data.get('selected_wells', [])
+        
+        if not selected_wells:
+            return {"status": "error", "message": "No wells selected"}
+        
+        analysis = get_analysis_instance()
+        return analysis.create_normalization_plot(selected_wells)
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)

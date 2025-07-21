@@ -64,6 +64,46 @@
                     <tbody id="parameterRows"></tbody>
                 </table>
             </div>
+
+            <!-- Normalization Form -->
+            <div id="normalizationForm" class="hidden">
+                <div class="form-header">
+                    <h3>Normalize a log based on calibration parameters</h3>
+                    <div class="form-info">
+                        <p>Wells: <span id="normSelectedWells">N/A</span></p>
+                        <p>Intervals: <span id="normSelectedIntervals">0</span> selected</p>
+                    </div>
+                </div>
+
+                <div class="form-content">
+                    <div class="parameters-section">
+                        <h4>Parameters</h4>
+                        <div class="parameter-table-container">
+                            <table id="normalizationTable">
+                                <thead>
+                                    <tr>
+                                        <th>Location</th>
+                                        <th>Mode</th>
+                                        <th>Comment</th>
+                                        <th>Unit</th>
+                                        <th>Name</th>
+                                        <th>P</th>
+                                        <!-- Interval columns will be added dynamically -->
+                                    </tr>
+                                </thead>
+                                <tbody id="normalizationRows"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" id="cancelNormalization" class="btn-cancel">Cancel</button>
+                        <button type="button" id="runNormalization" class="btn-primary">Run Normalization</button>
+                        <button type="button" id="showNormalizationPlot" class="btn-secondary">Show Plot</button>
+                    </div>
+                </div>
+            </div>
+
             <div id="loadingSpinner" class="hidden">
                 <div class="spinner"></div>
                 <p>Processing...</p>

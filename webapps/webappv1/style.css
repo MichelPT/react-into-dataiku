@@ -232,6 +232,177 @@ input[type="checkbox"] {
     color: #9ca3af;
 }
 
+/* Normalization Form Styles */
+#normalizationForm {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-top: 1rem;
+}
+
+.form-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.form-header h3 {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.form-info {
+    display: flex;
+    gap: 2rem;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.parameters-section h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 1rem;
+}
+
+.parameter-table-container {
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    overflow: auto;
+    max-height: 400px;
+}
+
+#normalizationTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+#normalizationTable th {
+    background-color: #f9fafb;
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#normalizationTable td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+    border-right: 1px solid #f3f4f6;
+}
+
+#normalizationTable input,
+#normalizationTable select {
+    width: 100%;
+    min-width: 100px;
+    padding: 0.25rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+#normalizationTable input:focus,
+#normalizationTable select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+/* Row background colors based on location */
+.norm-row-parameter {
+    background-color: #ea580c;
+    /* orange-600 */
+    color: white;
+}
+
+.norm-row-constant-input {
+    background-color: #fcd34d;
+    /* yellow-300 */
+}
+
+.norm-row-constant-output {
+    background-color: #fef3c7;
+    /* yellow-100 */
+}
+
+.norm-row-log-input {
+    background-color: #22d3ee;
+    /* cyan-400 */
+}
+
+.norm-row-log-output {
+    background-color: #a5f3fc;
+    /* cyan-200 */
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.btn-cancel {
+    padding: 0.5rem 1.5rem;
+    background-color: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-cancel:hover {
+    background-color: #e5e7eb;
+}
+
+.btn-primary {
+    padding: 0.5rem 1.5rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #2563eb;
+}
+
+.btn-primary:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    padding: 0.5rem 1.5rem;
+    background-color: #059669;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: #047857;
+}
+
 /* Error message styles */
 .error-message {
     background-color: #fee2e2;
