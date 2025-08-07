@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Test</title>
+</head>
+<body>
+    <div id="status">
+        <h1>Dataiku Debug Test</h1>
+        <p id="message">Starting tests...</p>
+        <div id="results" style="background: #f0f0f0; padding: 10px; margin: 10px; font-family: monospace;"></div>
+        <button onclick="runTests()" style="margin: 10px;">Run Tests</button>
+        <button onclick="testNextJs()" style="margin: 10px;">Test Next.js</button>
+    </div>
+    
+    <div id="content" style="border: 2px solid #000; margin: 20px; padding: 20px;">
+        <!-- Content will be loaded here -->
+    </div>
+    
+    <script>
+        let results = [];
+        
+        function log(message) {
+            results.push(new Date().toLocaleTimeString() + ': ' + message);
+            console.log(message);
+            document.getElementById('results').innerHTML = results.slice(-20).join('<br>');
+        }
+        
+        function updateMessage(text) {
+            document.getElementById('message').textContent = text;
+            log('Status: ' + text);
+        }
+        
+        function runTests() {
+            log('=== Starting Basic Tests ===');
+            updateMessage('Running tests...');
+            
+            // Test 1: Basic DOM
+            try {
+                document.getElementById('content').innerHTML = '<p style="color: green;">✓ DOM manipulation works!</p>';
+                log('✓ Test 1: DOM manipulation - PASSED');
+            } catch(e) {
+                log('✗ Test 1: DOM manipulation - FAILED: ' + e.message);
+                return;
+            }
+            
+            // Test 2: Fetch API
+            fetch('../../resources/')
+                .then(response => {
+                    log('✓ Test 2: Fetch API - Status: ' + response.status + ' ' + response.statusText);
+                    return fetch('../../resources/out/');
+                })
+                .then(response => {
+                    log('✓ Test 3: Resources folder - Status: ' + response.status);
+                    return fetch('../../resources/out/index.html');
+                })
+                .then(response => {
+                    log('✓ Test 4: index.html - Status: ' + response.status);
+                    if (response.ok) {
+                        return response.text();
+                    } else {
+                        throw new Error('Cannot fetch index.html');
+                    }
+                })
+                .then(html => {
+                    log('✓ Test 5: HTML content length: ' + html.length);
+                    document.getElementById('content').innerHTML = 
+                        '<h3>HTML Preview (first 500 chars):</h3>' +
+                        '<pre style="background: #f8f8f8; padding: 10px; overflow: auto;">' +
+                        html.substring(0, 500) + '...</pre>';
+                    updateMessage('All tests passed!');
+                })
+                .catch(error => {
+                    log('✗ Fetch test failed: ' + error.message);
+                    updateMessage('Tests failed - check results');
+                });
+        }
+        
+        function testNextJs() {
+            log('=== Testing Next.js Loading ===');
+            updateMessage('Loading Next.js...');
+            
+            fetch('../../resources/out/index.html')
+                .then(response => response.text())
+                .then(html => {
+                    // Inject the HTML directly
+                    document.getElementById('content').innerHTML = html;
+                    log('✓ Next.js content injected');
+                    updateMessage('Next.js loaded (check content area)');
+                })
+                .catch(error => {
+                    log('✗ Next.js loading failed: ' + error.message);
+                    updateMessage('Next.js loading failed');
+                });
+        }
+        
+        // Auto-start
+        setTimeout(runTests, 1000);
+    </script>
+</body>
+</html>

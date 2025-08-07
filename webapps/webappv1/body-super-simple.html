@@ -1,0 +1,113 @@
+<div style="padding: 20px; font-family: Arial, sans-serif;">
+    <h1>Dataiku Webapp - Simple Test</h1>
+    
+    <div id="status" style="background: #e8f4f8; padding: 15px; margin: 10px 0; border-radius: 5px;">
+        <strong>Status:</strong> <span id="status-text">Initializing...</span>
+    </div>
+    
+    <div id="controls" style="margin: 20px 0;">
+        <button onclick="testBasic()" style="margin: 5px; padding: 10px;">Test Basic</button>
+        <button onclick="testFetch()" style="margin: 5px; padding: 10px;">Test Fetch</button>
+        <button onclick="loadSimple()" style="margin: 5px; padding: 10px;">Load Next.js Simple</button>
+    </div>
+    
+    <div id="log" style="background: #f8f8f8; padding: 10px; height: 200px; overflow: auto; font-family: monospace; font-size: 12px; border: 1px solid #ddd;"></div>
+    
+    <div id="content" style="border: 2px solid #007acc; margin: 20px 0; padding: 20px; min-height: 300px;">
+        <p><em>Content will appear here...</em></p>
+    </div>
+</div>
+
+<script>
+function log(msg) {
+    const timestamp = new Date().toLocaleTimeString();
+    const logDiv = document.getElementById('log');
+    logDiv.innerHTML += timestamp + ': ' + msg + '\n';
+    logDiv.scrollTop = logDiv.scrollHeight;
+    console.log(msg);
+}
+
+function setStatus(text) {
+    document.getElementById('status-text').textContent = text;
+    log('STATUS: ' + text);
+}
+
+function testBasic() {
+    log('=== Testing Basic Functionality ===');
+    setStatus('Running basic test...');
+    
+    try {
+        document.getElementById('content').innerHTML = '<h2 style="color: green;">✓ Basic DOM test successful!</h2><p>Current time: ' + new Date().toLocaleString() + '</p>';
+        setStatus('Basic test PASSED');
+        log('✓ DOM manipulation works');
+    } catch(e) {
+        setStatus('Basic test FAILED');
+        log('✗ DOM test failed: ' + e.message);
+    }
+}
+
+function testFetch() {
+    log('=== Testing Resource Access ===');
+    setStatus('Testing fetch...');
+    
+    // Test fetch to resources
+    fetch('../../resources/out/index.html')
+        .then(response => {
+            log('✓ Fetch response: ' + response.status + ' ' + response.statusText);
+            setStatus('Fetch test PASSED - Status: ' + response.status);
+            
+            if (response.ok) {
+                return response.text();
+            } else {
+                throw new Error('HTTP ' + response.status);
+            }
+        })
+        .then(html => {
+            log('✓ HTML received, length: ' + html.length);
+            document.getElementById('content').innerHTML = 
+                '<h3>✓ Fetch Successful!</h3>' +
+                '<p>HTML length: ' + html.length + ' characters</p>' +
+                '<details><summary>HTML Preview (first 300 chars)</summary><pre>' + 
+                html.substring(0, 300) + '...</pre></details>';
+        })
+        .catch(error => {
+            log('✗ Fetch failed: ' + error.message);
+            setStatus('Fetch test FAILED: ' + error.message);
+            document.getElementById('content').innerHTML = '<h3 style="color: red;">✗ Fetch Failed</h3><p>' + error.message + '</p>';
+        });
+}
+
+function loadSimple() {
+    log('=== Loading Next.js Content ===');
+    setStatus('Loading Next.js...');
+    
+    fetch('../../resources/out/index.html')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+            }
+            return response.text();
+        })
+        .then(html => {
+            log('✓ Next.js HTML loaded, injecting...');
+            
+            // Simple injection - just put it in
+            document.getElementById('content').innerHTML = html;
+            
+            setStatus('Next.js content injected successfully!');
+            log('✓ Content injection complete');
+        })
+        .catch(error => {
+            log('✗ Next.js loading failed: ' + error.message);
+            setStatus('Next.js loading FAILED: ' + error.message);
+            document.getElementById('content').innerHTML = 
+                '<h3 style="color: red;">✗ Loading Failed</h3>' +
+                '<p>' + error.message + '</p>' +
+                '<p>Please check if Next.js files are properly deployed to resources/out/</p>';
+        });
+}
+
+// Auto-initialize
+log('=== Webapp initialized ===');
+setStatus('Ready - Click buttons to test');
+</script>

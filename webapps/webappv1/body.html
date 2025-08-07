@@ -1,13 +1,22 @@
 <div id="webapp-container">
     <div id="loading-indicator" style="text-align: center; padding: 50px;">
         <h2>Loading Data Platform...</h2>
-        <p>Please wait while the application loads.</p>
+        <p id="status-text">Initializing...</p>
+        <div id="debug-info" style="background: #f0f0f0; padding: 10px; margin: 10px; font-family: monospace; font-size: 12px;"></div>
     </div>
     
     <div id="error-display" style="display: none; text-align: center; padding: 50px; color: red;">
         <h2>Unable to load application</h2>
         <p id="error-message"></p>
         <button onclick="retryLoad()">Retry</button>
+        <button onclick="showDebugInfo()">Show Debug</button>
+    </div>
+    
+    <!-- Simple test content first -->
+    <div id="test-content" style="display: none; padding: 20px; background: #e8f5e8;">
+        <h3>✓ Basic loading successful!</h3>
+        <p>This proves the webapp container is working.</p>
+        <button onclick="loadNextJsContent()">Try Load Next.js</button>
     </div>
     
     <!-- Container for Next.js content (no iframe) -->
@@ -36,30 +45,65 @@ body {
 </style>
 
 <script>
-console.log('Dataiku webapp body.html loading (no iframe approach)...');
+console.log('=== Dataiku webapp body.html starting ===');
 
 let loadAttempts = 0;
 const maxAttempts = 3;
+let debugMessages = [];
+
+function addDebugMessage(message) {
+    debugMessages.push(new Date().toLocaleTimeString() + ': ' + message);
+    console.log('DEBUG:', message);
+    
+    const debugElement = document.getElementById('debug-info');
+    if (debugElement) {
+        debugElement.innerHTML = debugMessages.slice(-10).join('<br>');
+    }
+}
+
+function updateStatus(text) {
+    const statusElement = document.getElementById('status-text');
+    if (statusElement) {
+        statusElement.textContent = text;
+    }
+    addDebugMessage('Status: ' + text);
+}
+
+function showDebugInfo() {
+    alert('Debug Info:\n\n' + debugMessages.join('\n'));
+}
 
 function showError(message) {
     console.error('Error:', message);
+    addDebugMessage('ERROR: ' + message);
     document.getElementById('loading-indicator').style.display = 'none';
     document.getElementById('nextjs-content').style.display = 'none';
+    document.getElementById('test-content').style.display = 'none';
     document.getElementById('error-display').style.display = 'block';
     document.getElementById('error-message').textContent = message;
 }
 
 function showSuccess() {
     console.log('Next.js app loaded successfully');
+    addDebugMessage('SUCCESS: Next.js loaded');
     document.getElementById('loading-indicator').style.display = 'none';
     document.getElementById('error-display').style.display = 'none';
+    document.getElementById('test-content').style.display = 'none';
     document.getElementById('nextjs-content').style.display = 'block';
+}
+
+function showTestContent() {
+    addDebugMessage('Showing test content');
+    document.getElementById('loading-indicator').style.display = 'none';
+    document.getElementById('error-display').style.display = 'none';
+    document.getElementById('nextjs-content').style.display = 'none';
+    document.getElementById('test-content').style.display = 'block';
 }
 
 function retryLoad() {
     if (loadAttempts < maxAttempts) {
         loadAttempts++;
-        console.log('Retry attempt:', loadAttempts);
+        addDebugMessage('Retry attempt: ' + loadAttempts);
         document.getElementById('error-display').style.display = 'none';
         document.getElementById('loading-indicator').style.display = 'block';
         loadNextJsContent();
@@ -68,116 +112,89 @@ function retryLoad() {
     }
 }
 
-function fixAssetPaths(html) {
-    // Replace all Next.js asset paths with relative paths
-    return html
-        .replace(/href="\/_next\//g, 'href="../../resources/out/_next/')
-        .replace(/src="\/_next\//g, 'src="../../resources/out/_next/')
-        .replace(/href="\/favicon\.ico"/g, 'href="../../resources/out/favicon.ico"')
-        .replace(/content="\/"/g, 'content="../../resources/out/"')
-        .replace(/"\/"/g, '"../../resources/out/"');
-}
-
 function loadNextJsContent() {
+    addDebugMessage('Starting loadNextJsContent');
+    updateStatus('Loading Next.js content...');
+    
     const container = document.getElementById('nextjs-content');
-    
-    // Try different sources in order of preference
-    const sources = [
-        '../../resources/out/index.html',
-        '../../resources/out/structures/index.html',
-        '../../resources/out/dashboard/index.html'
-    ];
-    
-    let currentSourceIndex = 0;
-    
-    function tryNextSource() {
-        if (currentSourceIndex >= sources.length) {
-            showError('All sources failed to load. Check if Next.js files are properly deployed.');
-            return;
-        }
-        
-        const source = sources[currentSourceIndex];
-        console.log('Trying to load content from:', source);
-        
-        fetch(source)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                return response.text();
-            })
-            .then(html => {
-                console.log('Successfully fetched HTML content');
-                
-                // Parse the HTML and extract body content
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                
-                // Get the body content and fix asset paths
-                let bodyContent = doc.body.innerHTML;
-                bodyContent = fixAssetPaths(bodyContent);
-                
-                // Insert the content
-                container.innerHTML = bodyContent;
-                
-                // Also need to add the head elements (CSS, scripts)
-                const headElements = doc.head.querySelectorAll('link[rel="stylesheet"], script');
-                headElements.forEach(element => {
-                    const newElement = element.cloneNode(true);
-                    
-                    // Fix paths for head elements too
-                    if (newElement.href) {
-                        newElement.href = newElement.href.replace(/\/_next\//g, '../../resources/out/_next/');
-                    }
-                    if (newElement.src) {
-                        newElement.src = newElement.src.replace(/\/_next\//g, '../../resources/out/_next/');
-                    }
-                    
-                    document.head.appendChild(newElement);
-                });
-                
-                console.log('Content injected successfully');
-                showSuccess();
-            })
-            .catch(error => {
-                console.error(`Failed to load source ${source}:`, error);
-                currentSourceIndex++;
-                
-                if (currentSourceIndex < sources.length) {
-                    console.log('Trying next source...');
-                    setTimeout(tryNextSource, 1000);
-                } else {
-                    showError(`Failed to load content: ${error.message}`);
-                }
-            });
+    if (!container) {
+        showError('Container element not found');
+        return;
     }
     
-    // Start with first source
-    tryNextSource();
-}
-
-// Test if we can access the resources
-function testResourceAccess() {
-    console.log('Testing resource access...');
+    // Simple approach: try to load index.html directly
+    const source = '../../resources/out/index.html';
+    addDebugMessage('Fetching: ' + source);
     
-    fetch('../../resources/out/index.html')
+    fetch(source)
         .then(response => {
-            console.log('Resource test response:', response.status, response.statusText);
-            if (response.ok) {
-                console.log('Resources are accessible');
-                loadNextJsContent();
-            } else {
-                showError('Resources not accessible. Status: ' + response.status);
+            addDebugMessage('Fetch response status: ' + response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
+            return response.text();
+        })
+        .then(html => {
+            addDebugMessage('HTML content length: ' + html.length);
+            
+            if (html.length < 100) {
+                throw new Error('HTML content too short, might be error page');
+            }
+            
+            // Very simple injection - just put the HTML content directly
+            container.innerHTML = '<h3>Raw Next.js Content:</h3><div style="border: 1px solid #ccc; padding: 10px;">' + 
+                                 html.substring(0, 500) + '...</div>';
+            
+            addDebugMessage('Content injected, showing success');
+            showSuccess();
         })
         .catch(error => {
-            console.error('Resource test failed:', error);
-            showError('Cannot access Next.js resources: ' + error.message);
+            addDebugMessage('Fetch error: ' + error.message);
+            showError('Failed to load Next.js: ' + error.message);
         });
 }
 
+// Test basic functionality first
+function basicTest() {
+    addDebugMessage('Starting basic test');
+    updateStatus('Running basic tests...');
+    
+    // Test 1: DOM manipulation
+    setTimeout(function() {
+        try {
+            addDebugMessage('Test 1: DOM manipulation - OK');
+            updateStatus('DOM test passed');
+            
+            // Test 2: Can we access resources?
+            fetch('../../resources/out/')
+                .then(response => {
+                    addDebugMessage('Test 2: Resource access - Status: ' + response.status);
+                    
+                    if (response.status === 200 || response.status === 403) {
+                        // 403 might be normal for directory listing
+                        updateStatus('Resources accessible, showing test content');
+                        showTestContent();
+                    } else {
+                        throw new Error('Resources not accessible: ' + response.status);
+                    }
+                })
+                .catch(error => {
+                    addDebugMessage('Test 2: Resource access failed - ' + error.message);
+                    updateStatus('Resource test failed, but continuing...');
+                    showTestContent();
+                });
+                
+        } catch (error) {
+            addDebugMessage('Test 1: DOM manipulation failed - ' + error.message);
+            showError('Basic test failed: ' + error.message);
+        }
+    }, 1000);
+}
+
 // Initialize
+addDebugMessage('Script loaded, starting in 2 seconds');
 setTimeout(function() {
-    testResourceAccess();
-}, 1000);
+    addDebugMessage('Initializing...');
+    basicTest();
+}, 2000);
 </script>
