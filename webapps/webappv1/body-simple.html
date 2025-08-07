@@ -1,0 +1,83 @@
+<!-- Simple fallback version for Dataiku webapp -->
+<div style="width: 100%; height: 100vh; padding: 20px; font-family: system-ui, -apple-system, sans-serif;">
+    <h1>Data Platform</h1>
+    <p>Next.js Application Integration</p>
+    
+    <div style="margin: 20px 0;">
+        <h3>Application Status:</h3>
+        <div id="status">Initializing...</div>
+    </div>
+    
+    <div style="border: 1px solid #ccc; width: 100%; height: 600px;">
+        <iframe 
+            id="app-frame"
+            src="../../resources/out/index.html" 
+            width="100%" 
+            height="100%" 
+            frameborder="0"
+            style="border: none;">
+            <p>Your browser does not support iframes. <a href="../../resources/out/index.html" target="_blank">Click here to open the app</a>.</p>
+        </iframe>
+    </div>
+    
+    <div style="margin-top: 20px; font-size: 12px; color: #666;">
+        <p>Troubleshooting links:</p>
+        <ul>
+            <li><a href="../../resources/out/index.html" target="_blank">Open Original App</a></li>
+            <li><a href="../../resources/out/index-fixed.html" target="_blank">Open Fixed App</a></li>
+            <li><a href="../../resources/out/structures/index.html" target="_blank">Open Structures Page</a></li>
+        </ul>
+    </div>
+</div>
+
+<script>
+console.log('Simple Dataiku webapp loaded');
+console.log('Current location:', window.location.href);
+
+const statusDiv = document.getElementById('status');
+const iframe = document.getElementById('app-frame');
+
+// Update status
+function updateStatus(message, color = '#333') {
+    statusDiv.innerHTML = message;
+    statusDiv.style.color = color;
+}
+
+// Test resource accessibility
+function testResources() {
+    updateStatus('Testing resource access...', '#666');
+    
+    const testUrl = '../../resources/out/index.html';
+    
+    fetch(testUrl)
+        .then(response => {
+            if (response.ok) {
+                updateStatus(`✓ Resources accessible (Status: ${response.status})`, 'green');
+                console.log('Resources test passed');
+            } else {
+                updateStatus(`✗ Resource error (Status: ${response.status})`, 'red');
+                console.error('Resources test failed:', response.status, response.statusText);
+            }
+        })
+        .catch(error => {
+            updateStatus(`✗ Cannot access resources: ${error.message}`, 'red');
+            console.error('Resources test error:', error);
+        });
+}
+
+// Monitor iframe
+if (iframe) {
+    iframe.onload = function() {
+        updateStatus('✓ Application loaded successfully', 'green');
+        console.log('Iframe loaded successfully');
+    };
+    
+    iframe.onerror = function() {
+        updateStatus('✗ Failed to load application in iframe', 'red');
+        console.error('Iframe failed to load');
+    };
+}
+
+// Initialize
+setTimeout(testResources, 500);
+</script>
