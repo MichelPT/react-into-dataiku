@@ -1,0 +1,180 @@
+<div style="padding: 20px; font-family: Arial, sans-serif;">
+    <h1>Dataiku Webapp - Fixed Assets Version</h1>
+    
+    <div id="status" style="background: #e8f4f8; padding: 15px; margin: 10px 0; border-radius: 5px;">
+        <strong>Status:</strong> <span id="status-text">Ready</span>
+    </div>
+    
+    <div id="controls" style="margin: 20px 0;">
+        <button onclick="loadNextJsFixed()" style="margin: 5px; padding: 10px; background: #007acc; color: white; border: none; border-radius: 4px;">Load Next.js (Fixed Assets)</button>
+        <button onclick="showDebugInfo()" style="margin: 5px; padding: 10px;">Show Debug Info</button>
+    </div>
+    
+    <div id="log" style="background: #f8f8f8; padding: 10px; height: 150px; overflow: auto; font-family: monospace; font-size: 11px; border: 1px solid #ddd;"></div>
+    
+    <div id="content" style="border: 2px solid #007acc; margin: 20px 0; padding: 0; min-height: 400px; overflow: hidden;">
+        <p style="padding: 20px;"><em>Next.js content will appear here...</em></p>
+    </div>
+</div>
+
+<script>
+function log(msg) {
+    const timestamp = new Date().toLocaleTimeString();
+    const logDiv = document.getElementById('log');
+    logDiv.innerHTML += timestamp + ': ' + msg + '\n';
+    logDiv.scrollTop = logDiv.scrollHeight;
+    console.log(msg);
+}
+
+function setStatus(text) {
+    document.getElementById('status-text').textContent = text;
+    log('STATUS: ' + text);
+}
+
+function showDebugInfo() {
+    // Check what's currently in the content div
+    const content = document.getElementById('content');
+    const info = {
+        'Content HTML length': content.innerHTML.length,
+        'CSS files in head': document.querySelectorAll('head link[rel="stylesheet"]').length,
+        'Script files in head': document.querySelectorAll('head script[src]').length,
+        'Current window location': window.location.href,
+        'Base URL for assets': window.location.protocol + '//' + window.location.host
+    };
+    
+    let infoText = 'Debug Information:\n\n';
+    for (const [key, value] of Object.entries(info)) {
+        infoText += key + ': ' + value + '\n';
+    }
+    
+    alert(infoText);
+    log('Debug info shown');
+}
+
+function fixAllAssetPaths(html) {
+    log('Fixing asset paths in HTML...');
+    
+    // Replace all Next.js asset paths with correct Dataiku paths
+    let fixedHtml = html
+        // CSS files
+        .replace(/href="\/_next\/static\/css\//g, 'href="../../resources/out/_next/static/css/')
+        .replace(/href="\/_next\/static\//g, 'href="../../resources/out/_next/static/')
+        
+        // JavaScript files  
+        .replace(/src="\/_next\/static\/chunks\//g, 'src="../../resources/out/_next/static/chunks/')
+        .replace(/src="\/_next\/static\//g, 'src="../../resources/out/_next/static/')
+        
+        // Favicon and other assets
+        .replace(/href="\/favicon\.ico"/g, 'href="../../resources/out/favicon.ico"')
+        .replace(/href="\/"/g, 'href="../../resources/out/"')
+        
+        // Any remaining absolute paths starting with /
+        .replace(/"\/(?!\/)/g, '"../../resources/out/')
+        
+        // Fix any double slashes that might have been created
+        .replace(/\/\/+/g, '/');
+    
+    log('Asset path fixing completed');
+    return fixedHtml;
+}
+
+function injectStylesAndScripts(doc) {
+    log('Injecting CSS and JavaScript...');
+    
+    // Remove existing Next.js assets to avoid conflicts
+    document.querySelectorAll('head link[href*="_next"], head script[src*="_next"]').forEach(el => el.remove());
+    
+    let cssCount = 0, jsCount = 0;
+    
+    // Add CSS files
+    const cssLinks = doc.querySelectorAll('head link[rel="stylesheet"]');
+    cssLinks.forEach(link => {
+        const newLink = document.createElement('link');
+        newLink.rel = 'stylesheet';
+        newLink.href = link.href.replace(/\/_next\//g, '../../resources/out/_next/');
+        
+        newLink.onload = () => log('✓ CSS loaded: ' + newLink.href);
+        newLink.onerror = () => log('✗ CSS failed: ' + newLink.href);
+        
+        document.head.appendChild(newLink);
+        cssCount++;
+    });
+    
+    // Add JavaScript files
+    const scripts = doc.querySelectorAll('script[src]');
+    scripts.forEach(script => {
+        const newScript = document.createElement('script');
+        newScript.src = script.src.replace(/\/_next\//g, '../../resources/out/_next/');
+        newScript.async = script.async || false;
+        
+        newScript.onload = () => log('✓ JS loaded: ' + newScript.src);
+        newScript.onerror = () => log('✗ JS failed: ' + newScript.src);
+        
+        document.head.appendChild(newScript);
+        jsCount++;
+    });
+    
+    log(`Injected ${cssCount} CSS files and ${jsCount} JS files`);
+}
+
+function loadNextJsFixed() {
+    log('=== Starting Next.js Fixed Assets Loading ===');
+    setStatus('Loading Next.js with fixed assets...');
+    
+    const contentDiv = document.getElementById('content');
+    
+    fetch('../../resources/out/index.html')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.text();
+        })
+        .then(html => {
+            log(`✓ HTML fetched, length: ${html.length}`);
+            setStatus('Parsing and fixing HTML...');
+            
+            // Parse HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Fix all asset paths in the HTML
+            const fixedHtml = fixAllAssetPaths(html);
+            
+            // Inject the fixed HTML
+            contentDiv.innerHTML = fixedHtml;
+            log('✓ HTML content injected');
+            
+            // Inject CSS and JS with fixed paths
+            injectStylesAndScripts(doc);
+            
+            setStatus('Next.js loaded! Check if styles are applied.');
+            
+            // Give it a moment for assets to load, then check
+            setTimeout(() => {
+                const hasStyles = window.getComputedStyle(contentDiv).backgroundColor !== 'rgba(0, 0, 0, 0)';
+                if (hasStyles) {
+                    log('✓ Styles appear to be working!');
+                    setStatus('✓ Next.js loaded successfully with styles!');
+                } else {
+                    log('⚠ Styles may not be loading properly');
+                    setStatus('⚠ Next.js loaded but styles may not be working');
+                }
+            }, 2000);
+            
+        })
+        .catch(error => {
+            log('✗ Loading failed: ' + error.message);
+            setStatus('Loading failed: ' + error.message);
+            contentDiv.innerHTML = `<div style="padding: 20px; color: red;">
+                <h3>Loading Failed</h3>
+                <p>${error.message}</p>
+                <p>Please check if Next.js files are properly deployed to resources/out/</p>
+            </div>`;
+        });
+}
+
+// Auto-initialize
+log('=== Fixed Assets Webapp initialized ===');
+setStatus('Ready - Click "Load Next.js (Fixed Assets)" to start');
+</script>

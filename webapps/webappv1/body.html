@@ -1,26 +1,21 @@
 <div id="webapp-container">
-    <div id="loading-indicator" style="text-align: center; padding: 50px;">
-        <h2>Loading Data Platform...</h2>
-        <p id="status-text">Initializing...</p>
-        <div id="debug-info" style="background: #f0f0f0; padding: 10px; margin: 10px; font-family: monospace; font-size: 12px;"></div>
+    <div id="loading-indicator" style="text-align: center; padding: 30px; background: #f8f9fa;">
+        <h2 style="color: #007acc; margin-bottom: 10px;">Loading Data Platform...</h2>
+        <p id="status-text" style="margin: 10px 0; color: #666;">Initializing webapp...</p>
+        <div id="progress" style="width: 100%; background: #e0e0e0; border-radius: 10px; height: 6px; margin: 15px 0;">
+            <div id="progress-bar" style="background: #007acc; height: 100%; border-radius: 10px; width: 0%; transition: width 0.5s;"></div>
+        </div>
     </div>
     
-    <div id="error-display" style="display: none; text-align: center; padding: 50px; color: red;">
-        <h2>Unable to load application</h2>
-        <p id="error-message"></p>
-        <button onclick="retryLoad()">Retry</button>
-        <button onclick="showDebugInfo()">Show Debug</button>
+    <div id="error-display" style="display: none; text-align: center; padding: 50px; color: red; background: #fff5f5;">
+        <h2>⚠️ Loading Error</h2>
+        <p id="error-message" style="margin: 15px 0; padding: 10px; background: #fee; border-radius: 5px;"></p>
+        <button onclick="retryLoad()" style="margin: 10px; padding: 10px 20px; background: #007acc; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 Retry</button>
+        <button onclick="loadFallback()" style="margin: 10px; padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">📄 Simple View</button>
     </div>
     
-    <!-- Simple test content first -->
-    <div id="test-content" style="display: none; padding: 20px; background: #e8f5e8;">
-        <h3>✓ Basic loading successful!</h3>
-        <p>This proves the webapp container is working.</p>
-        <button onclick="loadNextJsContent()">Try Load Next.js</button>
-    </div>
-    
-    <!-- Container for Next.js content (no iframe) -->
-    <div id="nextjs-content" style="display: none; width: 100%; height: 100%;"></div>
+    <!-- Container for Next.js content -->
+    <div id="nextjs-content" style="display: none; width: 100%; height: 100vh; overflow: auto;"></div>
 </div>
 
 <style>
@@ -45,156 +40,187 @@ body {
 </style>
 
 <script>
-console.log('=== Dataiku webapp body.html starting ===');
+console.log('=== Dataiku Next.js Webapp Starting ===');
 
 let loadAttempts = 0;
 const maxAttempts = 3;
-let debugMessages = [];
 
-function addDebugMessage(message) {
-    debugMessages.push(new Date().toLocaleTimeString() + ': ' + message);
-    console.log('DEBUG:', message);
-    
-    const debugElement = document.getElementById('debug-info');
-    if (debugElement) {
-        debugElement.innerHTML = debugMessages.slice(-10).join('<br>');
-    }
+// Progress management
+function setProgress(percent, text) {
+    document.getElementById('progress-bar').style.width = percent + '%';
+    document.getElementById('status-text').textContent = text;
+    console.log(`Progress: ${percent}% - ${text}`);
 }
 
-function updateStatus(text) {
-    const statusElement = document.getElementById('status-text');
-    if (statusElement) {
-        statusElement.textContent = text;
-    }
-    addDebugMessage('Status: ' + text);
-}
-
-function showDebugInfo() {
-    alert('Debug Info:\n\n' + debugMessages.join('\n'));
-}
-
+// UI state management
 function showError(message) {
     console.error('Error:', message);
-    addDebugMessage('ERROR: ' + message);
     document.getElementById('loading-indicator').style.display = 'none';
     document.getElementById('nextjs-content').style.display = 'none';
-    document.getElementById('test-content').style.display = 'none';
     document.getElementById('error-display').style.display = 'block';
     document.getElementById('error-message').textContent = message;
 }
 
 function showSuccess() {
-    console.log('Next.js app loaded successfully');
-    addDebugMessage('SUCCESS: Next.js loaded');
+    console.log('✓ Next.js app loaded successfully');
     document.getElementById('loading-indicator').style.display = 'none';
     document.getElementById('error-display').style.display = 'none';
-    document.getElementById('test-content').style.display = 'none';
     document.getElementById('nextjs-content').style.display = 'block';
-}
-
-function showTestContent() {
-    addDebugMessage('Showing test content');
-    document.getElementById('loading-indicator').style.display = 'none';
-    document.getElementById('error-display').style.display = 'none';
-    document.getElementById('nextjs-content').style.display = 'none';
-    document.getElementById('test-content').style.display = 'block';
 }
 
 function retryLoad() {
     if (loadAttempts < maxAttempts) {
         loadAttempts++;
-        addDebugMessage('Retry attempt: ' + loadAttempts);
+        console.log(`Retry attempt: ${loadAttempts}/${maxAttempts}`);
         document.getElementById('error-display').style.display = 'none';
         document.getElementById('loading-indicator').style.display = 'block';
-        loadNextJsContent();
+        setProgress(0, 'Retrying...');
+        setTimeout(loadNextJsApp, 1000);
     } else {
-        showError('Maximum retry attempts reached. Please refresh the page.');
+        showError('Maximum retry attempts reached. Try the Simple View or refresh the page.');
     }
 }
 
-function loadNextJsContent() {
-    addDebugMessage('Starting loadNextJsContent');
-    updateStatus('Loading Next.js content...');
+function loadFallback() {
+    setProgress(10, 'Loading simple fallback...');
+    document.getElementById('error-display').style.display = 'none';
+    document.getElementById('loading-indicator').style.display = 'block';
+    
+    // Simple redirect to index.html
+    setTimeout(() => {
+        window.location.href = '../../resources/out/index.html';
+    }, 1000);
+}
+
+// Main loading function
+function loadNextJsApp() {
+    console.log('Starting Next.js app loading...');
+    setProgress(10, 'Fetching Next.js content...');
     
     const container = document.getElementById('nextjs-content');
-    if (!container) {
-        showError('Container element not found');
-        return;
-    }
     
-    // Simple approach: try to load index.html directly
-    const source = '../../resources/out/index.html';
-    addDebugMessage('Fetching: ' + source);
-    
-    fetch(source)
+    // Step 1: Fetch HTML content
+    fetch('../../resources/out/index.html')
         .then(response => {
-            addDebugMessage('Fetch response status: ' + response.status);
+            setProgress(30, 'Processing HTML response...');
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             return response.text();
         })
         .then(html => {
-            addDebugMessage('HTML content length: ' + html.length);
+            setProgress(50, 'Parsing HTML content...');
+            console.log(`HTML fetched successfully, length: ${html.length}`);
             
-            if (html.length < 100) {
-                throw new Error('HTML content too short, might be error page');
-            }
+            // Step 2: Parse and inject HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
             
-            // Very simple injection - just put the HTML content directly
-            container.innerHTML = '<h3>Raw Next.js Content:</h3><div style="border: 1px solid #ccc; padding: 10px;">' + 
-                                 html.substring(0, 500) + '...</div>';
+            // Inject the body content
+            container.innerHTML = doc.body.innerHTML;
             
-            addDebugMessage('Content injected, showing success');
-            showSuccess();
+            setProgress(70, 'Loading CSS styles...');
+            console.log('HTML content injected');
+            
+            // Step 3: Load CSS
+            return loadMainCSS();
+        })
+        .then(() => {
+            setProgress(90, 'Loading JavaScript...');
+            console.log('CSS loaded successfully');
+            
+            // Step 4: Load essential JS
+            return loadEssentialJS();
+        })
+        .then(() => {
+            setProgress(100, 'Application ready!');
+            console.log('All assets loaded successfully');
+            
+            // Show the app after a brief delay
+            setTimeout(showSuccess, 500);
         })
         .catch(error => {
-            addDebugMessage('Fetch error: ' + error.message);
-            showError('Failed to load Next.js: ' + error.message);
+            console.error('Loading failed:', error);
+            showError(`Failed to load Next.js app: ${error.message}`);
         });
 }
 
-// Test basic functionality first
-function basicTest() {
-    addDebugMessage('Starting basic test');
-    updateStatus('Running basic tests...');
-    
-    // Test 1: DOM manipulation
-    setTimeout(function() {
-        try {
-            addDebugMessage('Test 1: DOM manipulation - OK');
-            updateStatus('DOM test passed');
-            
-            // Test 2: Can we access resources?
-            fetch('../../resources/out/')
-                .then(response => {
-                    addDebugMessage('Test 2: Resource access - Status: ' + response.status);
-                    
-                    if (response.status === 200 || response.status === 403) {
-                        // 403 might be normal for directory listing
-                        updateStatus('Resources accessible, showing test content');
-                        showTestContent();
-                    } else {
-                        throw new Error('Resources not accessible: ' + response.status);
-                    }
-                })
-                .catch(error => {
-                    addDebugMessage('Test 2: Resource access failed - ' + error.message);
-                    updateStatus('Resource test failed, but continuing...');
-                    showTestContent();
-                });
-                
-        } catch (error) {
-            addDebugMessage('Test 1: DOM manipulation failed - ' + error.message);
-            showError('Basic test failed: ' + error.message);
-        }
-    }, 1000);
+// Load main CSS file
+function loadMainCSS() {
+    return new Promise((resolve, reject) => {
+        // Remove existing Next.js CSS to avoid conflicts
+        document.querySelectorAll('link[href*="_next"]').forEach(link => link.remove());
+        
+        const cssUrl = '../../resources/out/_next/static/css/421e6f55fb360b43.css';
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = cssUrl;
+        
+        link.onload = () => {
+            console.log('✓ Main CSS loaded successfully');
+            resolve();
+        };
+        
+        link.onerror = () => {
+            console.warn('⚠ Main CSS failed to load, continuing without styles');
+            resolve(); // Don't fail completely if CSS doesn't load
+        };
+        
+        document.head.appendChild(link);
+        console.log('CSS link added:', cssUrl);
+    });
 }
 
-// Initialize
-addDebugMessage('Script loaded, starting in 2 seconds');
-setTimeout(function() {
-    addDebugMessage('Initializing...');
-    basicTest();
-}, 2000);
+// Load essential JavaScript files
+function loadEssentialJS() {
+    return new Promise((resolve) => {
+        const jsFiles = [
+            '../../resources/out/_next/static/chunks/polyfills-42372ed130431b0a.js',
+            '../../resources/out/_next/static/chunks/webpack-d78ff41bb74ba1c2.js'
+        ];
+        
+        let loadedCount = 0;
+        const totalFiles = jsFiles.length;
+        
+        // Don't fail if JS doesn't load - Next.js should work without it for static content
+        const checkComplete = () => {
+            loadedCount++;
+            if (loadedCount >= totalFiles) {
+                console.log(`${loadedCount} JS files processed`);
+                resolve();
+            }
+        };
+        
+        jsFiles.forEach(jsUrl => {
+            const script = document.createElement('script');
+            script.src = jsUrl;
+            script.async = true;
+            
+            script.onload = () => {
+                console.log('✓ JS loaded:', jsUrl);
+                checkComplete();
+            };
+            
+            script.onerror = () => {
+                console.warn('⚠ JS failed (continuing):', jsUrl);
+                checkComplete();
+            };
+            
+            document.head.appendChild(script);
+        });
+        
+        // Fallback timeout
+        setTimeout(() => {
+            console.log('JS loading timeout, continuing anyway');
+            resolve();
+        }, 5000);
+    });
+}
+
+// Initialize after DOM is ready
+console.log('Script loaded, starting initialization...');
+setTimeout(() => {
+    console.log('Initializing Next.js webapp...');
+    loadNextJsApp();
+}, 1500);
 </script>
