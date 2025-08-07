@@ -1,0 +1,125 @@
+<div id="webapp-container">
+    <div id="status">
+        <h2>Loading Next.js Application...</h2>
+        <div id="status-message">Initializing...</div>
+    </div>
+    
+    <!-- Direct content injection container -->
+    <div id="nextjs-app" style="display: none;"></div>
+</div>
+
+<style>
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+
+#webapp-container {
+    width: 100%;
+    min-height: 100vh;
+}
+
+#status {
+    text-align: center;
+    padding: 50px;
+    background: #f5f5f5;
+}
+
+#nextjs-app {
+    width: 100%;
+}
+</style>
+
+<script>
+console.log('Loading Next.js without iframe...');
+
+function updateStatus(message) {
+    console.log('Status:', message);
+    document.getElementById('status-message').textContent = message;
+}
+
+function showApp() {
+    document.getElementById('status').style.display = 'none';
+    document.getElementById('nextjs-app').style.display = 'block';
+}
+
+function showError(error) {
+    updateStatus('Error: ' + error);
+    console.error('Error:', error);
+}
+
+// Load Next.js content directly
+function loadNextJsApp() {
+    updateStatus('Fetching Next.js application...');
+    
+    fetch('../../resources/out/index.html')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch: ' + response.status);
+            }
+            return response.text();
+        })
+        .then(html => {
+            updateStatus('Processing content...');
+            
+            // Parse HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Fix asset paths
+            const fixPaths = (element) => {
+                // Fix src attributes
+                element.querySelectorAll('[src]').forEach(el => {
+                    if (el.src && el.src.includes('/_next/')) {
+                        el.src = el.src.replace('/_next/', '../../resources/out/_next/');
+                    }
+                });
+                
+                // Fix href attributes
+                element.querySelectorAll('[href]').forEach(el => {
+                    if (el.href && el.href.includes('/_next/')) {
+                        el.href = el.href.replace('/_next/', '../../resources/out/_next/');
+                    }
+                });
+            };
+            
+            // Add head elements (CSS)
+            const headElements = doc.querySelectorAll('head link[rel="stylesheet"]');
+            headElements.forEach(link => {
+                const newLink = document.createElement('link');
+                newLink.rel = 'stylesheet';
+                newLink.href = link.href.replace('/_next/', '../../resources/out/_next/');
+                document.head.appendChild(newLink);
+            });
+            
+            // Get body content
+            const bodyContent = doc.body.cloneNode(true);
+            fixPaths(bodyContent);
+            
+            // Inject content
+            const container = document.getElementById('nextjs-app');
+            container.innerHTML = bodyContent.innerHTML;
+            
+            // Add scripts
+            const scripts = doc.querySelectorAll('script[src]');
+            scripts.forEach(script => {
+                const newScript = document.createElement('script');
+                newScript.src = script.src.replace('/_next/', '../../resources/out/_next/');
+                newScript.onload = () => console.log('Script loaded:', newScript.src);
+                newScript.onerror = () => console.error('Script failed:', newScript.src);
+                document.head.appendChild(newScript);
+            });
+            
+            updateStatus('Application loaded successfully!');
+            setTimeout(showApp, 1000);
+            
+        })
+        .catch(error => {
+            showError('Failed to load: ' + error.message);
+        });
+}
+
+// Initialize after DOM is ready
+setTimeout(loadNextJsApp, 1000);
+</script>

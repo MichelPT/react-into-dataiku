@@ -1,0 +1,36 @@
+<div id="main">
+    <h2>Redirecting to Next.js App...</h2>
+    <p>If you are not redirected automatically, <a href="../../resources/out/index.html">click here</a>.</p>
+</div>
+
+<script>
+// Simple redirect approach
+console.log('Redirecting to Next.js app...');
+
+// Try to redirect after a short delay
+setTimeout(function() {
+    try {
+        // First try to load in same window
+        window.location.href = '../../resources/out/index.html';
+    } catch(error) {
+        console.error('Redirect failed:', error);
+        
+        // Fallback: try to open in new window/tab
+        try {
+            window.open('../../resources/out/index.html', '_self');
+        } catch(error2) {
+            console.error('Window open failed:', error2);
+            
+            // Final fallback: update the link
+            document.getElementById('main').innerHTML = 
+                '<h2>Please click the link below:</h2>' +
+                '<p><a href="../../resources/out/index.html" target="_blank">Open Next.js App</a></p>' +
+                '<p>Or try these alternatives:</p>' +
+                '<ul>' +
+                '<li><a href="../../resources/out/structures/index.html">Structures Page</a></li>' +
+                '<li><a href="../../resources/out/dashboard/index.html">Dashboard Page</a></li>' +
+                '</ul>';
+        }
+    }
+}, 2000);
+</script>

@@ -10,14 +10,8 @@
         <button onclick="retryLoad()">Retry</button>
     </div>
     
-    <iframe 
-        id="nextjs-iframe"
-        src="../../resources/out/index.html" 
-        width="100%" 
-        height="700px" 
-        frameborder="0"
-        style="border: none; display: none;">
-    </iframe>
+    <!-- Container for Next.js content (no iframe) -->
+    <div id="nextjs-content" style="display: none; width: 100%; height: 100%;"></div>
 </div>
 
 <style>
@@ -35,10 +29,14 @@ body {
 #loading-indicator {
     background: #f8f9fa;
 }
+
+#nextjs-content {
+    overflow: auto;
+}
 </style>
 
 <script>
-console.log('Dataiku webapp body.html loading...');
+console.log('Dataiku webapp body.html loading (no iframe approach)...');
 
 let loadAttempts = 0;
 const maxAttempts = 3;
@@ -46,7 +44,7 @@ const maxAttempts = 3;
 function showError(message) {
     console.error('Error:', message);
     document.getElementById('loading-indicator').style.display = 'none';
-    document.getElementById('nextjs-iframe').style.display = 'none';
+    document.getElementById('nextjs-content').style.display = 'none';
     document.getElementById('error-display').style.display = 'block';
     document.getElementById('error-message').textContent = message;
 }
@@ -55,7 +53,7 @@ function showSuccess() {
     console.log('Next.js app loaded successfully');
     document.getElementById('loading-indicator').style.display = 'none';
     document.getElementById('error-display').style.display = 'none';
-    document.getElementById('nextjs-iframe').style.display = 'block';
+    document.getElementById('nextjs-content').style.display = 'block';
 }
 
 function retryLoad() {
@@ -64,20 +62,30 @@ function retryLoad() {
         console.log('Retry attempt:', loadAttempts);
         document.getElementById('error-display').style.display = 'none';
         document.getElementById('loading-indicator').style.display = 'block';
-        loadNextJsApp();
+        loadNextJsContent();
     } else {
         showError('Maximum retry attempts reached. Please refresh the page.');
     }
 }
 
-function loadNextJsApp() {
-    const iframe = document.getElementById('nextjs-iframe');
+function fixAssetPaths(html) {
+    // Replace all Next.js asset paths with relative paths
+    return html
+        .replace(/href="\/_next\//g, 'href="../../resources/out/_next/')
+        .replace(/src="\/_next\//g, 'src="../../resources/out/_next/')
+        .replace(/href="\/favicon\.ico"/g, 'href="../../resources/out/favicon.ico"')
+        .replace(/content="\/"/g, 'content="../../resources/out/"')
+        .replace(/"\/"/g, '"../../resources/out/"');
+}
+
+function loadNextJsContent() {
+    const container = document.getElementById('nextjs-content');
     
     // Try different sources in order of preference
     const sources = [
-        '../../resources/out/index-fixed.html',
         '../../resources/out/index.html',
-        '../../resources/out/structures/index.html'
+        '../../resources/out/structures/index.html',
+        '../../resources/out/dashboard/index.html'
     ];
     
     let currentSourceIndex = 0;
@@ -89,29 +97,60 @@ function loadNextJsApp() {
         }
         
         const source = sources[currentSourceIndex];
-        console.log('Trying source:', source);
+        console.log('Trying to load content from:', source);
         
-        iframe.src = source;
-        currentSourceIndex++;
+        fetch(source)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.text();
+            })
+            .then(html => {
+                console.log('Successfully fetched HTML content');
+                
+                // Parse the HTML and extract body content
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Get the body content and fix asset paths
+                let bodyContent = doc.body.innerHTML;
+                bodyContent = fixAssetPaths(bodyContent);
+                
+                // Insert the content
+                container.innerHTML = bodyContent;
+                
+                // Also need to add the head elements (CSS, scripts)
+                const headElements = doc.head.querySelectorAll('link[rel="stylesheet"], script');
+                headElements.forEach(element => {
+                    const newElement = element.cloneNode(true);
+                    
+                    // Fix paths for head elements too
+                    if (newElement.href) {
+                        newElement.href = newElement.href.replace(/\/_next\//g, '../../resources/out/_next/');
+                    }
+                    if (newElement.src) {
+                        newElement.src = newElement.src.replace(/\/_next\//g, '../../resources/out/_next/');
+                    }
+                    
+                    document.head.appendChild(newElement);
+                });
+                
+                console.log('Content injected successfully');
+                showSuccess();
+            })
+            .catch(error => {
+                console.error(`Failed to load source ${source}:`, error);
+                currentSourceIndex++;
+                
+                if (currentSourceIndex < sources.length) {
+                    console.log('Trying next source...');
+                    setTimeout(tryNextSource, 1000);
+                } else {
+                    showError(`Failed to load content: ${error.message}`);
+                }
+            });
     }
-    
-    iframe.onload = function() {
-        console.log('Iframe loaded successfully');
-        showSuccess();
-    };
-    
-    iframe.onerror = function() {
-        console.error('Iframe failed to load source:', iframe.src);
-        tryNextSource();
-    };
-    
-    // Timeout fallback
-    setTimeout(function() {
-        if (document.getElementById('loading-indicator').style.display !== 'none') {
-            console.warn('Loading timeout, trying next source');
-            tryNextSource();
-        }
-    }, 5000);
     
     // Start with first source
     tryNextSource();
@@ -126,7 +165,7 @@ function testResourceAccess() {
             console.log('Resource test response:', response.status, response.statusText);
             if (response.ok) {
                 console.log('Resources are accessible');
-                loadNextJsApp();
+                loadNextJsContent();
             } else {
                 showError('Resources not accessible. Status: ' + response.status);
             }
