@@ -1,0 +1,1 @@
+self.__SSG_MANIFEST=new Set(["\u002Fdashboard\u002Fmodules\u002F[moduleName]","\u002Fdata-prep\u002Fmodules\u002F[moduleName]","\u002Fresults\u002F[resultId]"]);self.__SSG_MANIFEST_CB&&self.__SSG_MANIFEST_CB()
