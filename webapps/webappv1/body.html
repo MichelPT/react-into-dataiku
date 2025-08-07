@@ -1,226 +1,152 @@
-<div id="webapp-container">
-    <div id="loading-indicator" style="text-align: center; padding: 30px; background: #f8f9fa;">
-        <h2 style="color: #007acc; margin-bottom: 10px;">Loading Data Platform...</h2>
-        <p id="status-text" style="margin: 10px 0; color: #666;">Initializing webapp...</p>
-        <div id="progress" style="width: 100%; background: #e0e0e0; border-radius: 10px; height: 6px; margin: 15px 0;">
-            <div id="progress-bar" style="background: #007acc; height: 100%; border-radius: 10px; width: 0%; transition: width 0.5s;"></div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Platform</title>
+    <link rel="stylesheet" href="style-simple.css">
+</head>
+<body>
+    <div id="app-container">
+        <div id="loading" style="display: block;">
+            <h2>Loading Data Platform...</h2>
+            <div class="spinner"></div>
         </div>
+        
+        <div id="error" style="display: none; color: red; padding: 20px;">
+            <h3>Error Loading Application</h3>
+            <p id="error-message"></p>
+            <button onclick="retryLoad()">Retry</button>
+        </div>
+        
+        <!-- Next.js content will be loaded here -->
+        <div id="nextjs-app" style="display: none;"></div>
     </div>
+
+    <!-- Load app.js for frontend logic -->
+    <script src="app-simple.js"></script>
     
-    <div id="error-display" style="display: none; text-align: center; padding: 50px; color: red; background: #fff5f5;">
-        <h2>⚠️ Loading Error</h2>
-        <p id="error-message" style="margin: 15px 0; padding: 10px; background: #fee; border-radius: 5px;"></p>
-        <button onclick="retryLoad()" style="margin: 10px; padding: 10px 20px; background: #007acc; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 Retry</button>
-        <button onclick="loadFallback()" style="margin: 10px; padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">📄 Simple View</button>
-    </div>
-    
-    <!-- Container for Next.js content -->
-    <div id="nextjs-content" style="display: none; width: 100%; height: 100vh; overflow: auto;"></div>
-</div>
-
-<style>
-body {
-    margin: 0;
-    padding: 0;
-    font-family: system-ui, -apple-system, sans-serif;
-}
-
-#webapp-container {
-    width: 100%;
-    height: 100vh;
-}
-
-#loading-indicator {
-    background: #f8f9fa;
-}
-
-#nextjs-content {
-    overflow: auto;
-}
-</style>
-
-<script>
-console.log('=== Dataiku Next.js Webapp Starting ===');
-
-let loadAttempts = 0;
-const maxAttempts = 3;
-
-// Progress management
-function setProgress(percent, text) {
-    document.getElementById('progress-bar').style.width = percent + '%';
-    document.getElementById('status-text').textContent = text;
-    console.log(`Progress: ${percent}% - ${text}`);
-}
-
-// UI state management
-function showError(message) {
-    console.error('Error:', message);
-    document.getElementById('loading-indicator').style.display = 'none';
-    document.getElementById('nextjs-content').style.display = 'none';
-    document.getElementById('error-display').style.display = 'block';
-    document.getElementById('error-message').textContent = message;
-}
-
-function showSuccess() {
-    console.log('✓ Next.js app loaded successfully');
-    document.getElementById('loading-indicator').style.display = 'none';
-    document.getElementById('error-display').style.display = 'none';
-    document.getElementById('nextjs-content').style.display = 'block';
-}
-
-function retryLoad() {
-    if (loadAttempts < maxAttempts) {
-        loadAttempts++;
-        console.log(`Retry attempt: ${loadAttempts}/${maxAttempts}`);
-        document.getElementById('error-display').style.display = 'none';
-        document.getElementById('loading-indicator').style.display = 'block';
-        setProgress(0, 'Retrying...');
-        setTimeout(loadNextJsApp, 1000);
-    } else {
-        showError('Maximum retry attempts reached. Try the Simple View or refresh the page.');
-    }
-}
-
-function loadFallback() {
-    setProgress(10, 'Loading simple fallback...');
-    document.getElementById('error-display').style.display = 'none';
-    document.getElementById('loading-indicator').style.display = 'block';
-    
-    // Simple redirect to index.html
-    setTimeout(() => {
-        window.location.href = '../../resources/out/index.html';
-    }, 1000);
-}
-
-// Main loading function
-function loadNextJsApp() {
-    console.log('Starting Next.js app loading...');
-    setProgress(10, 'Fetching Next.js content...');
-    
-    const container = document.getElementById('nextjs-content');
-    
-    // Step 1: Fetch HTML content
-    fetch('../../resources/out/index.html')
-        .then(response => {
-            setProgress(30, 'Processing HTML response...');
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            return response.text();
-        })
-        .then(html => {
-            setProgress(50, 'Parsing HTML content...');
-            console.log(`HTML fetched successfully, length: ${html.length}`);
-            
-            // Step 2: Parse and inject HTML
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            
-            // Inject the body content
-            container.innerHTML = doc.body.innerHTML;
-            
-            setProgress(70, 'Loading CSS styles...');
-            console.log('HTML content injected');
-            
-            // Step 3: Load CSS
-            return loadMainCSS();
-        })
-        .then(() => {
-            setProgress(90, 'Loading JavaScript...');
-            console.log('CSS loaded successfully');
-            
-            // Step 4: Load essential JS
-            return loadEssentialJS();
-        })
-        .then(() => {
-            setProgress(100, 'Application ready!');
-            console.log('All assets loaded successfully');
-            
-            // Show the app after a brief delay
-            setTimeout(showSuccess, 500);
-        })
-        .catch(error => {
-            console.error('Loading failed:', error);
-            showError(`Failed to load Next.js app: ${error.message}`);
-        });
-}
-
-// Load main CSS file
-function loadMainCSS() {
-    return new Promise((resolve, reject) => {
-        // Remove existing Next.js CSS to avoid conflicts
-        document.querySelectorAll('link[href*="_next"]').forEach(link => link.remove());
+    <script>
+        console.log('Dataiku Webapp Starting...');
         
-        const cssUrl = '../../resources/out/_next/static/css/421e6f55fb360b43.css';
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = cssUrl;
-        
-        link.onload = () => {
-            console.log('✓ Main CSS loaded successfully');
-            resolve();
+        // Global app state
+        window.DataikuApp = {
+            loaded: false,
+            error: null,
+            backendUrl: window.location.origin + '/webapps/webappv1/backend'
         };
         
-        link.onerror = () => {
-            console.warn('⚠ Main CSS failed to load, continuing without styles');
-            resolve(); // Don't fail completely if CSS doesn't load
-        };
+        // Show/hide sections
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('nextjs-app').style.display = 'none';
+        }
         
-        document.head.appendChild(link);
-        console.log('CSS link added:', cssUrl);
-    });
-}
-
-// Load essential JavaScript files
-function loadEssentialJS() {
-    return new Promise((resolve) => {
-        const jsFiles = [
-            '../../resources/out/_next/static/chunks/polyfills-42372ed130431b0a.js',
-            '../../resources/out/_next/static/chunks/webpack-d78ff41bb74ba1c2.js'
-        ];
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('nextjs-app').style.display = 'none';
+            document.getElementById('error-message').textContent = message;
+            console.error('App Error:', message);
+        }
         
-        let loadedCount = 0;
-        const totalFiles = jsFiles.length;
+        function showApp() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('nextjs-app').style.display = 'block';
+            window.DataikuApp.loaded = true;
+            console.log('App loaded successfully');
+        }
         
-        // Don't fail if JS doesn't load - Next.js should work without it for static content
-        const checkComplete = () => {
-            loadedCount++;
-            if (loadedCount >= totalFiles) {
-                console.log(`${loadedCount} JS files processed`);
-                resolve();
-            }
-        };
-        
-        jsFiles.forEach(jsUrl => {
-            const script = document.createElement('script');
-            script.src = jsUrl;
-            script.async = true;
+        // Load Next.js application
+        function loadNextJsApp() {
+            console.log('Loading Next.js from resources/out/...');
             
-            script.onload = () => {
-                console.log('✓ JS loaded:', jsUrl);
-                checkComplete();
-            };
+            const container = document.getElementById('nextjs-app');
             
-            script.onerror = () => {
-                console.warn('⚠ JS failed (continuing):', jsUrl);
-                checkComplete();
-            };
-            
-            document.head.appendChild(script);
-        });
+            // Fetch and inject the Next.js index.html
+            fetch('../../resources/out/index.html')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Failed to load: ${response.status} ${response.statusText}`);
+                    }
+                    return response.text();
+                })
+                .then(html => {
+                    console.log('Next.js HTML loaded, length:', html.length);
+                    
+                    // Simple direct injection
+                    container.innerHTML = html;
+                    
+                    // Load the main CSS
+                    loadNextJsCSS();
+                    
+                    // Show the app
+                    showApp();
+                })
+                .catch(error => {
+                    console.error('Failed to load Next.js:', error);
+                    showError(`Failed to load application: ${error.message}`);
+                });
+        }
         
-        // Fallback timeout
-        setTimeout(() => {
-            console.log('JS loading timeout, continuing anyway');
-            resolve();
-        }, 5000);
-    });
-}
-
-// Initialize after DOM is ready
-console.log('Script loaded, starting initialization...');
-setTimeout(() => {
-    console.log('Initializing Next.js webapp...');
-    loadNextJsApp();
-}, 1500);
-</script>
+        // Load Next.js CSS
+        function loadNextJsCSS() {
+            const cssPath = '../../resources/out/_next/static/css/421e6f55fb360b43.css';
+            
+            // Remove existing Next.js CSS
+            document.querySelectorAll('link[href*="_next"]').forEach(link => link.remove());
+            
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = cssPath;
+            
+            link.onload = () => console.log('✓ Next.js CSS loaded');
+            link.onerror = () => console.warn('⚠ Next.js CSS failed to load');
+            
+            document.head.appendChild(link);
+        }
+        
+        // Connect to backend
+        function connectBackend() {
+            console.log('Connecting to backend...');
+            
+            fetch(window.DataikuApp.backendUrl + '/status')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Backend connected:', data);
+                    window.DataikuApp.backend = data;
+                })
+                .catch(error => {
+                    console.warn('Backend connection failed:', error);
+                });
+        }
+        
+        // Retry function
+        function retryLoad() {
+            showLoading();
+            setTimeout(loadNextJsApp, 1000);
+        }
+        
+        // Initialize application
+        function initApp() {
+            console.log('Initializing Dataiku webapp...');
+            showLoading();
+            
+            // Connect to backend first
+            connectBackend();
+            
+            // Then load Next.js app
+            setTimeout(loadNextJsApp, 1000);
+        }
+        
+        // Start the app when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+    </script>
+</body>
+</html>
