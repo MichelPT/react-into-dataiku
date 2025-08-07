@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Dataiku Webapp</title>
+</head>
+<body>
+    <h1>Test Dataiku Webapp</h1>
+    
+    <h2>Testing Next.js Index Access:</h2>
+    <p><a href="../../resources/out/index.html" target="_blank">Open Next.js App</a></p>
+    
+    <h2>Iframe Test:</h2>
+    <iframe 
+        src="../../resources/out/index.html" 
+        width="100%" 
+        height="600px" 
+        frameborder="0"
+        style="border: 1px solid #ccc;">
+    </iframe>
+    
+    <script>
+        console.log('Test page loaded');
+        console.log('Current location:', window.location.href);
+        
+        // Test if we can fetch the index.html
+        fetch('../../resources/out/index.html')
+            .then(response => {
+                console.log('Fetch response status:', response.status);
+                console.log('Fetch response ok:', response.ok);
+                return response.text();
+            })
+            .then(html => {
+                console.log('Fetch successful, content length:', html.length);
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+            });
+    </script>
+</body>
+</html>

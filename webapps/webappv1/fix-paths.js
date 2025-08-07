@@ -1,85 +1,42 @@
-// Fix-paths.js - Script untuk memperbaiki path Next.js di lingkungan Dataiku
+// Simple fix-paths.js for Dataiku environment
 (function() {
     'use strict';
     
-    console.log('Fix-paths.js loaded - Initializing Next.js path fixes for Dataiku');
+    console.log('Fix-paths.js loaded for Dataiku webapp');
     
-    // Fungsi untuk memperbaiki path relatif
-    function fixRelativePaths() {
-        const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/');
+    // Function to fix paths in the current document
+    function fixPaths() {
+        const baseResourcePath = '../../resources/out';
         
-        // Fix untuk semua link yang dimulai dengan /_next/
-        document.querySelectorAll('link[href^="/_next/"], script[src^="/_next/"]').forEach(element => {
-            const originalPath = element.getAttribute('href') || element.getAttribute('src');
-            if (originalPath.startsWith('/_next/')) {
-                const newPath = `../../resources/out${originalPath}`;
-                if (element.tagName === 'LINK') {
-                    element.setAttribute('href', newPath);
-                } else if (element.tagName === 'SCRIPT') {
-                    element.setAttribute('src', newPath);
-                }
-                console.log(`Fixed path: ${originalPath} -> ${newPath}`);
+        // Fix all links and scripts with /_next/ paths
+        document.querySelectorAll('link[href^="/_next/"], script[src^="/_next/"]').forEach(function(element) {
+            const attr = element.tagName === 'LINK' ? 'href' : 'src';
+            const originalPath = element.getAttribute(attr);
+            
+            if (originalPath && originalPath.startsWith('/_next/')) {
+                const newPath = baseResourcePath + originalPath;
+                element.setAttribute(attr, newPath);
+                console.log('Fixed path:', originalPath, '->', newPath);
             }
         });
         
-        // Fix untuk favicon
-        document.querySelectorAll('link[rel="icon"]').forEach(element => {
-            const originalPath = element.getAttribute('href');
-            if (originalPath === '/favicon.ico') {
-                const newPath = '../../resources/out/favicon.ico';
-                element.setAttribute('href', newPath);
-                console.log(`Fixed favicon: ${originalPath} -> ${newPath}`);
-            }
-        });
-        
-        // Fix untuk asset paths yang mungkin di-load dinamis
-        const originalFetch = window.fetch;
-        window.fetch = function(url, options) {
-            if (typeof url === 'string' && url.startsWith('/_next/')) {
-                url = `../../resources/out${url}`;
-                console.log(`Fixed fetch URL: ${url}`);
-            }
-            return originalFetch.call(this, url, options);
-        };
+        // Fix favicon
+        const favicon = document.querySelector('link[rel="icon"][href="/favicon.ico"]');
+        if (favicon) {
+            favicon.setAttribute('href', baseResourcePath + '/favicon.ico');
+            console.log('Fixed favicon path');
+        }
     }
     
-    // Jalankan setelah DOM ready
+    // Run when DOM is ready
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', fixRelativePaths);
+        document.addEventListener('DOMContentLoaded', fixPaths);
     } else {
-        fixRelativePaths();
+        fixPaths();
     }
     
-    // Observasi perubahan DOM untuk path yang di-load dinamis
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.type === 'childList') {
-                mutation.addedNodes.forEach(function(node) {
-                    if (node.nodeType === 1) { // Element node
-                        // Check untuk script dan link baru
-                        const scripts = node.querySelectorAll ? node.querySelectorAll('script[src^="/_next/"]') : [];
-                        const links = node.querySelectorAll ? node.querySelectorAll('link[href^="/_next/"]') : [];
-                        
-                        [...scripts, ...links].forEach(element => {
-                            const attr = element.tagName === 'SCRIPT' ? 'src' : 'href';
-                            const originalPath = element.getAttribute(attr);
-                            if (originalPath.startsWith('/_next/')) {
-                                const newPath = `../../resources/out${originalPath}`;
-                                element.setAttribute(attr, newPath);
-                                console.log(`Fixed dynamic path: ${originalPath} -> ${newPath}`);
-                            }
-                        });
-                    }
-                });
-            }
-        });
-    });
-    
-    // Mulai observasi
-    observer.observe(document.body || document.documentElement, {
-        childList: true,
-        subtree: true
-    });
+    // Also run after a delay to catch dynamically loaded assets
+    setTimeout(fixPaths, 1000);
     
     console.log('Fix-paths.js initialization complete');
 })();
