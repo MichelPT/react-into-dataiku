@@ -146,13 +146,22 @@ function showPage(pageName) {
 
 function initializeStructuresPage() {
     console.log('Initializing structures page...');
-    // Try loading structures from local data first
-    loadStructuresFromFolder()
+    // Prefer backend in Dataiku, then fallback to local index.json, else mock
+    loadStructuresFromBackend()
+        .then(function(loaded) {
+            if (loaded) return true;
+            return loadStructuresFromFolder();
+        })
         .then(function(loaded) {
             if (!loaded) {
-                // Fallback to bundled mock data
                 console.warn('Using embedded structuresData mock');
             }
+            renderFieldsList();
+            showEmptyStructuresState();
+            showEmptyDetailsState();
+        })
+        .catch(function(err){
+            console.warn('Failed to initialize structures from backend/folder:', err && err.message ? err.message : err);
             renderFieldsList();
             showEmptyStructuresState();
             showEmptyDetailsState();
@@ -168,8 +177,9 @@ function loadStructuresFromFolder() {
             return res.json();
         })
         .then(function(json) {
-            if (json && json.fields && Array.isArray(json.fields)) {
-                structuresData = json;
+            var normalized = normalizeStructuresPayload(json);
+            if (normalized) {
+                structuresData = normalized;
                 console.log('Loaded structures from folder:', json);
                 return true;
             }
@@ -179,6 +189,96 @@ function loadStructuresFromFolder() {
             console.warn('Could not load structures from folder:', err.message || err);
             return false;
         });
+}
+
+// Try to load structures using Dataiku backend endpoint
+function loadStructuresFromBackend() {
+    try {
+        // Use existing fetchJson helper to honor Dataiku backend base URL
+        return fetchJson('/structures/tree', { method: 'GET' })
+            .then(function(resp){
+                if (!resp) return false;
+                var normalized = normalizeStructuresPayload(resp);
+                if (normalized) {
+                    structuresData = normalized;
+                    console.log('Loaded structures from backend tree');
+                    return true;
+                }
+                return false;
+            })
+            .catch(function(err){
+                console.warn('Could not load structures from backend:', err && err.message ? err.message : err);
+                return false;
+            });
+    } catch(e) {
+        console.warn('Backend structures load threw:', e && e.message ? e.message : e);
+        return Promise.resolve(false);
+    }
+}
+
+// Normalize various payload shapes into { fields: [...], total_fields, total_structures }
+function normalizeStructuresPayload(payload) {
+    if (!payload) return null;
+    // If already in expected shape
+    if (Array.isArray(payload.fields)) {
+        return {
+            fields: payload.fields,
+            total_fields: typeof payload.total_fields === 'number' ? payload.total_fields : payload.fields.length,
+            total_structures: typeof payload.total_structures === 'number' ? payload.total_structures : payload.fields.reduce(function(sum, f){ return sum + (Array.isArray(f.structures) ? f.structures.length : 0); }, 0)
+        };
+    }
+    // If payload has a 'tree' or similar structure
+    if (Array.isArray(payload.tree)) {
+        var fields = payload.tree.map(function(node){
+            return {
+                field_name: node.field_name || node.name || node.field || 'Unknown Field',
+                structures: (node.structures || node.children || []).map(function(s){
+                    return {
+                        structure_name: s.structure_name || s.name || 'Unknown',
+                        field_name: node.field_name || node.name || node.field || 'Unknown Field',
+                        file_path: s.file_path || s.path || s.url || '',
+                        wells_count: s.wells_count || (Array.isArray(s.wells) ? s.wells.length : 0),
+                        wells: s.wells || [],
+                        total_records: s.total_records || 0,
+                        columns: s.columns || [],
+                        intervals: s.intervals || []
+                    };
+                })
+            };
+        });
+        return {
+            fields: fields,
+            total_fields: fields.length,
+            total_structures: fields.reduce(function(sum, f){ return sum + (Array.isArray(f.structures) ? f.structures.length : 0); }, 0)
+        };
+    }
+    // If payload is a flat list of structures grouped by field_name
+    if (Array.isArray(payload.structures)) {
+        var grouped = {};
+        payload.structures.forEach(function(s){
+            var field = s.field_name || s.field || 'Unknown Field';
+            if (!grouped[field]) grouped[field] = [];
+            grouped[field].push({
+                structure_name: s.structure_name || s.name || 'Unknown',
+                field_name: field,
+                file_path: s.file_path || s.path || s.url || '',
+                wells_count: s.wells_count || (Array.isArray(s.wells) ? s.wells.length : 0),
+                wells: s.wells || [],
+                total_records: s.total_records || 0,
+                columns: s.columns || [],
+                intervals: s.intervals || []
+            });
+        });
+        var fields = Object.keys(grouped).map(function(fname){
+            return { field_name: fname, structures: grouped[fname] };
+        });
+        return {
+            fields: fields,
+            total_fields: fields.length,
+            total_structures: fields.reduce(function(sum, f){ return sum + (Array.isArray(f.structures) ? f.structures.length : 0); }, 0)
+        };
+    }
+    return null;
 }
 // Original fields/structures rendering
 function renderFieldsList() {
