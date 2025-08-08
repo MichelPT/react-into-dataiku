@@ -1,114 +1,367 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Well Log Analysis</title>
+    <title>Well Log Analysis - Data Platform</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
 </head>
-
 <body>
-    <div id="app">
-        <!-- Left Sidebar -->
-        <aside id="leftSidebar" class="sidebar">
-            <div class="sidebar-section">
-                <div class="section-header">
-                    <h3>Well Selection</h3>
-                    <div class="checkbox-controls">
-                        <label><input type="checkbox" id="selectAllWells" onchange="toggleAllWells()"> Select
-                            All</label>
-                    </div>
-                </div>
-                <div id="wellList" class="list-container scrollable-list"></div>
+    <!-- Universal Header -->
+    <header class="universal-header">
+        <div class="header-container">
+            <div class="header-content">
+                <!-- Desktop Navigation -->
+                <nav class="desktop-nav">
+                    <button class="nav-btn active" data-path="/structures">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10 4H4c-1.11 0-2 .89-2 2v6c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm10 0h-6c-1.11 0-2 .89-2 2v6c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM4 18h6c1.11 0 2-.89 2-2v-6c0-1.11-.89-2-2-2H4c-1.11 0-2 .89-2 2v6c0 1.11.89 2 2 2zm16 0h-6c-1.11 0-2-.89-2 2v-6c0-1.11.89-2 2-2h6c1.11 0 2 .89 2 2v6c0 1.11-.89 2-2 2z"/>
+                        </svg>
+                        <span>Structures</span>
+                    </button>
+                    <button class="nav-btn" data-path="/datapreparation">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                        </svg>
+                        <span>Data Preparation</span>
+                    </button>
+                    <button class="nav-btn" data-path="/dashboard">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M13,3V9H21V3M13,21H21V11H13M3,21H11V15H3M3,13H11V3H3V13Z"/>
+                        </svg>
+                        <span>Dashboard</span>
+                    </button>
+                </nav>
+                <!-- Mobile Menu Button -->
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <svg class="menu-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"/>
+                    </svg>
+                </button>
             </div>
-            <div class="sidebar-section">
-                <div class="section-header">
-                    <h3>Interval Selection</h3>
-                    <div class="checkbox-controls">
-                        <label><input type="checkbox" id="selectAllIntervals" onchange="toggleAllIntervals()"> Select
-                            All</label>
-                    </div>
-                </div>
-                <div id="intervalList" class="list-container scrollable-list"></div>
-            </div>
-            <div class="sidebar-section">
-                <div class="section-header">
-                    <h3>Saved Sets</h3>
-                    <div class="checkbox-controls">
-                        <label><input type="checkbox" id="selectAllSets" onchange="toggleAllSets()"> Select All</label>
-                    </div>
-                </div>
-                <div id="savedSets" class="list-container scrollable-list"></div>
-            </div>
-        </aside>
+        </div>
+    </header>
 
-        <!-- Main Content -->
-        <main id="mainContent">
-            <div id="plotArea"></div>
-            <div id="parameterForm" class="hidden">
-                <table id="parameterTable">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Location</th>
-                            <th>Mode</th>
-                            <th>Comment</th>
-                            <th>Unit</th>
-                            <th>Name</th>
-                            <th>P</th>
-                            <!-- Interval columns will be added dynamically -->
-                        </tr>
-                    </thead>
-                    <tbody id="parameterRows"></tbody>
-                </table>
-            </div>
-            <div id="loadingSpinner" class="hidden">
-                <div class="spinner"></div>
-                <p>Processing...</p>
-            </div>
-        </main>
-
-        <!-- Right Sidebar -->
-        <aside id="rightSidebar" class="sidebar">
-            <h3>Module Configuration</h3>
-            <div class="module-section">
-                <h4>Data Preparation</h4>
-                <div class="button-group">
-                    <button onclick="loadModule('log-plot')">LOG PLOT</button>
-                    <button onclick="loadModule('histogram')">HISTOGRAM</button>
-                    <button onclick="loadModule('crossplot-nphi-rhob')">CROSSPLOT-NPHI-RHOB</button>
-                    <button onclick="loadModule('crossplot-gr-nphi')">CROSSPLOT-GR-NPHI</button>
-                    <button onclick="loadModule('trim-data')">TRIM DATA</button>
-                    <button onclick="loadModule('depth-matching')">DEPTH MATCHING</button>
-                    <button onclick="loadModule('fill-missing')">FILL MISSING</button>
-                    <button onclick="loadModule('smoothing')">SMOOTHING</button>
-                    <button onclick="loadModule('normalization')">NORMALIZATION</button>
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu-overlay hidden" id="mobileMenuOverlay">
+        <div class="mobile-menu">
+            <div class="mobile-menu-header">
+                <div class="brand">
+                    <div class="brand-icon">
+                        <svg class="database-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zM4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4zM4 16v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4z"/>
+                        </svg>
+                    </div>
                 </div>
+                <button class="mobile-menu-close" id="mobileMenuClose">×</button>
             </div>
-            <div class="module-section">
-                <h4>Interpretation</h4>
-                <div class="button-group">
-                    <button onclick="loadModule('vsh-calculation')">VSH CALCULATION</button>
-                    <button onclick="loadModule('porosity-calculation')">POROSITY CALCULATION</button>
-                    <button onclick="loadModule('sw-calculation')">SW CALCULATION</button>
-                    <button onclick="loadModule('water-resistivity-calculation')">WATER RESISTIVITY</button>
-                </div>
-            </div>
-            <div class="module-section">
-                <h4>Gas Oil Water Scanner (GOWS)</h4>
-                <div class="button-group">
-                    <button onclick="loadModule('rgsa-ngsa-dgsa')">RGSA-NGSA-DGSA</button>
-                    <button onclick="loadModule('rgbe-rpbe')">RGBE-RPBE</button>
-                    <button onclick="loadModule('swgrad')">SWGRAD</button>
-                    <button onclick="loadModule('dns-dnsv')">DNS-DNSV</button>
-                    <button onclick="loadModule('rt-ro')">RT-RO</button>
-                </div>
-            </div>
-        </aside>
+            <nav class="mobile-nav">
+                <button class="mobile-nav-btn active" data-path="/structures">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M10 4H4c-1.11 0-2 .89-2 2v6c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm10 0h-6c-1.11 0-2 .89-2 2v6c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM4 18h6c1.11 0 2-.89 2-2v-6c0-1.11-.89-2-2-2H4c-1.11 0-2 .89-2 2v6c0 1.11.89 2 2 2zm16 0h-6c-1.11 0-2-.89-2 2v-6c0-1.11.89-2 2-2h6c1.11 0 2 .89 2 2v6c0 1.11-.89 2-2 2z"/>
+                    </svg>
+                    <span>Structures</span>
+                </button>
+                <button class="mobile-nav-btn" data-path="/datapreparation">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                    </svg>
+                    <span>Data Preparation</span>
+                </button>
+                <button class="mobile-nav-btn" data-path="/dashboard">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M13,3V9H21V3M13,21H21V11H13M3,21H11V15H3M3,13H11V3H3V13Z"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </button>
+            </nav>
+        </div>
     </div>
+
+    <!-- Structures Page -->
+    <div id="structuresPage" class="page-container">
+        <div class="structures-layout">
+            <!-- Panel 1: Fields List -->
+            <div class="fields-panel">
+                <h2>Fields</h2>
+                <div id="fieldsList" class="fields-list"></div>
+            </div>
+            <!-- Panel 2: Structures List -->
+            <div class="structures-panel">
+                <div class="panel-header">
+                    <span id="structuresTitle">Select a field to view structures</span>
+                </div>
+                <div id="structuresList" class="structures-content"></div>
+            </div>
+            <!-- Panel 3: Structure Details -->
+            <div class="details-panel">
+                <div class="panel-header">
+                    <span id="detailsTitle">Select a structure to view details</span>
+                </div>
+                <div id="structureDetails" class="details-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Page (existing content) -->
+    <div id="dashboardPage" class="page-container hidden">
+        <div id="app">
+            <!-- Left Sidebar - Data Selection -->
+            <aside id="leftSidebar" class="left-sidebar">
+                <div class="sidebar-header">
+                    <div class="header-icon">
+                        <svg class="settings-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11.03L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11.03C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+                        </svg>
+                    </div>
+                    <div class="header-text">
+                        <h2>Data Selection</h2>
+                        <p>Configure parameters</p>
+                    </div>
+                </div>
+                <div class="sidebar-content">
+                    <!-- Wells Section -->
+                    <div class="sidebar-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <div class="section-icon">
+                                    <svg class="target-icon" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z"/>
+                                    </svg>
+                                </div>
+                                <h3>Wells</h3>
+                                <span class="badge" id="wellsBadge">0/0</span>
+                            </div>
+                            <div class="checkbox-controls">
+                                <label>
+                                    <input type="checkbox" id="selectAllWells">
+                                    Select all
+                                </label>
+                            </div>
+                        </div>
+                        <div id="wellList" class="list-container scrollable-list"></div>
+                    </div>
+                    
+                    <!-- Intervals Section -->
+                    <div class="sidebar-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <div class="section-icon">
+                                    <svg class="chart-icon" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M22,21H2V3H4V19H6V17H10V19H12V16H16V19H18V17H22V21Z"/>
+                                    </svg>
+                                </div>
+                                <h3>Intervals</h3>
+                                <span class="badge" id="intervalsBadge">0/0</span>
+                            </div>
+                            <div class="checkbox-controls">
+                                <label>
+                                    <input type="checkbox" id="selectAllIntervals">
+                                    Select all
+                                </label>
+                            </div>
+                        </div>
+                        <div id="intervalList" class="list-container scrollable-list"></div>
+                    </div>
+
+                    <!-- Plot Configuration -->
+                    <div class="sidebar-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <div class="section-icon">
+                                    <svg class="chart-icon" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M22,21H2V3H4V19H6V17H10V19H12V16H16V19H18V17H22V21Z"/>
+                                    </svg>
+                                </div>
+                                <h3>Plot Configuration</h3>
+                            </div>
+                        </div>
+                        <div class="plot-config">
+                            <label>Layout Type</label>
+                            <select id="plotTypeSelect" class="select-input">
+                                <option value="default">Layout Default</option>
+                                <option value="normalization">Layout Normalisasi</option>
+                                <option value="smoothing">Layout Smoothing</option>
+                                <option value="vsh">Layout VSH</option>
+                                <option value="porosity">Layout Porosity</option>
+                                <option value="sw">Layout SW</option>
+                                <option value="rwa">Layout RWA</option>
+                                <option value="gsa">Layout GSA</option>
+                            </select>
+                            
+                            <div class="analysis-tools">
+                                <label>Analysis Tools</label>
+                                <button class="tool-btn" data-tool="histogram">
+                                    <svg class="tool-icon" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M22,21H2V3H4V19H6V17H10V19H12V16H16V19H18V17H22V21Z"/>
+                                    </svg>
+                                    Histogram
+                                </button>
+                                <button class="tool-btn" data-tool="crossplot">
+                                    <svg class="tool-icon" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z"/>
+                                    </svg>
+                                    Crossplot
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Footer Summary -->
+                <div class="sidebar-footer">
+                    <div class="summary-item">
+                        <span>Selected Wells:</span>
+                        <span class="badge" id="selectedWellsCount">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>Selected Intervals:</span>
+                        <span class="badge" id="selectedIntervalsCount">0</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main id="mainContent">
+                <div class="main-header">
+                    <h2>Well Log Analysis</h2>
+                    <div class="status-bar">
+                        <span id="statusText">Ready</span>
+                        <button id="refreshBtn" class="btn-secondary">Refresh Data</button>
+                        <button id="debugBtn" class="btn-secondary" onclick="showDebugInfo()">Debug</button>
+                        <button id="testConnectionBtn" class="btn-secondary" onclick="testBackendConnection()">Test Connection</button>
+                    </div>
+                </div>
+                
+                <div id="plotArea" class="plot-container">
+                    <div class="empty-plot-state">
+                        <h3>Select a well to view log data</h3>
+                        <p>Choose one or more wells from the left sidebar to begin analysis</p>
+                    </div>
+                </div>
+                
+                <div id="parameterForm" class="parameter-form hidden">
+                    <div class="form-header">
+                        <h3>Calculation Parameters</h3>
+                        <button id="closeFormBtn" class="btn-close">&times;</button>
+                    </div>
+                    <div class="form-content">
+                        <table id="parameterTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Unit</th>
+                                    <th>Name</th>
+                                    <th>Enabled</th>
+                                </tr>
+                            </thead>
+                            <tbody id="parameterRows"></tbody>
+                        </table>
+                        <div class="form-actions">
+                            <button id="submitParams" class="btn-primary">Run Calculation</button>
+                            <button id="cancelParams" class="btn-secondary">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="loadingSpinner" class="loading-overlay hidden">
+                    <div class="spinner-container">
+                        <div class="spinner"></div>
+                        <p>Processing...</p>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Sidebar - Module Configuration -->
+            <aside id="rightSidebar" class="right-sidebar">
+                <div class="sidebar-header">
+                    <div class="header-icon">
+                        <svg class="settings-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11.03L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11.03C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+                        </svg>
+                    </div>
+                    <div class="header-text">
+                        <h2>Module Configuration</h2>
+                        <p>Select analysis modules</p>
+                    </div>
+                </div>
+                
+                <div class="sidebar-content">
+                    <div class="module-section">
+                        <h4>Data Preparation</h4>
+                        <div class="button-group">
+                            <button class="module-btn" data-module="log-plot">LOG PLOT</button>
+                            <button class="module-btn" data-module="histogram">HISTOGRAM</button>
+                            <button class="module-btn" data-module="crossplot-nphi-rhob">CROSSPLOT-NPHI-RHOB</button>
+                            <button class="module-btn" data-module="crossplot-gr-nphi">CROSSPLOT-GR-NPHI</button>
+                            <button class="module-btn" data-module="trim-data">TRIM DATA</button>
+                            <button class="module-btn" data-module="depth-matching">DEPTH MATCHING</button>
+                            <button class="module-btn" data-module="fill-missing">FILL MISSING</button>
+                            <button class="module-btn" data-module="smoothing">SMOOTHING</button>
+                            <button class="module-btn" data-module="normalization">NORMALIZATION</button>
+                        </div>
+                    </div>
+                    
+                    <div class="module-section">
+                        <h4>Interpretation</h4>
+                        <div class="button-group">
+                            <button class="module-btn dropdown-btn" data-module="vsh-calculation">
+                                <span>VSH CALCULATION</span>
+                                <svg class="chevron-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
+                                </svg>
+                            </button>
+                            <div class="dropdown-content hidden" data-parent="vsh-calculation">
+                                <button class="sub-module-btn" data-module="vsh-gr">VSH-GR</button>
+                                <button class="sub-module-btn" data-module="vsh-dn">VSH-DN</button>
+                            </div>
+                            
+                            <button class="module-btn" data-module="porosity-calculation">POROSITY CALCULATION</button>
+                            
+                            <button class="module-btn dropdown-btn" data-module="sw-calculation">
+                                <span>SW CALCULATION</span>
+                                <svg class="chevron-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
+                                </svg>
+                            </button>
+                            <div class="dropdown-content hidden" data-parent="sw-calculation">
+                                <button class="sub-module-btn" data-module="sw-indonesia">SW INDONESIA</button>
+                                <button class="sub-module-btn" data-module="sw-simandoux">SW SIMANDOUX</button>
+                            </div>
+                            
+                            <button class="module-btn" data-module="water-resistivity-calculation">WATER RESISTIVITY</button>
+                        </div>
+                    </div>
+                    
+                    <div class="module-section">
+                        <h4>Gas Oil Water Scanner (GOWS)</h4>
+                        <div class="button-group">
+                            <button class="module-btn dropdown-btn" data-module="rgsa-ngsa-dgsa">
+                                <span>RGSA</span>
+                                <svg class="chevron-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
+                                </svg>
+                            </button>
+                            <div class="dropdown-content hidden" data-parent="rgsa-ngsa-dgsa">
+                                <button class="sub-module-btn" data-module="rgsa">RGSA</button>
+                                <button class="sub-module-btn" data-module="dgsa">DGSA</button>
+                                <button class="sub-module-btn" data-module="ngsa">NGSA</button>
+                            </div>
+                            
+                            <button class="module-btn" data-module="rgbe-rpbe">RGBE-RPBE</button>
+                            <button class="module-btn" data-module="swgrad">SWGRAD</button>
+                            <button class="module-btn" data-module="dns-dnsv">DNS-DNSV</button>
+                            <button class="module-btn" data-module="rt-ro">RT-RO</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
-
 </html>
