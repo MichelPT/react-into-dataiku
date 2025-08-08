@@ -124,7 +124,15 @@ function resolveFilePath(p) {
     if (!url.toLowerCase().startsWith('structures/')) {
         url = 'structures/' + url;
     }
-    // Encode each segment to handle spaces and special chars
+    // In Dataiku, use Resource URL for static files
+    try {
+        if (typeof window !== 'undefined' && window.dataiku && typeof window.dataiku.getWebAppResourceUrl === 'function') {
+            // Resource path should be relative to the 'resource' folder root
+            var resourcePath = url.replace(/^structures\//i, 'structures/');
+            return window.dataiku.getWebAppResourceUrl(resourcePath);
+        }
+    } catch(e) {}
+    // Encode each segment to handle spaces and special chars for plain static serving
     url = url.split('/').map(function(seg){ return encodeURIComponent(seg); }).join('/');
     return url;
 }
@@ -170,25 +178,43 @@ function initializeStructuresPage() {
 
 // Load structures definition from /data/structures/index.json (served statically)
 function loadStructuresFromFolder() {
-    var url = 'data/structures/index.json';
-    return fetch(url, { cache: 'no-cache' })
-        .then(function(res) {
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            return res.json();
-        })
-        .then(function(json) {
-            var normalized = normalizeStructuresPayload(json);
-            if (normalized) {
-                structuresData = normalized;
-                console.log('Loaded structures from folder:', json);
-                return true;
-            }
-            return false;
-        })
-        .catch(function(err) {
-            console.warn('Could not load structures from folder:', err.message || err);
-            return false;
-        });
+    // Try multiple candidate URLs to accommodate local dev and Dataiku resources
+    var candidates = [];
+    try {
+        if (typeof window !== 'undefined' && window.dataiku && typeof window.dataiku.getWebAppResourceUrl === 'function') {
+            candidates.push(window.dataiku.getWebAppResourceUrl('structures/index.json'));
+            candidates.push(window.dataiku.getWebAppResourceUrl('data/structures/index.json'));
+        }
+    } catch(e) {}
+    candidates = candidates.concat([
+        'structures/index.json',
+        'data/structures/index.json',
+        '/structures/index.json',
+        '/data/structures/index.json'
+    ]);
+
+    function tryNext(i) {
+        if (i >= candidates.length) {
+            return Promise.resolve(false);
+        }
+        var url = candidates[i];
+        return fetch(url, { cache: 'no-cache' })
+            .then(function(res){ if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+            .then(function(json){
+                var normalized = normalizeStructuresPayload(json);
+                if (normalized) {
+                    structuresData = normalized;
+                    console.log('Loaded structures from folder URL:', url);
+                    return true;
+                }
+                return tryNext(i+1);
+            })
+            .catch(function(){ return tryNext(i+1); });
+    }
+    return tryNext(0).catch(function(err){
+        console.warn('Could not load structures from any folder URL:', err && err.message ? err.message : err);
+        return false;
+    });
 }
 
 // Try to load structures using Dataiku backend endpoint
