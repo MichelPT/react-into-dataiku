@@ -106,6 +106,29 @@ var structuresState = {
 var currentPage = 'structures'; // 'structures' or 'dashboard'
 
 // Structures Functions
+// Normalize file paths from index.json to actual served URLs under this webapp
+function resolveFilePath(p) {
+    if (!p) return '';
+    var url = String(p).trim();
+    // Pass through absolute URLs
+    if (/^https?:\/\//i.test(url)) return url;
+    // Normalize slashes
+    url = url.replace(/\\/g, '/');
+    // Remove leading slash to make it relative to webapp root
+    if (url.startsWith('/')) url = url.slice(1);
+    // Handle legacy 'data/structures/**' by stripping 'data/'
+    if (url.toLowerCase().startsWith('data/structures/')) {
+        url = url.substring('data/'.length);
+    }
+    // Ensure it is under 'structures/'
+    if (!url.toLowerCase().startsWith('structures/')) {
+        url = 'structures/' + url;
+    }
+    // Encode each segment to handle spaces and special chars
+    url = url.split('/').map(function(seg){ return encodeURIComponent(seg); }).join('/');
+    return url;
+}
+
 function showPage(pageName) {
     var structuresPage = document.getElementById('structuresPage');
     var dashboardPage = document.getElementById('dashboardPage');
@@ -303,8 +326,9 @@ function handleStructureSelect(structureName) {
         fieldName: structuresState.selectedField,
         structureName: structure.structure_name,
         filePath: structure.file_path,
-        wells: structure.wells || [],
-        columns: structure.columns || []
+    wells: structure.wells || [],
+    columns: structure.columns || [],
+    intervals: structure.intervals || []
     };
     localStorage.setItem('selectedStructure', JSON.stringify(selectedInfo));
     console.log('Saved selectedStructure to localStorage:', selectedInfo);
@@ -349,7 +373,7 @@ function handleFieldSelect(fieldName) {
 function renderStructureDetails(structure) {
     var detailsTitle = document.getElementById('detailsTitle');
     var structureDetails = document.getElementById('structureDetails');
-    
+    var filePathResolved = resolveFilePath(structure.file_path);
     detailsTitle.textContent = 'Details for "' + structure.structure_name + '"';
     
     var detailsHTML = 
@@ -368,15 +392,16 @@ function renderStructureDetails(structure) {
                     '</div>' +
                     '<div class="detail-item">' +
                         '<span>Wells Count:</span>' +
-                        '<span>' + structure.wells_count + '</span>' +
+                        '<span>' + ((structure.wells && structure.wells.length) ? structure.wells.length : (structure.wells_count || 0)) + '</span>' +
                     '</div>' +
                     '<div class="detail-item">' +
                         '<span>Total Records:</span>' +
-                        '<span>' + structure.total_records.toLocaleString() + '</span>' +
+                        '<span>' + ((structure.total_records || 0).toLocaleString ? (structure.total_records || 0).toLocaleString() : (structure.total_records || 0)) + '</span>' +
                     '</div>' +
                     '<div class="detail-item full-width">' +
                         '<span>File Path:</span>' +
-                        '<span class="file-path">' + structure.file_path + '</span>' +
+                        '<span class="file-path">' + filePathResolved + '</span>' +
+                        '<a class="btn-link" style="margin-left:8px" href="' + filePathResolved + '" target="_blank" rel="noopener">Open file</a>' +
                     '</div>' +
                 '</div>' +
             '</div>';
@@ -385,7 +410,7 @@ function renderStructureDetails(structure) {
     if (structure.wells && structure.wells.length > 0) {
         detailsHTML += 
             '<div class="detail-section">' +
-                '<h3>Wells (' + structure.wells_count + ')</h3>' +
+                '<h3>Wells (' + (structure.wells ? structure.wells.length : (structure.wells_count || 0)) + ')</h3>' +
                 '<div class="wells-grid">';
         
         structure.wells.forEach(function(well) {
@@ -398,10 +423,10 @@ function renderStructureDetails(structure) {
     // Columns section
     detailsHTML += 
         '<div class="detail-section">' +
-            '<h3>Available Columns (' + structure.columns.length + ')</h3>' +
+            '<h3>Available Columns (' + (structure.columns ? structure.columns.length : 0) + ')</h3>' +
             '<div class="columns-grid">';
     
-    structure.columns.forEach(function(column) {
+    (structure.columns || []).forEach(function(column) {
         var dataType = structure.data_types && structure.data_types[column] ? structure.data_types[column] : 'Unknown';
         detailsHTML += 
             '<div class="column-item">' +
@@ -473,6 +498,222 @@ function renderStructureDetails(structure) {
     detailsHTML += '</div>';
     
     structureDetails.innerHTML = detailsHTML;
+
+    // If columns/wells not populated yet, try to enrich by reading the Excel file
+    if ((!(structure.columns && structure.columns.length) || !(structure.wells && structure.wells.length) || (structure.wells_count|0) === 0) && filePathResolved && typeof XLSX !== 'undefined') {
+        // Show nicer inline loader inside details panel
+        var loadingDiv = document.createElement('div');
+        loadingDiv.className = 'detail-section details-loader';
+        loadingDiv.innerHTML = '' +
+            '<div class="loader-content">' +
+                '<div class="spinner" aria-hidden="true"></div>' +
+                '<div class="loader-text">Loading structure details...</div>' +
+                '<div class="skeleton-list" aria-hidden="true">' +
+                    '<div class="skeleton-row" style="width: 80%"></div>' +
+                    '<div class="skeleton-row" style="width: 60%"></div>' +
+                    '<div class="skeleton-row" style="width: 70%"></div>' +
+                '</div>' +
+            '</div>';
+        structureDetails.appendChild(loadingDiv);
+
+        enrichStructureFromExcel(filePathResolved)
+            .then(function(meta){
+                // Merge metadata into structure
+                if (meta.columns) structure.columns = meta.columns;
+                if (meta.wells) {
+                    structure.wells = meta.wells;
+                    structure.wells_count = meta.wells.length;
+                }
+                if (typeof meta.total_records === 'number') structure.total_records = meta.total_records;
+                if (meta.data_types) structure.data_types = meta.data_types;
+                if (meta.intervals) structure.intervals = meta.intervals;
+                if (meta.statistics) structure.statistics = meta.statistics;
+
+                // Persist updated intervals/wells into localStorage if this structure is selected
+                try {
+                    var savedSel2 = localStorage.getItem('selectedStructure');
+                    if (savedSel2) {
+                        var parsedSel2 = JSON.parse(savedSel2);
+                        if (parsedSel2 && parsedSel2.structureName === structure.structure_name && parsedSel2.fieldName === structure.field_name) {
+                            if (structure.wells) parsedSel2.wells = structure.wells.slice();
+                            if (structure.intervals) parsedSel2.intervals = structure.intervals.slice();
+                            parsedSel2.wells_count = (structure.wells ? structure.wells.length : (structure.wells_count||0));
+                            localStorage.setItem('selectedStructure', JSON.stringify(parsedSel2));
+                        }
+                    }
+                } catch(e) {}
+
+                // Re-render with enriched info
+                renderStructureDetails(structure);
+            })
+            .catch(function(err){
+                console.warn('Failed to parse Excel for metadata:', err);
+            });
+    }
+}
+
+// Read minimal metadata from Excel: columns, wells, intervals, row count, basic stats
+function enrichStructureFromExcel(filePath) {
+    return fetch(filePath).then(function(res){
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.arrayBuffer();
+    }).then(function(buf){
+        var wb = XLSX.read(buf, { type: 'array' });
+        if (!wb.SheetNames || wb.SheetNames.length === 0) throw new Error('No sheets found');
+
+        // Pick the best sheet: prefer one with many rows and plausible headers
+        function scoreSheet(name) {
+            var ws = wb.Sheets[name];
+            var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+            if (!aoa || aoa.length === 0) return { score: 0, aoa: aoa };
+            // compute non-empty counts for first few rows
+            var headerIdx = -1, bestNonEmpty = -1;
+            for (var r=0; r<Math.min(10, aoa.length); r++) {
+                var row = aoa[r] || [];
+                var nonEmpty = row.reduce(function(acc, cell){ return acc + ((cell!==null && cell!==undefined && (''+cell).trim()!=='') ? 1 : 0); }, 0);
+                if (nonEmpty > bestNonEmpty) { bestNonEmpty = nonEmpty; headerIdx = r; }
+            }
+            var header = (headerIdx >= 0 ? aoa[headerIdx] : []);
+            var canon = function(s){ return (s||'').toString().toLowerCase().replace(/[^a-z0-9]/g,''); };
+            var ch = (header||[]).map(canon);
+            var hasWell = ['well','wellname','wellid','wellno','sumur','namasumur','wellborename'].some(function(k){ return ch.indexOf(k) >= 0; });
+            var hasDepth = ['depth','md','tvd'].some(function(k){ return ch.indexOf(k) >= 0; });
+            var rowsCount = Math.max(0, (aoa.length - (headerIdx>=0?headerIdx+1:1)));
+            var score = bestNonEmpty + (hasWell?10:0) + (hasDepth?4:0) + Math.min(20, Math.floor(rowsCount/100));
+            return { score: score, aoa: aoa, headerIdx: headerIdx };
+        }
+
+        var best = { name: wb.SheetNames[0], score: -1, aoa: null, headerIdx: 0 };
+        for (var si=0; si<wb.SheetNames.length; si++) {
+            var nm = wb.SheetNames[si];
+            var s = scoreSheet(nm);
+            if (s.score > best.score) { best = { name: nm, score: s.score, aoa: s.aoa, headerIdx: s.headerIdx } }
+        }
+
+        var ws = wb.Sheets[best.name];
+        // Get AoA from best sheet
+        var aoa = best.aoa || XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+        if (!aoa || aoa.length === 0) return {};
+        // Find the first non-empty row to use as header
+        var headerRowIdx = (typeof best.headerIdx === 'number' && best.headerIdx >=0) ? best.headerIdx : 0;
+        if (headerRowIdx === 0) {
+            for (var r2 = 0; r2 < aoa.length; r2++) {
+                var nonEmpty2 = 0;
+                var rowArr2 = aoa[r2] || [];
+                for (var c2 = 0; c2 < rowArr2.length; c2++) {
+                    var cell2 = rowArr2[c2];
+                    if (cell2 !== null && cell2 !== undefined && (''+cell2).trim() !== '') nonEmpty2++;
+                }
+                if (nonEmpty2 >= 2) { headerRowIdx = r2; break; }
+            }
+        }
+        var header = (aoa[headerRowIdx] || []).map(function(h){ return (h === null || h === undefined) ? '' : (''+h).trim(); });
+        var rows = aoa.slice(headerRowIdx + 1);
+        var totalRecords = rows.length;
+
+        // Determine column data types by sampling
+        var dataTypes = {};
+        var sampleCount = Math.min(rows.length, 200);
+        var numericCols = new Set();
+        header.forEach(function(col, idx){
+            if (!col) return;
+            var isNumeric = false;
+            for (var i=0;i<sampleCount;i++) {
+                var v = rows[i] ? rows[i][idx] : null;
+                if (v !== null && v !== '' && v !== undefined) {
+                    var n = Number(v);
+                    if (!isNaN(n)) { isNumeric = true; break; }
+                }
+            }
+            dataTypes[col] = isNumeric ? 'number' : 'string';
+            if (isNumeric) numericCols.add(col);
+        });
+
+        // Collect wells and intervals by robust column-name matching
+        function canon(s){ return (s||'').toString().toLowerCase().replace(/[^a-z0-9]/g,''); }
+        var canonHeader = header.map(canon);
+        function findCol(candidates){
+            var canonCandidates = candidates.map(canon);
+            for (var i=0; i<canonCandidates.length; i++) {
+                var cc = canonCandidates[i];
+                var idx = canonHeader.indexOf(cc);
+                if (idx >= 0) return idx;
+            }
+            return -1;
+        }
+        var wellIdx = findCol(['WELL_NAME','WELL NAME','WELL','WELLNAME','WELL_ID','WELL ID','WELLNO','WELL NO','WELL_CODE','WELL CODE','WELL_BORE_NAME','WELLBORENAME','SUMUR','NAMA SUMUR','NAMA_SUMUR']);
+        var intervalIdx = findCol(['MARKER','INTERVAL','ZONE','ZONE_NAME','LAYER','FORMATION','FORMASI','ZONA']);
+
+        // If well column not found by header, try pattern-based detection
+        if (wellIdx < 0) {
+            var bestIdx = -1, bestScore = 0;
+            var wellPattern = /^(?:[A-Za-z]{2,6})[-_ ]?\d{1,4}$/; // e.g., ABB-035, LIM 12
+            for (var ci=0; ci<header.length; ci++) {
+                var hits = 0, total = 0;
+                for (var rr=0; rr<Math.min(rows.length, 2000); rr++) {
+                    var v = rows[rr] ? rows[rr][ci] : null;
+                    if (v === null || v === undefined || (''+v).trim() === '') continue;
+                    total++;
+                    if (wellPattern.test((''+v).trim())) hits++;
+                }
+                if (total > 0) {
+                    var ratio = hits/total;
+                    var score = hits + ratio*10;
+                    if (score > bestScore && hits >= 3 && ratio >= 0.4) { bestScore = score; bestIdx = ci; }
+                }
+            }
+            if (bestIdx >= 0) wellIdx = bestIdx;
+        }
+
+        var wellsOrdered = [];
+        var wellsSeen = new Set();
+        var intervalsSet = new Set();
+        for (var r=0;r<rows.length;r++) {
+            var row = rows[r] || [];
+            if (wellIdx >= 0) {
+                var w = row[wellIdx];
+                if (w !== null && w !== undefined) {
+                    var ws = (''+w).trim();
+                    if (ws !== '' && !wellsSeen.has(ws)) { wellsSeen.add(ws); wellsOrdered.push(ws); }
+                }
+            }
+            if (intervalIdx >= 0) {
+                var it = row[intervalIdx];
+                if (it !== null && it !== undefined && (''+it).trim() !== '') intervalsSet.add((''+it).trim());
+            }
+        }
+
+        // Basic statistics for a few common logs if present
+        function statsFor(colName){
+            var idx = header.indexOf(colName);
+            if (idx < 0) return null;
+            var count=0, min=Infinity, max=-Infinity, sum=0;
+            for (var r=0;r<rows.length;r++) {
+                var v = rows[r] ? rows[r][idx] : null;
+                var n = Number(v);
+                if (!isNaN(n)) {
+                    count++; sum += n; if (n<min) min=n; if (n>max) max=n;
+                }
+            }
+            if (count===0) return { count: 0, min: null, max: null, mean: null };
+            return { count: count, min: min, max: max, mean: sum/count };
+        }
+        var commonLogs = ['GR','RT','NPHI','RHOB'];
+        var statistics = {};
+        commonLogs.forEach(function(log){
+            var st = statsFor(log);
+            if (st) statistics[log] = st;
+        });
+
+        return {
+            columns: header.filter(function(h){ return h && h.length>0; }),
+            data_types: dataTypes,
+            wells: wellsOrdered,
+            intervals: Array.from(intervalsSet),
+            total_records: totalRecords,
+            statistics: statistics
+        };
+    });
 }
 
 // Lightweight details panel for CSV-driven structures
@@ -495,27 +736,78 @@ function navigateToDashboard() {
             fieldName: info.fieldName,
             structureName: info.structureName,
             filePath: info.filePath,
-            wells: info.wells,
-            columns: info.columns || []
+            wells: info.wells || [],
+            columns: info.columns || [],
+            intervals: info.intervals || []
         };
 
         // Switch to dashboard
         showPage('dashboard');
         handleNavigation('/dashboard');
-        
-        // Initialize dashboard dengan data dari structure
-        setTimeout(function() {
+
+        // Ensure wells/intervals are populated for folder-based structures before rendering lists
+        ensureStructureDataLoaded().then(function(){
             renderWellList(appState.availableWells);
-            clearIntervals();
             updateBadges();
+            // Optionally auto-select first well to load intervals immediately
+            if (appState.availableWells.length > 0 && appState.selectedWells.length === 0) {
+                appState.selectedWells = [appState.availableWells[0]];
+                updateWellSelection();
+                // Load a default plot and intervals
+                loadWellPlot(appState.selectedWells[0]);
+            }
+            updateIntervalsForSelectedWells();
             clearPlot();
             showSuccess('Dashboard loaded with ' + appState.availableWells.length + ' wells from ' + info.structureName);
-        }, 100);
+        }).catch(function(){
+            renderWellList(appState.availableWells);
+            updateBadges();
+        });
         
     } else {
         console.error('🚀 No structure details available for navigation');
         showError('No structure selected. Please select a structure first.');
     }
+}
+
+// Ensure currentStructure has wells (for folder-based structures) and updates availableWells
+function ensureStructureDataLoaded() {
+    return new Promise(function(resolve) {
+        var cs = appState.currentStructure || {};
+        var isFolder = /\/$/.test(cs.filePath || '');
+        // If folder-based and no wells yet, fetch from backend
+        if (isFolder && (!cs.wells || cs.wells.length === 0)) {
+            fetchJson('/structures/list_wells', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folder_path: cs.filePath })
+            }).then(function(resp){
+                if (resp && resp.status === 'success') {
+                    cs.wells = resp.wells || [];
+                    appState.currentStructure = cs;
+                    appState.availableWells = cs.wells.slice();
+                    // Update persisted selection
+                    try {
+                        var saved = localStorage.getItem('selectedStructure');
+                        if (saved) {
+                            var parsed = JSON.parse(saved);
+                            if (parsed && parsed.structureName === cs.structureName && parsed.fieldName === cs.fieldName) {
+                                parsed.wells = cs.wells.slice();
+                                parsed.wells_count = cs.wells.length;
+                                localStorage.setItem('selectedStructure', JSON.stringify(parsed));
+                            }
+                        }
+                    } catch(e) {}
+                }
+            }).finally(function(){ resolve(); });
+        } else {
+            // Not a folder or wells already present
+            if (cs.wells && cs.wells.length > 0) {
+                appState.availableWells = cs.wells.slice();
+            }
+            resolve();
+        }
+    });
 }
 
 // Empty states for structures UI
@@ -569,17 +861,21 @@ function handleNavigation(path) {
                         structureName: structureInfo.structureName,
                         filePath: structureInfo.filePath,
                         wells: structureInfo.wells || [],
-                        columns: structureInfo.columns || []
+                        columns: structureInfo.columns || [],
+                        intervals: structureInfo.intervals || []
                     };
                 }
             }
-            if (appState.currentStructure && (!appState.availableWells || appState.availableWells.length === 0)) {
-                appState.availableWells = (appState.currentStructure.wells || []);
-                renderWellList(appState.availableWells);
-                updateBadges();
-                showSuccess('Dashboard loaded with data from ' + appState.currentStructure.structureName);
-            } else if (!appState.currentStructure) {
+            if (!appState.currentStructure) {
                 showMessage('Dashboard loaded - select a structure first to load well data', 'info');
+            } else {
+                ensureStructureDataLoaded().then(function(){
+                    if (!appState.availableWells || appState.availableWells.length === 0) {
+                        showMessage('No wells found for the selected structure', 'warning');
+                    }
+                    renderWellList(appState.availableWells);
+                    updateBadges();
+                });
             }
             break;
         default:
@@ -1368,21 +1664,29 @@ function updateIntervalsForSelectedWells() {
         return;
     }
 
-    // Always load intervals/markers from CSV via backend
+    // Prefer structure-specific intervals if present
+    if (appState.currentStructure && Array.isArray(appState.currentStructure.intervals) && appState.currentStructure.intervals.length > 0) {
+        appState.availableIntervals = appState.currentStructure.intervals.slice();
+        renderIntervalList(appState.availableIntervals);
+        updateBadges();
+        return;
+    }
+
+    // Otherwise, load from backend dataset markers
     fetchJson('/get_markers')
-    .then(function(response) {
-        if (response.status === 'success') {
-            appState.availableIntervals = response.markers;
-            renderIntervalList(response.markers);
-            updateBadges();
-        } else {
-            throw new Error(response.message || 'Failed to load intervals');
-        }
-    })
-    .catch(function(error) {
-        console.error('Error loading intervals:', error);
-        showError('Error loading intervals: ' + error.message);
-    });
+        .then(function(response) {
+            if (response.status === 'success') {
+                appState.availableIntervals = response.markers;
+                renderIntervalList(response.markers);
+                updateBadges();
+            } else {
+                throw new Error(response.message || 'Failed to load intervals');
+            }
+        })
+        .catch(function(error) {
+            console.error('Error loading intervals:', error);
+            showError('Error loading intervals: ' + error.message);
+        });
 }
 
 // Helper function untuk mencari structure data pada mock
