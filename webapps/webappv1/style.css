@@ -30,6 +30,309 @@ body {
     min-height: 100vh;
 }
 
+/* Data Preparation Module Buttons */
+.data-prep-modules {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.data-prep-module-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.data-prep-module-btn:hover {
+    background: #f1f5f9;
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.data-prep-module-btn.active {
+    background: #eff6ff;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.data-prep-module-btn .module-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.data-prep-module-btn:hover .module-icon,
+.data-prep-module-btn.active .module-icon {
+    opacity: 1;
+}
+
+.data-prep-module-btn span {
+    font-weight: 500;
+}
+
+/* Current Module Display */
+.current-module-display {
+    padding: 12px;
+    background: var(--bg-gray);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.current-module-display.active {
+    background: #eff6ff;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* Data Prep Module Container */
+.data-prep-module-container {
+    padding: 24px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.data-prep-module-container h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.module-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-height: 0;
+}
+
+/* File Selection Section */
+.file-selection-section h4,
+.parameters-section h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+}
+
+.file-list-container {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 16px;
+    background: var(--bg-white);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.file-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-gray);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.file-item:hover {
+    background: #f1f5f9;
+    border-color: var(--primary-color);
+}
+
+.file-item input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.file-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.loading-state {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Parameters Section */
+.parameters-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.parameters-table-container {
+    flex: 1;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--bg-white);
+    overflow: auto;
+}
+
+.parameters-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.parameters-table th {
+    background: #f8fafc;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.parameters-table th:last-child {
+    border-right: none;
+}
+
+.param-row td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.param-row td:last-child {
+    border-right: none;
+    background: var(--bg-white) !important;
+}
+
+.param-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+    background: var(--bg-white);
+    color: var(--text-primary);
+}
+
+.param-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.param-input:read-only {
+    background: #f8fafc;
+    color: var(--text-secondary);
+}
+
+/* Parameter row color coding */
+.param-row.bg-orange-600 {
+    background: #ea580c;
+    color: white;
+}
+
+.param-row.bg-yellow-300 {
+    background: #fde047;
+    color: #92400e;
+}
+
+.param-row.bg-cyan-400 {
+    background: #22d3ee;
+    color: #164e63;
+}
+
+.param-row.bg-cyan-200 {
+    background: #a5f3fc;
+    color: #164e63;
+}
+
+/* Actions Section */
+.actions-section {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.under-development {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.under-development h4 {
+    font-size: 18px;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+}
+
+.under-development p {
+    margin-bottom: 8px;
+}
+
+/* Data Prep specific layout adjustments */
+#dataPrep {
+    display: flex;
+    height: calc(100vh - 80px);
+    background: var(--bg-gray);
+}
+
+#dataPrepLeftSidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+}
+
+#dataPrepMainContent {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--bg-white);
+    margin: 16px;
+    margin-left: 0;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+
+#dataPrepRightSidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+}
+
 /* Universal Header Styles */
 .universal-header {
     position: sticky;
@@ -885,6 +1188,12 @@ input[type="checkbox"] {
     background-color: #fffbeb;
     border: 1px solid var(--warning-color);
     color: #d97706;
+}
+
+.info-message {
+    background-color: #eff6ff;
+    border: 1px solid #3b82f6;
+    color: #2563eb;
 }
 
 /* Utility Classes */

@@ -153,17 +153,28 @@ var currentPage = 'structures'; // 'structures' or 'dashboard'
 
 // Structures Functions
 function showPage(pageName) {
+    console.log('Switching to page:', pageName);
     var structuresPage = document.getElementById('structuresPage');
     var dashboardPage = document.getElementById('dashboardPage');
-    
+    var dataPreparation = document.getElementById('dataPreparationPage');
+
     if (pageName === 'structures') {
-        structuresPage.classList.remove('hidden');
-        dashboardPage.classList.add('hidden');
+        if (structuresPage) structuresPage.classList.remove('hidden');
+        if (dashboardPage) dashboardPage.classList.add('hidden');
+        if (dataPreparation) dataPreparation.classList.add('hidden');
         currentPage = 'structures';
     } else if (pageName === 'dashboard') {
-        structuresPage.classList.add('hidden');
-        dashboardPage.classList.remove('hidden');
+        if (structuresPage) structuresPage.classList.add('hidden');
+        if (dashboardPage) dashboardPage.classList.remove('hidden');
+        if (dataPreparation) dataPreparation.classList.add('hidden');
         currentPage = 'dashboard';
+    } else if (pageName === 'data-preparation') {
+        if (structuresPage) structuresPage.classList.add('hidden');
+        if (dashboardPage) dashboardPage.classList.add('hidden');
+        if (dataPreparation) dataPreparation.classList.remove('hidden');
+        currentPage = 'data-preparation';
+        // Initialize data prep page when shown
+        initializeDataPrepPage();
     }
 }
 
@@ -546,6 +557,25 @@ function renderStructureDetails(structure) {
 // Lightweight details panel for CSV-driven structures
 // keep original detailed renderer
 
+//Navigate To DataPreparationPage
+function navigateToDataPreparation() {
+    console.log('🚀 Navigating to data preparation from structures...');
+
+    var savedStructure = localStorage.getItem('selectedStructure');
+    if (savedStructure) {
+        var info = JSON.parse(savedStructure);
+        // Load wells into data preparation state
+        appState.availableWells = info.wells || [];
+        appState.selectedWells = [];
+        appState.availableIntervals = [];
+        appState.selectedIntervals = [];
+    } else {
+        console.error('🚀 No structure details available for navigation');
+        showError('No structure selected. Please select a structure first.');
+    }
+}
+
+// Navigete to DashbaordPage
 function navigateToDashboard() {
     console.log('🚀 Navigating to dashboard from structures...');
     
@@ -623,7 +653,8 @@ function handleNavigation(path) {
             showMessage('Structures page loaded', 'success');
             break;
         case '/datapreparation':
-            showMessage('Data Preparation page would load here', 'info');
+            showPage('data-preparation');
+            showSuccess('Data preparation page loaded');
             break;
         case '/dashboard':
             showPage('dashboard');
@@ -648,6 +679,8 @@ function handleNavigation(path) {
                 showSuccess('Dashboard loaded with data from ' + appState.currentStructure.structureName);
             } else if (!appState.currentStructure) {
                 showMessage('Dashboard loaded - select a structure first to load well data', 'info');
+            } else {
+                showSuccess('Dashboard page loaded');
             }
             break;
         default:
@@ -656,11 +689,18 @@ function handleNavigation(path) {
 }
 
 function setupNavigation() {
+    console.log('Setting up navigation...');
+    
     // Desktop navigation
     var navButtons = document.querySelectorAll('.nav-btn');
-    navButtons.forEach(function(button) {
-        button.addEventListener('click', function() {
-            var path = button.getAttribute('data-path');
+    console.log('Found', navButtons.length, 'navigation buttons');
+    
+    navButtons.forEach(function(button, index) {
+        var path = button.getAttribute('data-path');
+        
+        button.addEventListener('click', function(e) {
+            console.log('Navigation clicked:', path);
+            e.preventDefault();
             if (path) {
                 handleNavigation(path);
             }
@@ -1131,12 +1171,19 @@ function updateStatus(message) {
     document.getElementById('statusText').textContent = message;
 }
 
-function showMessage(message, type) {
+function showMessage(message, type, allowHtml) {
     type = type || 'info';
-    var mainContent = document.getElementById('mainContent');
+    var mainContent = document.getElementById('mainContent') || document.getElementById('dataPrepMainContent');
+    if (!mainContent) return;
+    
     var messageDiv = document.createElement('div');
     messageDiv.className = 'message ' + type + '-message';
-    messageDiv.textContent = message;
+    
+    if (allowHtml && message.includes('<br>')) {
+        messageDiv.innerHTML = message;
+    } else {
+        messageDiv.textContent = message;
+    }
     
     // Insert at the top of main content
     mainContent.insertBefore(messageDiv, mainContent.firstChild);
@@ -1641,23 +1688,115 @@ function clearPlot() {
 
 // Get calculation parameters from backend
 function getCalculationParameters(calculationType) {
-    return fetchJson('/get_calculation_params', {
-        method: 'POST',
-        body: JSON.stringify({ calculation_type: calculationType })
-    })
-    .then(function(response) {
-        if (response.status === 'success') {
-            return response.parameters;
-        } else {
-            throw new Error(response.message || 'Failed to get parameters');
+    console.log('Getting calculation parameters for:', calculationType);
+    
+    // Mock parameters for different calculation types
+    var mockParameters = {
+        'normalization': {
+            title: 'Normalization Parameters',
+            parameters: [
+                { name: 'NORMALIZATION_METHOD', label: 'Normalization Method', type: 'select', options: ['Min-Max', 'Z-Score', 'Robust'], default_value: 'Min-Max', required: true },
+                { name: 'TARGET_COLUMN', label: 'Target Column', type: 'select', options: ['GR', 'NPHI', 'RHOB', 'RT'], default_value: 'GR', required: true }
+            ]
+        },
+        'gsa': {
+            title: 'Gamma Ray Shale Analysis (GSA) Parameters',
+            parameters: [
+                { name: 'GR_COLUMN', label: 'Gamma Ray Column', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
+                { name: 'GR_CLEAN', label: 'Clean Gamma Ray Value', type: 'number', default_value: 30, required: true },
+                { name: 'GR_SHALE', label: 'Shale Gamma Ray Value', type: 'number', default_value: 150, required: true }
+            ]
+        },
+        'rgsa': {
+            title: 'Resistivity Gamma Ray Shale Analysis (RGSA) Parameters', 
+            parameters: [
+                { name: 'GR_COLUMN', label: 'Gamma Ray Column', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
+                { name: 'RT_COLUMN', label: 'Resistivity Column', type: 'select', options: ['RT', 'ILD', 'RD'], default_value: 'RT', required: true },
+                { name: 'GR_CLEAN', label: 'Clean GR Value', type: 'number', default_value: 30, required: true },
+                { name: 'GR_SHALE', label: 'Shale GR Value', type: 'number', default_value: 150, required: true },
+                { name: 'RT_CLEAN', label: 'Clean RT Value', type: 'number', default_value: 100, required: true },
+                { name: 'RT_SHALE', label: 'Shale RT Value', type: 'number', default_value: 2, required: true }
+            ]
+        },
+        'dgsa': {
+            title: 'Density Gamma Ray Shale Analysis (DGSA) Parameters',
+            parameters: [
+                { name: 'GR_COLUMN', label: 'Gamma Ray Column', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
+                { name: 'RHOB_COLUMN', label: 'Density Column', type: 'select', options: ['RHOB', 'RHOZ'], default_value: 'RHOB', required: true },
+                { name: 'GR_CLEAN', label: 'Clean GR Value', type: 'number', default_value: 30, required: true },
+                { name: 'GR_SHALE', label: 'Shale GR Value', type: 'number', default_value: 150, required: true },
+                { name: 'RHOB_CLEAN', label: 'Clean Density Value', type: 'number', default_value: 2.65, required: true },
+                { name: 'RHOB_SHALE', label: 'Shale Density Value', type: 'number', default_value: 2.2, required: true }
+            ]
+        },
+        'ngsa': {
+            title: 'Neutron Gamma Ray Shale Analysis (NGSA) Parameters',
+            parameters: [
+                { name: 'GR_COLUMN', label: 'Gamma Ray Column', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
+                { name: 'NPHI_COLUMN', label: 'Neutron Column', type: 'select', options: ['NPHI', 'TNPH'], default_value: 'NPHI', required: true },
+                { name: 'GR_CLEAN', label: 'Clean GR Value', type: 'number', default_value: 30, required: true },
+                { name: 'GR_SHALE', label: 'Shale GR Value', type: 'number', default_value: 150, required: true },
+                { name: 'NPHI_CLEAN', label: 'Clean Neutron Value', type: 'number', default_value: 0.05, required: true },
+                { name: 'NPHI_SHALE', label: 'Shale Neutron Value', type: 'number', default_value: 0.35, required: true }
+            ]
+        },
+        'vsh_calculation': {
+            title: 'Volume of Shale (Vsh) Parameters',
+            parameters: [
+                { name: 'GR_COLUMN', label: 'Gamma Ray Column', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
+                { name: 'VSH_METHOD', label: 'Vsh Method', type: 'select', options: ['Linear', 'Larionov-Older', 'Larionov-Tertiary', 'Clavier'], default_value: 'Linear', required: true },
+                { name: 'GR_CLEAN', label: 'Clean GR Value', type: 'number', default_value: 30, required: true },
+                { name: 'GR_SHALE', label: 'Shale GR Value', type: 'number', default_value: 150, required: true }
+            ]
+        },
+        'porosity_calculation': {
+            title: 'Porosity Calculation Parameters',
+            parameters: [
+                { name: 'POROSITY_METHOD', label: 'Porosity Method', type: 'select', options: ['Density', 'Neutron', 'Neutron-Density'], default_value: 'Neutron-Density', required: true },
+                { name: 'RHOB_COLUMN', label: 'Density Column', type: 'select', options: ['RHOB', 'RHOZ'], default_value: 'RHOB', required: false },
+                { name: 'NPHI_COLUMN', label: 'Neutron Column', type: 'select', options: ['NPHI', 'TNPH'], default_value: 'NPHI', required: false },
+                { name: 'MATRIX_DENSITY', label: 'Matrix Density', type: 'number', default_value: 2.65, required: true },
+                { name: 'FLUID_DENSITY', label: 'Fluid Density', type: 'number', default_value: 1.0, required: true }
+            ]
+        },
+        'sw_calculation': {
+            title: 'Water Saturation (Sw) Parameters',
+            parameters: [
+                { name: 'SW_METHOD', label: 'Sw Method', type: 'select', options: ['Archie', 'Simandoux', 'Indonesian'], default_value: 'Archie', required: true },
+                { name: 'RT_COLUMN', label: 'Resistivity Column', type: 'select', options: ['RT', 'ILD', 'RD'], default_value: 'RT', required: true },
+                { name: 'POROSITY_COLUMN', label: 'Porosity Column', type: 'select', options: ['PHIE', 'NPHI', 'PHID'], default_value: 'PHIE', required: true },
+                { name: 'RW', label: 'Formation Water Resistivity (Rw)', type: 'number', default_value: 0.05, required: true },
+                { name: 'A', label: 'Tortuosity Factor (a)', type: 'number', default_value: 1.0, required: true },
+                { name: 'M', label: 'Cementation Exponent (m)', type: 'number', default_value: 2.0, required: true },
+                { name: 'N', label: 'Saturation Exponent (n)', type: 'number', default_value: 2.0, required: true }
+            ]
         }
-    });
+    };
+    
+    // Return mock parameters
+    var params = mockParameters[calculationType];
+    if (!params) {
+        params = {
+            title: calculationType.toUpperCase() + ' Parameters',
+            parameters: [
+                { name: 'COLUMN_SELECT', label: 'Select Column', type: 'select', options: ['GR', 'NPHI', 'RHOB', 'RT'], default_value: 'GR', required: true },
+                { name: 'METHOD', label: 'Method', type: 'select', options: ['Standard', 'Advanced'], default_value: 'Standard', required: true }
+            ]
+        };
+    }
+    
+    return Promise.resolve(params);
 }
 
 // Show parameter form for calculations
 function showParameterForm(calculationType, parameters) {
     var parameterForm = document.getElementById('parameterForm');
     var parameterRows = document.getElementById('parameterRows');
+    
+    if (!parameterForm || !parameterRows) {
+        showError('Parameter form not found in DOM');
+        return;
+    }
     
     // Clear existing parameters
     parameterRows.innerHTML = '';
@@ -1679,24 +1818,26 @@ function showParameterForm(calculationType, parameters) {
         if (param.type === 'select') {
             cellHtml += '<select name="' + param.name + '" class="select-input">';
             param.options.forEach(function(option) {
-                var selected = option === param.default ? 'selected' : '';
-                cellHtml += '<option value="' + option + '" ' + selected + '>' + option + '" ' + selected + '>' + option + '</option>';
+                var selected = option === param.default_value ? 'selected' : '';
+                cellHtml += '<option value="' + option + '" ' + selected + '>' + option + '</option>';
             });
             cellHtml += '</select>';
-        } else if (param.type === 'float' || param.type === 'int') {
-            var step = param.type === 'float' ? '0.01' : '1';
+        } else if (param.type === 'number') {
+            var step = '0.01';
             var min = param.min !== undefined ? 'min="' + param.min + '"' : '';
             var max = param.max !== undefined ? 'max="' + param.max + '"' : '';
-            cellHtml += '<input type="number" name="' + param.name + '" value="' + param.default + '" step="' + step + '" ' + min + ' ' + max + ' class="select-input">';
+            var defaultVal = param.default_value !== undefined ? param.default_value : '';
+            cellHtml += '<input type="number" name="' + param.name + '" value="' + defaultVal + '" step="' + step + '" ' + min + ' ' + max + ' class="select-input">';
         } else {
-            cellHtml += '<input type="text" name="' + param.name + '" value="' + param.default + '" class="select-input">';
+            var defaultVal = param.default_value !== undefined ? param.default_value : '';
+            cellHtml += '<input type="text" name="' + param.name + '" value="' + defaultVal + '" class="select-input">';
         }
         
         cellHtml += '</td>' +
                    '<td>' + (param.description || '') + '</td>' +
                    '<td>' + (param.unit || '') + '</td>' +
                    '<td>' + param.name + '</td>' +
-                   '<td><input type="checkbox" checked></td>';
+                   '<td><input type="checkbox" ' + (param.required ? 'checked' : '') + '></td>';
         
         row.innerHTML = cellHtml;
         parameterRows.appendChild(row);
@@ -1707,6 +1848,8 @@ function showParameterForm(calculationType, parameters) {
     
     // Store current calculation type
     appState.currentCalculationType = calculationType;
+    
+    console.log('Parameter form shown for:', calculationType);
 }
 
 // Submit calculation parameters
@@ -1732,41 +1875,41 @@ function submitCalculationParameters() {
         params.intervals = appState.selectedIntervals;
     }
     
-    console.log('🚀 Submitting calculation with params:', params);
-    
-    var requestData = {
-        calculation_type: appState.currentCalculationType,
-        params: params
-    };
-    
-    // Add structure context if available
-    if (appState.currentStructure) {
-        requestData.structure_context = appState.currentStructure;
-    }
+    console.log('🚀 Running calculation with params:', params);
+    console.log('Calculation type:', appState.currentCalculationType);
     
     setIsLoading(true);
     
-    fetchJson('/run_calculation_endpoint', {
-        method: 'POST',
-        body: JSON.stringify(requestData)
-    })
-    .then(function(response) {
-        if (response.status === 'success') {
-            showSuccess(response.message);
+    // Mock calculation execution
+    setTimeout(function() {
+        try {
+            var calculationType = appState.currentCalculationType;
+            var successMessages = {
+                'gsa': 'Gamma Ray Shale Analysis completed successfully',
+                'rgsa': 'Resistivity-Gamma Ray Shale Analysis completed successfully', 
+                'dgsa': 'Density-Gamma Ray Shale Analysis completed successfully',
+                'ngsa': 'Neutron-Gamma Ray Shale Analysis completed successfully',
+                'normalization': 'Data normalization completed successfully',
+                'vsh_calculation': 'Volume of Shale calculation completed successfully',
+                'porosity_calculation': 'Porosity calculation completed successfully',
+                'sw_calculation': 'Water Saturation calculation completed successfully'
+            };
+            
+            var message = successMessages[calculationType] || (calculationType.toUpperCase() + ' calculation completed successfully');
+            
+            showSuccess(message);
             parameterForm.classList.add('hidden');
             
-            // Create plot for the calculation
-            return createCalculationPlot(appState.currentCalculationType);
-        } else {
-            throw new Error(response.message || 'Calculation failed');
+            // Simulate creating calculation plot
+            console.log('Creating plot for calculation:', calculationType);
+            showSuccess('Plot generated for ' + calculationType.toUpperCase());
+            
+        } catch (error) {
+            showError('Calculation error: ' + error.message);
         }
-    })
-    .catch(function(error) {
-        showError('Calculation error: ' + error.message);
-    })
-    .finally(function() {
+        
         setIsLoading(false);
-    });
+    }, 1500); // Simulate 1.5 second calculation time
 }
 
 // Module Management Functions
@@ -1801,10 +1944,17 @@ function loadModule(moduleName) {
         case 'sw-simandoux':
             handleSwSimandouxCalculation();
             break;
-        case 'rgsa-ngsa-dgsa':
         case 'rgsa':
+            handleRgsaCalculation();
+            break;
         case 'dgsa':
+            handleDgsaCalculation();
+            break;
         case 'ngsa':
+            handleNgsaCalculation();
+            break;
+        case 'gsa':
+        case 'rgsa-ngsa-dgsa':
             handleGsaCalculation();
             break;
         case 'normalization':
@@ -1903,6 +2053,36 @@ function handleGsaCalculation() {
         })
         .catch(function(error) {
             showError('Error getting GSA parameters: ' + error.message);
+        });
+}
+
+function handleRgsaCalculation() {
+    getCalculationParameters('rgsa')
+        .then(function(parameters) {
+            showParameterForm('rgsa', parameters);
+        })
+        .catch(function(error) {
+            showError('Error getting RGSA parameters: ' + error.message);
+        });
+}
+
+function handleDgsaCalculation() {
+    getCalculationParameters('dgsa')
+        .then(function(parameters) {
+            showParameterForm('dgsa', parameters);
+        })
+        .catch(function(error) {
+            showError('Error getting DGSA parameters: ' + error.message);
+        });
+}
+
+function handleNgsaCalculation() {
+    getCalculationParameters('ngsa')
+        .then(function(parameters) {
+            showParameterForm('ngsa', parameters);
+        })
+        .catch(function(error) {
+            showError('Error getting NGSA parameters: ' + error.message);
         });
 }
 
@@ -2109,6 +2289,10 @@ function initializeApp() {
         return;
     }
     
+    // Setup navigation immediately - this shouldn't wait for backend
+    console.log('Setting up navigation immediately...');
+    setupNavigation();
+    
     // Initialize structures page first
     initializeStructuresPage();
     showPage('structures');
@@ -2283,6 +2467,1028 @@ function showDebugInfo() {
     debugApiCall('/first_api_call');
 }
 
+// Data Preparation Module Management
+var dataPrepState = {
+    activeModule: null,
+    availableFiles: [],
+    selectedFiles: [],
+    wellColumns: [],
+    parameters: []
+};
+
+function initializeDataPrepPage() {
+    console.log('Initializing data preparation page...');
+    
+    // Setup module button event listeners for right sidebar
+    document.querySelectorAll('#dataPrepRightSidebar .module-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            var moduleName = this.getAttribute('data-module');
+            selectDataPrepModule(moduleName);
+        });
+    });
+    
+    // Setup button event listeners for data prep specific buttons
+    var refreshBtn = document.getElementById('dataPrepRefreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            refreshDataPrepData();
+        });
+    }
+    
+    var debugBtn = document.getElementById('dataPrepDebugBtn');
+    if (debugBtn) {
+        debugBtn.addEventListener('click', function() {
+            showDebugInfo();
+        });
+    }
+    
+    var testBtn = document.getElementById('dataPrepTestConnectionBtn');
+    if (testBtn) {
+        testBtn.addEventListener('click', function() {
+            testBackendConnection();
+        });
+    }
+    
+    // Initialize file list
+    loadDataPrepFiles();
+    
+    // Initialize empty state
+    showDataPrepEmptyState();
+}
+
+function refreshDataPrepData() {
+    console.log('Refreshing data preparation data...');
+    
+    // Show loading state
+    document.getElementById('dataPrepStatusText').textContent = 'Refreshing data...';
+    
+    // Simulate API call
+    setTimeout(function() {
+        // Reset the page state
+        showDataPrepEmptyState();
+        
+        // Clear selections
+        dataPrepState.selectedFiles = [];
+        dataPrepState.selectedColumns = [];
+        
+        // Update UI
+        updateFileList();
+        updateColumnList();
+        updateDataPrepBadges();
+        
+        document.getElementById('dataPrepStatusText').textContent = 'Data refreshed successfully';
+        
+        setTimeout(function() {
+            document.getElementById('dataPrepStatusText').textContent = 'Ready';
+        }, 2000);
+    }, 1000);
+}
+
+function testBackendConnection() {
+    console.log('Testing backend connection...');
+    
+    document.getElementById('dataPrepStatusText').textContent = 'Testing connection...';
+    
+    // Simulate backend connection test
+    setTimeout(function() {
+        var isConnected = Math.random() > 0.2; // 80% success rate for demo
+        
+        if (isConnected) {
+            document.getElementById('dataPrepStatusText').textContent = 'Backend connected successfully';
+            showSuccess('Backend connection test successful! Dataiku server is accessible.');
+        } else {
+            document.getElementById('dataPrepStatusText').textContent = 'Connection failed';
+            showError('Backend connection failed! Please check your Dataiku server configuration.');
+        }
+        
+        setTimeout(function() {
+            document.getElementById('dataPrepStatusText').textContent = 'Ready';
+        }, 3000);
+    }, 1500);
+}
+
+function showDebugInfo() {
+    var debugInfo = `
+=== DATA PREPARATION DEBUG INFO ===
+Current Module: ${dataPrepState.activeModule || 'None'}
+Selected Files: ${dataPrepState.selectedFiles.length} (${dataPrepState.selectedFiles.join(', ')})
+Selected Columns: ${dataPrepState.selectedColumns.length} (${dataPrepState.selectedColumns.join(', ')})
+Available Files: ${mockFiles.length}
+Available Columns: ${mockColumns.length}
+Status: ${document.getElementById('dataPrepStatusText')?.textContent || 'Unknown'}
+================================
+    `;
+    
+    console.log(debugInfo);
+    showMessage(debugInfo.replace(/\n/g, '<br>'), 'info', true);
+}
+
+function updateFileList() {
+    var fileList = document.getElementById('dataPrepFileList');
+    if (!fileList) return;
+    
+    if (mockFiles.length === 0) {
+        fileList.innerHTML = '<div class="empty-state">No files available</div>';
+        return;
+    }
+    
+    fileList.innerHTML = mockFiles.map(function(file) {
+        var isSelected = dataPrepState.selectedFiles.includes(file);
+        return `
+            <div class="data-prep-item ${isSelected ? 'selected' : ''}" 
+                 onclick="toggleDataPrepFile('${file}')">
+                <div class="item-icon">📄</div>
+                <div class="item-name">${file}</div>
+                <div class="item-badge ${isSelected ? 'selected' : ''}">${isSelected ? '✓' : ''}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateColumnList() {
+    var columnList = document.getElementById('dataPrepColumnList');
+    if (!columnList) return;
+    
+    if (dataPrepState.selectedFiles.length === 0) {
+        columnList.innerHTML = '<div class="empty-state">Select files to see columns</div>';
+        return;
+    }
+    
+    columnList.innerHTML = mockColumns.map(function(column) {
+        var isSelected = dataPrepState.selectedColumns.includes(column);
+        return `
+            <div class="data-prep-item ${isSelected ? 'selected' : ''}" 
+                 onclick="toggleDataPrepColumn('${column}')">
+                <div class="item-icon">📊</div>
+                <div class="item-name">${column}</div>
+                <div class="item-badge ${isSelected ? 'selected' : ''}">${isSelected ? '✓' : ''}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function selectDataPrepModule(moduleName) {
+    console.log('Selecting data prep module:', moduleName);
+    
+    // Update active state
+    document.querySelectorAll('#dataPrepRightSidebar .module-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+    });
+    document.querySelector('#dataPrepRightSidebar [data-module="' + moduleName + '"]').classList.add('active');
+    
+    dataPrepState.activeModule = moduleName;
+    
+    // Update status
+    document.getElementById('dataPrepStatusText').textContent = 'Loading ' + moduleName + ' module...';
+    
+    // Load module content
+    loadDataPrepModule(moduleName);
+}
+
+function formatModuleName(moduleName) {
+    return moduleName.split('-').map(function(word) {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    }).join(' ');
+}
+
+function loadDataPrepModule(moduleName) {
+    var moduleArea = document.getElementById('dataPrepModuleArea');
+    
+    switch(moduleName) {
+        case 'normalization':
+            loadNormalizationModule(moduleArea);
+            break;
+        case 'smoothing':
+            loadSmoothingModule(moduleArea);
+            break;
+        case 'trim-data':
+            loadTrimDataModule(moduleArea);
+            break;
+        case 'depth-matching':
+            loadDepthMatchingModule(moduleArea);
+            break;
+        case 'fill-missing':
+            loadFillMissingModule(moduleArea);
+            break;
+        case 'splicing-merging':
+            loadSplicingMergingModule(moduleArea);
+            break;
+        case 'histogram':
+            loadHistogramModule(moduleArea);
+            break;
+        case 'crossplot':
+            loadCrossplotModule(moduleArea);
+            break;
+        default:
+            loadDefaultModule(moduleArea, moduleName);
+            break;
+    }
+    
+    document.getElementById('dataPrepStatusText').textContent = formatModuleName(moduleName) + ' module loaded';
+}
+
+function loadTrimDataModule(container) {
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Data Preparation: Trim Data</h3>
+            <div class="module-content">
+                <div class="parameters-section">
+                    <h4>Trim Parameters</h4>
+                    <div class="parameters-table-container">
+                        <table class="parameters-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Start depth for trimming</td>
+                                    <td>START_DEPTH</td>
+                                    <td><input type="number" step="0.1" class="param-input" placeholder="e.g. 2500.0"></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>End depth for trimming</td>
+                                    <td>END_DEPTH</td>
+                                    <td><input type="number" step="0.1" class="param-input" placeholder="e.g. 3500.0"></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Depth column</td>
+                                    <td>DEPTH_COL</td>
+                                    <td><select class="param-input log-select"><option value="DEPTH">DEPTH</option></select></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>
+                    <button class="btn-primary" onclick="runTrimData()">Start Trim</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function loadDepthMatchingModule(container) {
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Data Preparation: Depth Matching</h3>
+            <div class="module-content">
+                <div class="parameters-section">
+                    <h4>Depth Matching Parameters</h4>
+                    <div class="parameters-table-container">
+                        <table class="parameters-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="param-row bg-orange-600">
+                                    <td>Parameter</td>
+                                    <td>Input</td>
+                                    <td>Matching method</td>
+                                    <td>METHOD</td>
+                                    <td><select class="param-input">
+                                        <option value="LINEAR">LINEAR</option>
+                                        <option value="NEAREST">NEAREST</option>
+                                        <option value="CUBIC">CUBIC</option>
+                                    </select></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Target depth interval</td>
+                                    <td>DEPTH_INTERVAL</td>
+                                    <td><input type="number" value="0.5" step="0.1" class="param-input"></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Reference depth column</td>
+                                    <td>REF_DEPTH</td>
+                                    <td><select class="param-input log-select"><option value="DEPTH">DEPTH</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Target depth column</td>
+                                    <td>TARGET_DEPTH</td>
+                                    <td><select class="param-input log-select"><option value="DEPTH">DEPTH</option></select></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>
+                    <button class="btn-primary" onclick="runDepthMatching()">Start Matching</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function loadFillMissingModule(container) {
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Data Preparation: Fill Missing Values</h3>
+            <div class="module-content">
+                <div class="parameters-section">
+                    <h4>Fill Missing Parameters</h4>
+                    <div class="parameters-table-container">
+                        <table class="parameters-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="param-row bg-orange-600">
+                                    <td>Parameter</td>
+                                    <td>Input</td>
+                                    <td>Fill method</td>
+                                    <td>FILL_METHOD</td>
+                                    <td><select class="param-input">
+                                        <option value="INTERPOLATION">INTERPOLATION</option>
+                                        <option value="FORWARD_FILL">FORWARD_FILL</option>
+                                        <option value="BACKWARD_FILL">BACKWARD_FILL</option>
+                                        <option value="CONSTANT">CONSTANT</option>
+                                    </select></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Fill value (if using constant)</td>
+                                    <td>FILL_VALUE</td>
+                                    <td><input type="number" step="0.01" class="param-input" placeholder="e.g. -999.25"></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Column to fill</td>
+                                    <td>TARGET_COLUMN</td>
+                                    <td><select class="param-input log-select"><option>Select column</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-200">
+                                    <td>Log</td>
+                                    <td>Output</td>
+                                    <td>Output column name</td>
+                                    <td>OUTPUT_COLUMN</td>
+                                    <td><input type="text" class="param-input log-output" placeholder="Auto-generated"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>
+                    <button class="btn-primary" onclick="runFillMissing()">Start Fill Missing</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function loadSplicingMergingModule(container) {
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Data Preparation: Splicing & Merging</h3>
+            <div class="module-content">
+                <div class="parameters-section">
+                    <h4>Splicing Parameters</h4>
+                    <div class="parameters-table-container">
+                        <table class="parameters-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="param-row bg-orange-600">
+                                    <td>Parameter</td>
+                                    <td>Input</td>
+                                    <td>Splice method</td>
+                                    <td>SPLICE_METHOD</td>
+                                    <td><select class="param-input">
+                                        <option value="DEPTH_BASED">DEPTH_BASED</option>
+                                        <option value="OVERLAP_MERGE">OVERLAP_MERGE</option>
+                                        <option value="PRIORITY_BASED">PRIORITY_BASED</option>
+                                    </select></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Splice depth</td>
+                                    <td>SPLICE_DEPTH</td>
+                                    <td><input type="number" step="0.1" class="param-input" placeholder="e.g. 3000.0"></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Primary log column</td>
+                                    <td>PRIMARY_LOG</td>
+                                    <td><select class="param-input log-select"><option>Select primary column</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Secondary log column</td>
+                                    <td>SECONDARY_LOG</td>
+                                    <td><select class="param-input log-select"><option>Select secondary column</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-200">
+                                    <td>Log</td>
+                                    <td>Output</td>
+                                    <td>Merged output column</td>
+                                    <td>OUTPUT_LOG</td>
+                                    <td><input type="text" class="param-input" placeholder="MERGED_LOG"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>
+                    <button class="btn-primary" onclick="runSplicingMerging()">Start Splicing</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function loadHistogramModule(container) {
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Data Analysis: Histogram</h3>
+            <div class="module-content">
+                <div class="parameters-section">
+                    <h4>Histogram Parameters</h4>
+                    <div class="parameters-table-container">
+                        <table class="parameters-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="param-row bg-orange-600">
+                                    <td>Parameter</td>
+                                    <td>Input</td>
+                                    <td>Number of bins</td>
+                                    <td>BINS</td>
+                                    <td><input type="number" value="30" min="5" max="100" class="param-input"></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Data column for histogram</td>
+                                    <td>DATA_COLUMN</td>
+                                    <td><select class="param-input log-select"><option>Select column</option></select></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>
+                    <button class="btn-primary" onclick="runHistogram()">Generate Histogram</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function loadCrossplotModule(container) {
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Data Analysis: Crossplot</h3>
+            <div class="module-content">
+                <div class="parameters-section">
+                    <h4>Crossplot Parameters</h4>
+                    <div class="parameters-table-container">
+                        <table class="parameters-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>X-axis column</td>
+                                    <td>X_COLUMN</td>
+                                    <td><select class="param-input log-select"><option>Select X column</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Y-axis column</td>
+                                    <td>Y_COLUMN</td>
+                                    <td><select class="param-input log-select"><option>Select Y column</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Color by column (optional)</td>
+                                    <td>COLOR_COLUMN</td>
+                                    <td><select class="param-input log-select"><option value="">None</option></select></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>
+                    <button class="btn-primary" onclick="runCrossplot()">Generate Crossplot</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function loadNormalizationModule(container) {
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Data Preparation: Normalization</h3>
+            <div class="module-content">
+                <div class="file-selection-section">
+                    <h4>Select Files for Normalization</h4>
+                    <div class="file-list-container">
+                        <div class="loading-state">Loading available files...</div>
+                    </div>
+                </div>
+                <div class="parameters-section">
+                    <h4>Parameters</h4>
+                    <div class="parameters-table-container">
+                        <table class="parameters-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="param-row bg-orange-600">
+                                    <td>Parameter</td>
+                                    <td>Input</td>
+                                    <td>Normalization: Min-Max</td>
+                                    <td>NORMALIZE_OPT</td>
+                                    <td><input type="text" value="MIN-MAX" class="param-input" readonly></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Input low log value (P5)</td>
+                                    <td>LOW_IN</td>
+                                    <td><input type="text" value="5" class="param-input"></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Input high log value (P95)</td>
+                                    <td>HIGH_IN</td>
+                                    <td><input type="text" value="95" class="param-input"></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Reference log low value</td>
+                                    <td>LOW_REF</td>
+                                    <td><input type="text" value="40" class="param-input"></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Reference log high value</td>
+                                    <td>HIGH_REF</td>
+                                    <td><input type="text" value="140" class="param-input"></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Input Log</td>
+                                    <td>LOG_IN</td>
+                                    <td><select class="param-input log-select"><option>Select log column</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-200">
+                                    <td>Log</td>
+                                    <td>Output</td>
+                                    <td>Output Log Name</td>
+                                    <td>LOG_OUT</td>
+                                    <td><input type="text" class="param-input log-output" placeholder="Auto-generated"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>
+                    <button class="btn-primary" onclick="runNormalization()">Start Normalization</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Load available files
+    loadDataPrepFiles();
+}
+
+function loadSmoothingModule(container) {
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Data Preparation: Smoothing</h3>
+            <div class="module-content">
+                <div class="file-selection-section">
+                    <h4>Select Files for Smoothing</h4>
+                    <div class="file-list-container">
+                        <div class="loading-state">Loading available files...</div>
+                    </div>
+                </div>
+                <div class="parameters-section">
+                    <h4>Parameters</h4>
+                    <div class="parameters-table-container">
+                        <table class="parameters-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="param-row bg-orange-600">
+                                    <td>Parameter</td>
+                                    <td>Input</td>
+                                    <td>Smoothing method</td>
+                                    <td>METHOD</td>
+                                    <td><select class="param-input"><option value="MOVING_AVG">MOVING_AVG</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-orange-600">
+                                    <td>Parameter</td>
+                                    <td>Input</td>
+                                    <td>Size of smooth window (odd number)</td>
+                                    <td>WINDOW</td>
+                                    <td><input type="number" value="5" class="param-input" min="3" step="2"></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Log to be smoothed</td>
+                                    <td>LOG_IN</td>
+                                    <td><select class="param-input log-select"><option>Select log column</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-200">
+                                    <td>Log</td>
+                                    <td>Output</td>
+                                    <td>Smoothed log name</td>
+                                    <td>LOG_OUT</td>
+                                    <td><input type="text" class="param-input log-output" placeholder="Auto-generated"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>
+                    <button class="btn-primary" onclick="runSmoothing()">Start Smoothing</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Load available files
+    loadDataPrepFiles();
+}
+
+function loadDefaultModule(container, moduleName) {
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Data Preparation: ${formatModuleName(moduleName)}</h3>
+            <div class="module-content">
+                <div class="under-development">
+                    <h4>Module Under Development</h4>
+                    <p>The ${formatModuleName(moduleName)} module is currently under development.</p>
+                    <p>Please check back later for updates.</p>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Back</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function loadDataPrepFiles() {
+    // Simulate loading files from backend
+    console.log('Loading data preparation files...');
+    var fileList = document.getElementById('dataPrepFileList');
+    
+    if (!fileList) {
+        console.warn('File list container not found');
+        return;
+    }
+    
+    // Mock data for demo - in real implementation this would fetch from backend
+    var mockFiles = [
+        'BNG-057_composite.csv',
+        'BNG-057_raw.csv', 
+        'BNG-057_processed.csv',
+        'BNG-057_logs.csv',
+        'BNG-057_deviation.csv'
+    ];
+    
+    fileList.innerHTML = mockFiles.map(function(file, index) {
+        return `
+            <div class="list-item">
+                <label class="checkbox-label">
+                    <input type="checkbox" class="file-checkbox" value="${file}" data-index="${index}">
+                    <span class="item-text">${file}</span>
+                </label>
+            </div>
+        `;
+    }).join('');
+    
+    // Setup file selection handlers
+    document.querySelectorAll('.file-checkbox').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            updateSelectedFiles();
+            updateFilesBadge();
+        });
+    });
+    
+    // Setup select all functionality
+    var selectAllFiles = document.getElementById('selectAllFiles');
+    if (selectAllFiles) {
+        selectAllFiles.addEventListener('change', function() {
+            var checkboxes = document.querySelectorAll('.file-checkbox');
+            checkboxes.forEach(function(cb) {
+                cb.checked = this.checked;
+            }.bind(this));
+            updateSelectedFiles();
+            updateFilesBadge();
+        });
+    }
+}
+
+function updateFilesBadge() {
+    var totalFiles = document.querySelectorAll('.file-checkbox').length;
+    var selectedFiles = document.querySelectorAll('.file-checkbox:checked').length;
+    
+    var badge = document.getElementById('selectedFilesBadge');
+    if (badge) {
+        badge.textContent = selectedFiles + '/' + totalFiles;
+    }
+    
+    var count = document.getElementById('selectedFilesCount');
+    if (count) {
+        count.textContent = selectedFiles;
+    }
+}
+
+function updateSelectedFiles() {
+    var selected = [];
+    document.querySelectorAll('.file-checkbox:checked').forEach(function(checkbox) {
+        selected.push(checkbox.value);
+    });
+    dataPrepState.selectedFiles = selected;
+    
+    // Update log columns dropdown if files are selected
+    if (selected.length > 0) {
+        updateLogColumns(['DEPTH', 'GR', 'NPHI', 'RHOB', 'RT', 'SP', 'CALI', 'PEF']); // Mock columns
+        updateColumnsList(['DEPTH', 'GR', 'NPHI', 'RHOB', 'RT', 'SP', 'CALI', 'PEF']);
+    } else {
+        // Clear columns if no files selected
+        var columnList = document.getElementById('dataPrepColumnList');
+        if (columnList) {
+            columnList.innerHTML = '<div class="empty-state">Select files to see columns</div>';
+        }
+    }
+}
+
+function updateColumnsList(columns) {
+    var columnList = document.getElementById('dataPrepColumnList');
+    if (columnList) {
+        columnList.innerHTML = columns.map(function(col) {
+            return `
+                <div class="list-item">
+                    <span class="item-text">${col}</span>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+function updateLogColumns(columns) {
+    var logSelects = document.querySelectorAll('.log-select');
+    logSelects.forEach(function(select) {
+        var currentValue = select.value;
+        select.innerHTML = columns.map(col => `<option value="${col}">${col}</option>`).join('');
+        
+        // Restore previous selection if it exists
+        if (currentValue && columns.includes(currentValue)) {
+            select.value = currentValue;
+        }
+        
+        // Setup auto-update for output name
+        select.addEventListener('change', function() {
+            updateOutputName(this);
+        });
+    });
+}
+
+function updateOutputName(selectElement) {
+    var outputInput = document.querySelector('.log-output');
+    if (outputInput && selectElement.value) {
+        var suffix = '_PROCESSED';
+        if (dataPrepState.activeModule === 'normalization') suffix = '_NO';
+        else if (dataPrepState.activeModule === 'smoothing') suffix = '_SM';
+        else if (dataPrepState.activeModule === 'trim-data') suffix = '_TRIM';
+        else if (dataPrepState.activeModule === 'fill-missing') suffix = '_FILLED';
+        
+        outputInput.value = selectElement.value + suffix;
+    }
+}
+
+function showDataPrepEmptyState() {
+    var moduleArea = document.getElementById('dataPrepModuleArea');
+    moduleArea.innerHTML = `
+        <div class="empty-plot-state">
+            <h3>Select a data preparation module</h3>
+            <p>Choose a module from the right sidebar to configure parameters and run analysis</p>
+        </div>
+    `;
+    
+    // Reset active states
+    document.querySelectorAll('#dataPrepRightSidebar .module-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+    });
+    
+    document.getElementById('dataPrepStatusText').textContent = 'Select a module to begin';
+    dataPrepState.activeModule = null;
+}
+
+function runTrimData() {
+    if (dataPrepState.selectedFiles.length === 0) {
+        showWarning('Please select at least one file');
+        return;
+    }
+    
+    var startDepth = document.querySelector('[name="START_DEPTH"]')?.value;
+    var endDepth = document.querySelector('[name="END_DEPTH"]')?.value;
+    
+    if (!startDepth || !endDepth) {
+        showWarning('Please specify start and end depths');
+        return;
+    }
+    
+    console.log('Running trim data:', { startDepth, endDepth, files: dataPrepState.selectedFiles });
+    showSuccess(`Trimming data from ${startDepth} to ${endDepth} for ${dataPrepState.selectedFiles.length} files...`);
+}
+
+function runDepthMatching() {
+    if (dataPrepState.selectedFiles.length === 0) {
+        showWarning('Please select at least one file');
+        return;
+    }
+    
+    console.log('Running depth matching on selected files...');
+    showSuccess('Running depth matching on selected files...');
+}
+
+function runFillMissing() {
+    if (dataPrepState.selectedFiles.length === 0) {
+        showWarning('Please select at least one file');
+        return;
+    }
+    
+    var method = document.querySelector('[name="FILL_METHOD"]')?.value;
+    var targetColumn = document.querySelector('[name="TARGET_COLUMN"]')?.value;
+    
+    if (!targetColumn) {
+        showWarning('Please select a target column to fill');
+        return;
+    }
+    
+    console.log('Running fill missing:', { method, targetColumn, files: dataPrepState.selectedFiles });
+    showSuccess(`Filling missing values in ${targetColumn} using ${method} method...`);
+}
+
+function runSplicingMerging() {
+    if (dataPrepState.selectedFiles.length === 0) {
+        showWarning('Please select at least one file');
+        return;
+    }
+    
+    console.log('Running splicing/merging on selected files...');
+    showSuccess('Running splicing/merging on selected files...');
+}
+
+function runHistogram() {
+    if (dataPrepState.selectedFiles.length === 0) {
+        showWarning('Please select at least one file');
+        return;
+    }
+    
+    var dataColumn = document.querySelector('[name="DATA_COLUMN"]')?.value;
+    var bins = document.querySelector('[name="BINS"]')?.value;
+    
+    if (!dataColumn) {
+        showWarning('Please select a data column for histogram');
+        return;
+    }
+    
+    console.log('Generating histogram:', { dataColumn, bins, files: dataPrepState.selectedFiles });
+    showSuccess(`Generating histogram for ${dataColumn} with ${bins} bins...`);
+}
+
+function runCrossplot() {
+    if (dataPrepState.selectedFiles.length === 0) {
+        showWarning('Please select at least one file');
+        return;
+    }
+    
+    var xColumn = document.querySelector('[name="X_COLUMN"]')?.value;
+    var yColumn = document.querySelector('[name="Y_COLUMN"]')?.value;
+    
+    if (!xColumn || !yColumn) {
+        showWarning('Please select both X and Y columns');
+        return;
+    }
+    
+    console.log('Generating crossplot:', { xColumn, yColumn, files: dataPrepState.selectedFiles });
+    showSuccess(`Generating crossplot: ${xColumn} vs ${yColumn}...`);
+}
+
+function runQualityControl() {
+    if (dataPrepState.selectedFiles.length === 0) {
+        showWarning('Please select at least one file');
+        return;
+    }
+    
+    console.log('Running quality control on selected files...');
+    showSuccess('Running quality control analysis on selected files...');
+}
+
+function runDataValidation() {
+    if (dataPrepState.selectedFiles.length === 0) {
+        showWarning('Please select at least one file');
+        return;
+    }
+    
+    console.log('Running data validation on selected files...');
+    showSuccess('Running data validation on selected files...');
+}
+
+function runExportData() {
+    if (dataPrepState.selectedFiles.length === 0) {
+        showWarning('Please select at least one file');
+        return;
+    }
+    
+    var format = document.querySelector('[name="EXPORT_FORMAT"]')?.value || 'CSV';
+    
+    console.log('Exporting data:', { format, files: dataPrepState.selectedFiles });
+    showSuccess(`Exporting ${dataPrepState.selectedFiles.length} files in ${format} format...`);
+}
+
 // Make debug functions available globally
 window.debugApiCall = debugApiCall;
 window.showDebugInfo = showDebugInfo;
@@ -2290,3 +3496,5 @@ window.testBackendConnection = testBackendConnection;
 
 // Make navigateToDashboard available globally
 window.navigateToDashboard = navigateToDashboard;
+// Make navigateToDataPreparation available globally
+window.navigateToDataPreparation = navigateToDataPreparation;

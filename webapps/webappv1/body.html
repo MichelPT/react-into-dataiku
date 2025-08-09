@@ -362,6 +362,154 @@
         </div>
     </div>
 
+
+    <!-- Data Preparation Page -->
+    <div id="dataPreparationPage" class="page-container hidden">
+        <div id="dataPrep">
+            <!-- Left Sidebar - File Selection for Data Prep -->
+            <aside id="dataPrepLeftSidebar" class="left-sidebar">
+                <div class="sidebar-header">
+                    <div class="header-icon">
+                        <svg class="settings-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                        </svg>
+                    </div>
+                    <div class="header-text">
+                        <h2>File Selection</h2>
+                        <p>Choose files to process</p>
+                    </div>
+                </div>
+                <div class="sidebar-content">
+                    <!-- File Selection Section -->
+                    <div class="sidebar-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <div class="section-icon">
+                                    <svg class="chart-icon" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                                    </svg>
+                                </div>
+                                <h3>Available Files</h3>
+                                <span class="badge" id="selectedFilesBadge">0/0</span>
+                            </div>
+                            <div class="checkbox-controls">
+                                <label>
+                                    <input type="checkbox" id="selectAllFiles">
+                                    Select all
+                                </label>
+                            </div>
+                        </div>
+                        <div id="dataPrepFileList" class="list-container scrollable-list">
+                            <div class="loading-state">Loading files...</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Column Selection Section -->
+                    <div class="sidebar-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <div class="section-icon">
+                                    <svg class="tools-icon" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z"/>
+                                    </svg>
+                                </div>
+                                <h3>Available Columns</h3>
+                            </div>
+                        </div>
+                        <div id="dataPrepColumnList" class="list-container scrollable-list">
+                            <div class="empty-state">Select files to see columns</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Footer Summary -->
+                <div class="sidebar-footer">
+                    <div class="summary-item">
+                        <span>Selected Files:</span>
+                        <span class="badge" id="selectedFilesCount">0</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content - Same as dashboard -->
+            <main id="dataPrepMainContent">
+                <div class="main-header">
+                    <h2>Data Preparation</h2>
+                    <div class="status-bar">
+                        <span id="dataPrepStatusText">Select a module to begin</span>
+                        <button id="dataPrepRefreshBtn" class="btn-secondary">Refresh Data</button>
+                        <button id="dataPrepDebugBtn" class="btn-secondary">Debug</button>
+                        <button id="dataPrepTestConnectionBtn" class="btn-secondary">Test Connection</button>
+                    </div>
+                </div>
+                
+                <div id="dataPrepModuleArea" class="plot-container">
+                    <div class="empty-plot-state">
+                        <h3>Select a data preparation module</h3>
+                        <p>Choose a module from the left sidebar to configure parameters and run analysis</p>
+                    </div>
+                </div>
+                
+                <div id="dataPrepParameterForm" class="parameter-form hidden">
+                    <div class="form-header">
+                        <h3>Module Parameters</h3>
+                        <button id="dataPrepCloseFormBtn" class="btn-close">&times;</button>
+                    </div>
+                    <div class="form-content">
+                        <div id="dataPrepModuleContent">
+                            <!-- Dynamic module content will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="dataPrepLoadingSpinner" class="loading-overlay hidden">
+                    <div class="spinner-container">
+                        <div class="spinner"></div>
+                        <p>Processing...</p>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Sidebar - Data Preparation Tools -->
+            <aside id="dataPrepRightSidebar" class="right-sidebar">
+                <div class="sidebar-header">
+                    <div class="header-icon">
+                        <svg class="settings-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11.03L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11.03C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+                        </svg>
+                    </div>
+                    <div class="header-text">
+                        <h2>Data Preparation Tools</h2>
+                        <p>Select analysis modules</p>
+                    </div>
+                </div>
+                
+                <div class="sidebar-content">
+                    <!-- Data Analysis Section -->
+                    <div class="module-section">
+                        <h4>Data Analysis</h4>
+                        <div class="button-group">
+                            <button class="module-btn" data-module="histogram">HISTOGRAM</button>
+                            <button class="module-btn" data-module="crossplot">CROSSPLOT</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Data Preparation Tools Section -->
+                    <div class="module-section">
+                        <h4>Data Preparation</h4>
+                        <div class="button-group">
+                            <button class="module-btn" data-module="trim-data">TRIM DATA</button>
+                            <button class="module-btn" data-module="depth-matching">DEPTH MATCHING</button>
+                            <button class="module-btn" data-module="fill-missing">FILL MISSING</button>
+                            <button class="module-btn" data-module="smoothing">SMOOTHING</button>
+                            <button class="module-btn" data-module="normalization">NORMALIZATION</button>
+                            <button class="module-btn" data-module="splicing-merging">SPLICING MERGING</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
