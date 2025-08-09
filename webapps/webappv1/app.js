@@ -86,10 +86,56 @@ var structuresData = {
                 { structure_name: "Limau Tengah", field_name: "Limau", file_path: "/data/structures/Limau/Limau Tengah.xlsx", wells_count: 16, wells: ["LIM-LT-001","LIM-LT-002","LIM-LT-003","LIM-LT-004","LIM-LT-005","LIM-LT-006","LIM-LT-007","LIM-LT-008","LIM-LT-009","LIM-LT-010","LIM-LT-011","LIM-LT-012","LIM-LT-013","LIM-LT-014","LIM-LT-015","LIM-LT-016"], total_records: 1950, columns: ["DEPTH","GR","NPHI","RHOB","RT"], intervals: ["LT-ZONE-1","LT-ZONE-2","LT-ZONE-3"] },
                 { structure_name: "Tanjung Miring Barat", field_name: "Limau", file_path: "/data/structures/Limau/Tanjung Miring Barat.xlsx", wells_count: 14, wells: ["LIM-TMB-001","LIM-TMB-002","LIM-TMB-003","LIM-TMB-004","LIM-TMB-005","LIM-TMB-006","LIM-TMB-007","LIM-TMB-008","LIM-TMB-009","LIM-TMB-010","LIM-TMB-011","LIM-TMB-012","LIM-TMB-013","LIM-TMB-014"], total_records: 1650, columns: ["DEPTH","GR","NPHI","RHOB","RT","SP"], intervals: ["TMB-TOP","TMB-MIDDLE","TMB-BOTTOM"] }
             ]
+        },
+        {
+            field_name: "Pendopo",
+            structures_count: 5,
+            structures: [
+                // Benakat Barat, Betung, Musi Timur, Sopa, Talang Akar
+                { structure_name: "Benakat Barat", field_name: "Pendopo", file_path: "/data/structures/Pendopo/Benakat Barat.xlsx", wells_count: 11, wells: ["PDP-BKB-001","PDP-BKB-002","PDP-BKB-003","PDP-BKB-004","PDP-BKB-005","PDP-BKB-006","PDP-BKB-007","PDP-BKB-008","PDP-BKB-009","PDP-BKB-010","PDP-BKB-011"], total_records: 1100, columns: ["DEPTH","GR","NPHI","RHOB","RT"], intervals: ["BKB-TOP","BKB-MID","BKB-BOTTOM"] },
+                { structure_name: "Betung", field_name: "Pendopo", file_path: "/data/structures/Pendopo/Betung.xlsx", wells_count: 9, wells: ["PDP-BTG-001","PDP-BTG-002","PDP-BTG-003","PDP-BTG-004","PDP-BTG-005","PDP-BTG-006","PDP-BTG-007","PDP-BTG-008","PDP-BTG-009"], total_records: 900, columns: ["DEPTH","GR","NPHI","RHOB","RT"], intervals: ["BTG-UPPER","BTG-LOWER"] },
+                { structure_name: "Musi Timur", field_name: "Pendopo", file_path: "/data/structures/Pendopo/Musi Timur.xlsx", wells_count: 13, wells: ["PDP-MST-001","PDP-MST-002","PDP-MST-003","PDP-MST-004","PDP-MST-005","PDP-MST-006","PDP-MST-007","PDP-MST-008","PDP-MST-009","PDP-MST-010","PDP-MST-011","PDP-MST-012","PDP-MST-013"], total_records: 1300, columns: ["DEPTH","GR","NPHI","RHOB","RT","SP"], intervals: ["MST-ZONE-1","MST-ZONE-2","MST-ZONE-3"] },
+                { structure_name: "Sopa", field_name: "Pendopo", file_path: "/data/structures/Pendopo/Sopa.xlsx", wells_count: 7, wells: ["PDP-SPA-001","PDP-SPA-002","PDP-SPA-003","PDP-SPA-004","PDP-SPA-005","PDP-SPA-006","PDP-SPA-007"], total_records: 700, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["SPA-TOP","SPA-BOTTOM"] },
+                { structure_name: "Talang Akar", field_name: "Pendopo", file_path: "/data/structures/Pendopo/Talang Akar.xlsx", wells_count: 10, wells: ["PDP-TLA-001","PDP-TLA-002","PDP-TLA-003","PDP-TLA-004","PDP-TLA-005","PDP-TLA-006","PDP-TLA-007","PDP-TLA-008","PDP-TLA-009","PDP-TLA-010"], total_records: 1000, columns: ["DEPTH","GR","NPHI","RHOB","RT"], intervals: ["TLA-TOP","TLA-MID","TLA-BOTTOM"] }
+            ]
+        },
+        {
+            field_name: "Prabumulih",
+            structures_count: 17,
+            structures: [
+                // Beringin-A, Beringin-C, Beringin-D, Beringin-E, Beringin-F, Beringin-H, Gunung Kemala Barag, Gunung Kemala Tengah, Gunung Kemala Timur, Lembak, Ogan Timur, Prabumenang, Prabumulih Barat, Talang Jimar Barat, Talang Jimar Tengah, Talang Jimar Timur, Tanjung Tiga Barat
+                { structure_name: "Beringin-A", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Beringin-A.xlsx", wells_count: 8, wells: ["PRB-BGA-001","PRB-BGA-002","PRB-BGA-003","PRB-BGA-004","PRB-BGA-005","PRB-BGA-006","PRB-BGA-007","PRB-BGA-008"], total_records: 800, columns: ["DEPTH","GR","NPHI","RHOB","RT"], intervals: ["BGA-TOP","BGA-MID","BGA-BOTTOM"] },
+                { structure_name: "Beringin-C", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Beringin-C.xlsx", wells_count: 6, wells: ["PRB-BGC-001","PRB-BGC-002","PRB-BGC-003","PRB-BGC-004","PRB-BGC-005","PRB-BGC-006"], total_records: 600, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["BGC-UPPER","BGC-LOWER"] },
+                { structure_name: "Beringin-D", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Beringin-D.xlsx", wells_count: 7, wells: ["PRB-BGD-001","PRB-BGD-002","PRB-BGD-003","PRB-BGD-004","PRB-BGD-005","PRB-BGD-006","PRB-BGD-007"], total_records: 700, columns: ["DEPTH","GR","NPHI","RHOB","RT"], intervals: ["BGD-TOP","BGD-MID","BGD-BOTTOM"] },
+                { structure_name: "Beringin-E", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Beringin-E.xlsx", wells_count: 5, wells: ["PRB-BGE-001","PRB-BGE-002","PRB-BGE-003","PRB-BGE-004","PRB-BGE-005"], total_records: 500, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["BGE-UPPER","BGE-LOWER"] },
+                { structure_name: "Beringin-F", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Beringin-F.xlsx", wells_count: 4, wells: ["PRB-BGF-001","PRB-BGF-002","PRB-BGF-003","PRB-BGF-004"], total_records: 400, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["BGF-TOP","BGF-BOTTOM"] },
+                { structure_name: "Beringin-H", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Beringin-H.xlsx", wells_count: 3, wells: ["PRB-BGH-001","PRB-BGH-002","PRB-BGH-003"], total_records: 300, columns: ["DEPTH","GR","NPHI"], intervals: ["BGH-ZONE"] },
+                { structure_name: "Gunung Kemala Barat", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Gunung Kemala Barat.xlsx", wells_count: 9, wells: ["PRB-GKB-001","PRB-GKB-002","PRB-GKB-003","PRB-GKB-004","PRB-GKB-005","PRB-GKB-006","PRB-GKB-007","PRB-GKB-008","PRB-GKB-009"], total_records: 900, columns: ["DEPTH","GR","NPHI","RHOB","RT"], intervals: ["GKB-TOP","GKB-MID","GKB-BOTTOM"] },
+                { structure_name: "Gunung Kemala Tengah", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Gunung Kemala Tengah.xlsx", wells_count: 7, wells: ["PRB-GKT-001","PRB-GKT-002","PRB-GKT-003","PRB-GKT-004","PRB-GKT-005","PRB-GKT-006","PRB-GKT-007"], total_records: 700, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["GKT-UPPER","GKT-LOWER"] },
+                { structure_name: "Gunung Kemala Timur", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Gunung Kemala Timur.xlsx", wells_count: 6, wells: ["PRB-GKM-001","PRB-GKM-002","PRB-GKM-003","PRB-GKM-004","PRB-GKM-005","PRB-GKM-006"], total_records: 600, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["GKM-TOP","GKM-BOTTOM"] },
+                { structure_name: "Lembak", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Lembak.xlsx", wells_count: 12, wells: ["PRB-LBK-001","PRB-LBK-002","PRB-LBK-003","PRB-LBK-004","PRB-LBK-005","PRB-LBK-006","PRB-LBK-007","PRB-LBK-008","PRB-LBK-009","PRB-LBK-010","PRB-LBK-011","PRB-LBK-012"], total_records: 1200, columns: ["DEPTH","GR","NPHI","RHOB","RT"], intervals: ["LBK-TOP","LBK-MID","LBK-BOTTOM"] },
+                { structure_name: "Ogan Timur", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Ogan Timur.xlsx", wells_count: 8, wells: ["PRB-OGT-001","PRB-OGT-002","PRB-OGT-003","PRB-OGT-004","PRB-OGT-005","PRB-OGT-006","PRB-OGT-007","PRB-OGT-008"], total_records: 800, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["OGT-ZONE-1","OGT-ZONE-2"] },
+                { structure_name: "Prabumenang", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Prabumenang.xlsx", wells_count: 10, wells: ["PRB-PBM-001","PRB-PBM-002","PRB-PBM-003","PRB-PBM-004","PRB-PBM-005","PRB-PBM-006","PRB-PBM-007","PRB-PBM-008","PRB-PBM-009","PRB-PBM-010"], total_records: 1000, columns: ["DEPTH","GR","NPHI","RHOB","RT"], intervals: ["PBM-TOP","PBM-BOTTOM"] },
+                { structure_name: "Prabumulih Barat", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Prabumulih Barat.xlsx", wells_count: 11, wells: ["PRB-PBB-001","PRB-PBB-002","PRB-PBB-003","PRB-PBB-004","PRB-PBB-005","PRB-PBB-006","PRB-PBB-007","PRB-PBB-008","PRB-PBB-009","PRB-PBB-010","PRB-PBB-011"], total_records: 1100, columns: ["DEPTH","GR","NPHI","RHOB","RT"], intervals: ["PBB-TOP","PBB-MID","PBB-BOTTOM"] },
+                { structure_name: "Talang Jimar Barat", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Talang Jimar Barat.xlsx", wells_count: 5, wells: ["PRB-TJB-001","PRB-TJB-002","PRB-TJB-003","PRB-TJB-004","PRB-TJB-005"], total_records: 500, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["TJB-ZONE"] },
+                { structure_name: "Talang Jimar Tengah", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Talang Jimar Tengah.xlsx", wells_count: 6, wells: ["PRB-TJT-001","PRB-TJT-002","PRB-TJT-003","PRB-TJT-004","PRB-TJT-005","PRB-TJT-006"], total_records: 600, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["TJT-UPPER","TJT-LOWER"] },
+                { structure_name: "Talang Jimar Timur", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Talang Jimar Timur.xlsx", wells_count: 7, wells: ["PRB-TJM-001","PRB-TJM-002","PRB-TJM-003","PRB-TJM-004","PRB-TJM-005","PRB-TJM-006","PRB-TJM-007"], total_records: 700, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["TJM-TOP","TJM-BOTTOM"] },
+                { structure_name: "Tanjung Tiga Barat", field_name: "Prabumulih", file_path: "/data/structures/Prabumulih/Tanjung Tiga Barat.xlsx", wells_count: 8, wells: ["PRB-TTB-001","PRB-TTB-002","PRB-TTB-003","PRB-TTB-004","PRB-TTB-005","PRB-TTB-006","PRB-TTB-007","PRB-TTB-008"], total_records: 800, columns: ["DEPTH","GR","NPHI","RHOB","RT"], intervals: ["TTB-TOP","TTB-MID","TTB-BOTTOM"] }
+            ]
+        },
+        {
+            field_name: "Ramba",
+            structures_count: 3,
+            structures: [
+                //Bentayan, Mangunjaya, Ramba
+                { structure_name: "Bentayan", field_name: "Ramba", file_path: "/data/structures/Ramba/Bentayan.xlsx", wells_count: 4, wells: ["RMB-BTN-001","RMB-BTN-002","RMB-BTN-003","RMB-BTN-004"], total_records: 400, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["BTN-TOP","BTN-BOTTOM"] },
+                { structure_name: "Mangunjaya", field_name: "Ramba", file_path: "/data/structures/Ramba/Mangunjaya.xlsx", wells_count: 5, wells: ["RMB-MNJ-001","RMB-MNJ-002","RMB-MNJ-003","RMB-MNJ-004","RMB-MNJ-005"], total_records: 500, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["MNJ-TOP","MNJ-BOTTOM"] },
+                { structure_name: "Ramba", field_name: "Ramba", file_path: "/data/structures/Ramba/Ramba.xlsx", wells_count: 6, wells: ["RMB-RMB-001","RMB-RMB-002","RMB-RMB-003","RMB-RMB-004","RMB-RMB-005","RMB-RMB-006"], total_records: 600, columns: ["DEPTH","GR","NPHI","RHOB"], intervals: ["RMB-TOP","RMB-BOTTOM"] }
+            ]
         }
     ],
-    total_fields: 2,
-    total_structures: 7
+    total_fields: 5,
+    total_structures: 35
 };
 
 // Structures State
@@ -106,37 +152,6 @@ var structuresState = {
 var currentPage = 'structures'; // 'structures' or 'dashboard'
 
 // Structures Functions
-// Normalize file paths from index.json to actual served URLs under this webapp
-function resolveFilePath(p) {
-    if (!p) return '';
-    var url = String(p).trim();
-    // Pass through absolute URLs
-    if (/^https?:\/\//i.test(url)) return url;
-    // Normalize slashes
-    url = url.replace(/\\/g, '/');
-    // Remove leading slash to make it relative to webapp root
-    if (url.startsWith('/')) url = url.slice(1);
-    // Handle legacy 'data/structures/**' by stripping 'data/'
-    if (url.toLowerCase().startsWith('data/structures/')) {
-        url = url.substring('data/'.length);
-    }
-    // Ensure it is under 'structures/'
-    if (!url.toLowerCase().startsWith('structures/')) {
-        url = 'structures/' + url;
-    }
-    // In Dataiku, use Resource URL for static files
-    try {
-        if (typeof window !== 'undefined' && window.dataiku && typeof window.dataiku.getWebAppResourceUrl === 'function') {
-            // Resource path should be relative to the 'resource' folder root
-            var resourcePath = url.replace(/^structures\//i, 'structures/');
-            return window.dataiku.getWebAppResourceUrl(resourcePath);
-        }
-    } catch(e) {}
-    // Encode each segment to handle spaces and special chars for plain static serving
-    url = url.split('/').map(function(seg){ return encodeURIComponent(seg); }).join('/');
-    return url;
-}
-
 function showPage(pageName) {
     var structuresPage = document.getElementById('structuresPage');
     var dashboardPage = document.getElementById('dashboardPage');
@@ -154,22 +169,13 @@ function showPage(pageName) {
 
 function initializeStructuresPage() {
     console.log('Initializing structures page...');
-    // Prefer backend in Dataiku, then fallback to local index.json, else mock
-    loadStructuresFromBackend()
-        .then(function(loaded) {
-            if (loaded) return true;
-            return loadStructuresFromFolder();
-        })
+    // Try loading structures from local data first
+    loadStructuresFromFolder()
         .then(function(loaded) {
             if (!loaded) {
+                // Fallback to bundled mock data
                 console.warn('Using embedded structuresData mock');
             }
-            renderFieldsList();
-            showEmptyStructuresState();
-            showEmptyDetailsState();
-        })
-        .catch(function(err){
-            console.warn('Failed to initialize structures from backend/folder:', err && err.message ? err.message : err);
             renderFieldsList();
             showEmptyStructuresState();
             showEmptyDetailsState();
@@ -178,133 +184,46 @@ function initializeStructuresPage() {
 
 // Load structures definition from /data/structures/index.json (served statically)
 function loadStructuresFromFolder() {
-    // Try multiple candidate URLs to accommodate local dev and Dataiku resources
-    var candidates = [];
-    try {
-        if (typeof window !== 'undefined' && window.dataiku && typeof window.dataiku.getWebAppResourceUrl === 'function') {
-            candidates.push(window.dataiku.getWebAppResourceUrl('structures/index.json'));
-            candidates.push(window.dataiku.getWebAppResourceUrl('data/structures/index.json'));
-        }
-    } catch(e) {}
-    candidates = candidates.concat([
-        'structures/index.json',
+    // Candidate static paths (relative + absolute variants) then backend endpoint
+    var candidates = [
         'data/structures/index.json',
-        '/structures/index.json',
-        '/data/structures/index.json'
-    ]);
-
-    function tryNext(i) {
-        if (i >= candidates.length) {
-            return Promise.resolve(false);
+        'structures/index.json',
+        '/webapps/webappv1/data/structures/index.json',
+        '/webapps/webappv1/structures/index.json'
+    ];
+    var tried = [];
+    function tryNext() {
+        if (candidates.length === 0) {
+            // Try backend endpoint before giving up
+            return fetchJson('/get_structures_index')
+                .then(function(resp){
+                    if (resp && resp.status === 'success' && resp.data && Array.isArray(resp.data.fields)) {
+                        structuresData = resp.data;
+                        console.log('Loaded structures via backend endpoint fallback');
+                        return true;
+                    }
+                    return false;
+                })
+                .catch(function(){ return false; });
         }
-        var url = candidates[i];
+        var url = candidates.shift();
+        tried.push(url);
         return fetch(url, { cache: 'no-cache' })
-            .then(function(res){ if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+            .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
             .then(function(json){
-                var normalized = normalizeStructuresPayload(json);
-                if (normalized) {
-                    structuresData = normalized;
-                    console.log('Loaded structures from folder URL:', url);
+                if (json && json.fields && Array.isArray(json.fields)) {
+                    structuresData = json;
+                    console.log('Loaded structures from', url);
                     return true;
                 }
-                return tryNext(i+1);
-            })
-            .catch(function(){ return tryNext(i+1); });
-    }
-    return tryNext(0).catch(function(err){
-        console.warn('Could not load structures from any folder URL:', err && err.message ? err.message : err);
-        return false;
-    });
-}
-
-// Try to load structures using Dataiku backend endpoint
-function loadStructuresFromBackend() {
-    try {
-        // Use existing fetchJson helper to honor Dataiku backend base URL
-        return fetchJson('/structures/tree', { method: 'GET' })
-            .then(function(resp){
-                if (!resp) return false;
-                var normalized = normalizeStructuresPayload(resp);
-                if (normalized) {
-                    structuresData = normalized;
-                    console.log('Loaded structures from backend tree');
-                    return true;
-                }
-                return false;
+                return tryNext();
             })
             .catch(function(err){
-                console.warn('Could not load structures from backend:', err && err.message ? err.message : err);
-                return false;
+                console.warn('Fail path', url, '-', err.message || err);
+                return tryNext();
             });
-    } catch(e) {
-        console.warn('Backend structures load threw:', e && e.message ? e.message : e);
-        return Promise.resolve(false);
     }
-}
-
-// Normalize various payload shapes into { fields: [...], total_fields, total_structures }
-function normalizeStructuresPayload(payload) {
-    if (!payload) return null;
-    // If already in expected shape
-    if (Array.isArray(payload.fields)) {
-        return {
-            fields: payload.fields,
-            total_fields: typeof payload.total_fields === 'number' ? payload.total_fields : payload.fields.length,
-            total_structures: typeof payload.total_structures === 'number' ? payload.total_structures : payload.fields.reduce(function(sum, f){ return sum + (Array.isArray(f.structures) ? f.structures.length : 0); }, 0)
-        };
-    }
-    // If payload has a 'tree' or similar structure
-    if (Array.isArray(payload.tree)) {
-        var fields = payload.tree.map(function(node){
-            return {
-                field_name: node.field_name || node.name || node.field || 'Unknown Field',
-                structures: (node.structures || node.children || []).map(function(s){
-                    return {
-                        structure_name: s.structure_name || s.name || 'Unknown',
-                        field_name: node.field_name || node.name || node.field || 'Unknown Field',
-                        file_path: s.file_path || s.path || s.url || '',
-                        wells_count: s.wells_count || (Array.isArray(s.wells) ? s.wells.length : 0),
-                        wells: s.wells || [],
-                        total_records: s.total_records || 0,
-                        columns: s.columns || [],
-                        intervals: s.intervals || []
-                    };
-                })
-            };
-        });
-        return {
-            fields: fields,
-            total_fields: fields.length,
-            total_structures: fields.reduce(function(sum, f){ return sum + (Array.isArray(f.structures) ? f.structures.length : 0); }, 0)
-        };
-    }
-    // If payload is a flat list of structures grouped by field_name
-    if (Array.isArray(payload.structures)) {
-        var grouped = {};
-        payload.structures.forEach(function(s){
-            var field = s.field_name || s.field || 'Unknown Field';
-            if (!grouped[field]) grouped[field] = [];
-            grouped[field].push({
-                structure_name: s.structure_name || s.name || 'Unknown',
-                field_name: field,
-                file_path: s.file_path || s.path || s.url || '',
-                wells_count: s.wells_count || (Array.isArray(s.wells) ? s.wells.length : 0),
-                wells: s.wells || [],
-                total_records: s.total_records || 0,
-                columns: s.columns || [],
-                intervals: s.intervals || []
-            });
-        });
-        var fields = Object.keys(grouped).map(function(fname){
-            return { field_name: fname, structures: grouped[fname] };
-        });
-        return {
-            fields: fields,
-            total_fields: fields.length,
-            total_structures: fields.reduce(function(sum, f){ return sum + (Array.isArray(f.structures) ? f.structures.length : 0); }, 0)
-        };
-    }
-    return null;
+    return tryNext();
 }
 // Original fields/structures rendering
 function renderFieldsList() {
@@ -452,9 +371,8 @@ function handleStructureSelect(structureName) {
         fieldName: structuresState.selectedField,
         structureName: structure.structure_name,
         filePath: structure.file_path,
-    wells: structure.wells || [],
-    columns: structure.columns || [],
-    intervals: structure.intervals || []
+        wells: structure.wells || [],
+        columns: structure.columns || []
     };
     localStorage.setItem('selectedStructure', JSON.stringify(selectedInfo));
     console.log('Saved selectedStructure to localStorage:', selectedInfo);
@@ -499,7 +417,7 @@ function handleFieldSelect(fieldName) {
 function renderStructureDetails(structure) {
     var detailsTitle = document.getElementById('detailsTitle');
     var structureDetails = document.getElementById('structureDetails');
-    var filePathResolved = resolveFilePath(structure.file_path);
+    
     detailsTitle.textContent = 'Details for "' + structure.structure_name + '"';
     
     var detailsHTML = 
@@ -518,16 +436,15 @@ function renderStructureDetails(structure) {
                     '</div>' +
                     '<div class="detail-item">' +
                         '<span>Wells Count:</span>' +
-                        '<span>' + ((structure.wells && structure.wells.length) ? structure.wells.length : (structure.wells_count || 0)) + '</span>' +
+                        '<span>' + structure.wells_count + '</span>' +
                     '</div>' +
                     '<div class="detail-item">' +
                         '<span>Total Records:</span>' +
-                        '<span>' + ((structure.total_records || 0).toLocaleString ? (structure.total_records || 0).toLocaleString() : (structure.total_records || 0)) + '</span>' +
+                        '<span>' + structure.total_records.toLocaleString() + '</span>' +
                     '</div>' +
                     '<div class="detail-item full-width">' +
                         '<span>File Path:</span>' +
-                        '<span class="file-path">' + filePathResolved + '</span>' +
-                        '<a class="btn-link" style="margin-left:8px" href="' + filePathResolved + '" target="_blank" rel="noopener">Open file</a>' +
+                        '<span class="file-path">' + structure.file_path + '</span>' +
                     '</div>' +
                 '</div>' +
             '</div>';
@@ -536,7 +453,7 @@ function renderStructureDetails(structure) {
     if (structure.wells && structure.wells.length > 0) {
         detailsHTML += 
             '<div class="detail-section">' +
-                '<h3>Wells (' + (structure.wells ? structure.wells.length : (structure.wells_count || 0)) + ')</h3>' +
+                '<h3>Wells (' + structure.wells_count + ')</h3>' +
                 '<div class="wells-grid">';
         
         structure.wells.forEach(function(well) {
@@ -549,10 +466,10 @@ function renderStructureDetails(structure) {
     // Columns section
     detailsHTML += 
         '<div class="detail-section">' +
-            '<h3>Available Columns (' + (structure.columns ? structure.columns.length : 0) + ')</h3>' +
+            '<h3>Available Columns (' + structure.columns.length + ')</h3>' +
             '<div class="columns-grid">';
     
-    (structure.columns || []).forEach(function(column) {
+    structure.columns.forEach(function(column) {
         var dataType = structure.data_types && structure.data_types[column] ? structure.data_types[column] : 'Unknown';
         detailsHTML += 
             '<div class="column-item">' +
@@ -624,222 +541,6 @@ function renderStructureDetails(structure) {
     detailsHTML += '</div>';
     
     structureDetails.innerHTML = detailsHTML;
-
-    // If columns/wells not populated yet, try to enrich by reading the Excel file
-    if ((!(structure.columns && structure.columns.length) || !(structure.wells && structure.wells.length) || (structure.wells_count|0) === 0) && filePathResolved && typeof XLSX !== 'undefined') {
-        // Show nicer inline loader inside details panel
-        var loadingDiv = document.createElement('div');
-        loadingDiv.className = 'detail-section details-loader';
-        loadingDiv.innerHTML = '' +
-            '<div class="loader-content">' +
-                '<div class="spinner" aria-hidden="true"></div>' +
-                '<div class="loader-text">Loading structure details...</div>' +
-                '<div class="skeleton-list" aria-hidden="true">' +
-                    '<div class="skeleton-row" style="width: 80%"></div>' +
-                    '<div class="skeleton-row" style="width: 60%"></div>' +
-                    '<div class="skeleton-row" style="width: 70%"></div>' +
-                '</div>' +
-            '</div>';
-        structureDetails.appendChild(loadingDiv);
-
-        enrichStructureFromExcel(filePathResolved)
-            .then(function(meta){
-                // Merge metadata into structure
-                if (meta.columns) structure.columns = meta.columns;
-                if (meta.wells) {
-                    structure.wells = meta.wells;
-                    structure.wells_count = meta.wells.length;
-                }
-                if (typeof meta.total_records === 'number') structure.total_records = meta.total_records;
-                if (meta.data_types) structure.data_types = meta.data_types;
-                if (meta.intervals) structure.intervals = meta.intervals;
-                if (meta.statistics) structure.statistics = meta.statistics;
-
-                // Persist updated intervals/wells into localStorage if this structure is selected
-                try {
-                    var savedSel2 = localStorage.getItem('selectedStructure');
-                    if (savedSel2) {
-                        var parsedSel2 = JSON.parse(savedSel2);
-                        if (parsedSel2 && parsedSel2.structureName === structure.structure_name && parsedSel2.fieldName === structure.field_name) {
-                            if (structure.wells) parsedSel2.wells = structure.wells.slice();
-                            if (structure.intervals) parsedSel2.intervals = structure.intervals.slice();
-                            parsedSel2.wells_count = (structure.wells ? structure.wells.length : (structure.wells_count||0));
-                            localStorage.setItem('selectedStructure', JSON.stringify(parsedSel2));
-                        }
-                    }
-                } catch(e) {}
-
-                // Re-render with enriched info
-                renderStructureDetails(structure);
-            })
-            .catch(function(err){
-                console.warn('Failed to parse Excel for metadata:', err);
-            });
-    }
-}
-
-// Read minimal metadata from Excel: columns, wells, intervals, row count, basic stats
-function enrichStructureFromExcel(filePath) {
-    return fetch(filePath).then(function(res){
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return res.arrayBuffer();
-    }).then(function(buf){
-        var wb = XLSX.read(buf, { type: 'array' });
-        if (!wb.SheetNames || wb.SheetNames.length === 0) throw new Error('No sheets found');
-
-        // Pick the best sheet: prefer one with many rows and plausible headers
-        function scoreSheet(name) {
-            var ws = wb.Sheets[name];
-            var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-            if (!aoa || aoa.length === 0) return { score: 0, aoa: aoa };
-            // compute non-empty counts for first few rows
-            var headerIdx = -1, bestNonEmpty = -1;
-            for (var r=0; r<Math.min(10, aoa.length); r++) {
-                var row = aoa[r] || [];
-                var nonEmpty = row.reduce(function(acc, cell){ return acc + ((cell!==null && cell!==undefined && (''+cell).trim()!=='') ? 1 : 0); }, 0);
-                if (nonEmpty > bestNonEmpty) { bestNonEmpty = nonEmpty; headerIdx = r; }
-            }
-            var header = (headerIdx >= 0 ? aoa[headerIdx] : []);
-            var canon = function(s){ return (s||'').toString().toLowerCase().replace(/[^a-z0-9]/g,''); };
-            var ch = (header||[]).map(canon);
-            var hasWell = ['well','wellname','wellid','wellno','sumur','namasumur','wellborename'].some(function(k){ return ch.indexOf(k) >= 0; });
-            var hasDepth = ['depth','md','tvd'].some(function(k){ return ch.indexOf(k) >= 0; });
-            var rowsCount = Math.max(0, (aoa.length - (headerIdx>=0?headerIdx+1:1)));
-            var score = bestNonEmpty + (hasWell?10:0) + (hasDepth?4:0) + Math.min(20, Math.floor(rowsCount/100));
-            return { score: score, aoa: aoa, headerIdx: headerIdx };
-        }
-
-        var best = { name: wb.SheetNames[0], score: -1, aoa: null, headerIdx: 0 };
-        for (var si=0; si<wb.SheetNames.length; si++) {
-            var nm = wb.SheetNames[si];
-            var s = scoreSheet(nm);
-            if (s.score > best.score) { best = { name: nm, score: s.score, aoa: s.aoa, headerIdx: s.headerIdx } }
-        }
-
-        var ws = wb.Sheets[best.name];
-        // Get AoA from best sheet
-        var aoa = best.aoa || XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-        if (!aoa || aoa.length === 0) return {};
-        // Find the first non-empty row to use as header
-        var headerRowIdx = (typeof best.headerIdx === 'number' && best.headerIdx >=0) ? best.headerIdx : 0;
-        if (headerRowIdx === 0) {
-            for (var r2 = 0; r2 < aoa.length; r2++) {
-                var nonEmpty2 = 0;
-                var rowArr2 = aoa[r2] || [];
-                for (var c2 = 0; c2 < rowArr2.length; c2++) {
-                    var cell2 = rowArr2[c2];
-                    if (cell2 !== null && cell2 !== undefined && (''+cell2).trim() !== '') nonEmpty2++;
-                }
-                if (nonEmpty2 >= 2) { headerRowIdx = r2; break; }
-            }
-        }
-        var header = (aoa[headerRowIdx] || []).map(function(h){ return (h === null || h === undefined) ? '' : (''+h).trim(); });
-        var rows = aoa.slice(headerRowIdx + 1);
-        var totalRecords = rows.length;
-
-        // Determine column data types by sampling
-        var dataTypes = {};
-        var sampleCount = Math.min(rows.length, 200);
-        var numericCols = new Set();
-        header.forEach(function(col, idx){
-            if (!col) return;
-            var isNumeric = false;
-            for (var i=0;i<sampleCount;i++) {
-                var v = rows[i] ? rows[i][idx] : null;
-                if (v !== null && v !== '' && v !== undefined) {
-                    var n = Number(v);
-                    if (!isNaN(n)) { isNumeric = true; break; }
-                }
-            }
-            dataTypes[col] = isNumeric ? 'number' : 'string';
-            if (isNumeric) numericCols.add(col);
-        });
-
-        // Collect wells and intervals by robust column-name matching
-        function canon(s){ return (s||'').toString().toLowerCase().replace(/[^a-z0-9]/g,''); }
-        var canonHeader = header.map(canon);
-        function findCol(candidates){
-            var canonCandidates = candidates.map(canon);
-            for (var i=0; i<canonCandidates.length; i++) {
-                var cc = canonCandidates[i];
-                var idx = canonHeader.indexOf(cc);
-                if (idx >= 0) return idx;
-            }
-            return -1;
-        }
-        var wellIdx = findCol(['WELL_NAME','WELL NAME','WELL','WELLNAME','WELL_ID','WELL ID','WELLNO','WELL NO','WELL_CODE','WELL CODE','WELL_BORE_NAME','WELLBORENAME','SUMUR','NAMA SUMUR','NAMA_SUMUR']);
-        var intervalIdx = findCol(['MARKER','INTERVAL','ZONE','ZONE_NAME','LAYER','FORMATION','FORMASI','ZONA']);
-
-        // If well column not found by header, try pattern-based detection
-        if (wellIdx < 0) {
-            var bestIdx = -1, bestScore = 0;
-            var wellPattern = /^(?:[A-Za-z]{2,6})[-_ ]?\d{1,4}$/; // e.g., ABB-035, LIM 12
-            for (var ci=0; ci<header.length; ci++) {
-                var hits = 0, total = 0;
-                for (var rr=0; rr<Math.min(rows.length, 2000); rr++) {
-                    var v = rows[rr] ? rows[rr][ci] : null;
-                    if (v === null || v === undefined || (''+v).trim() === '') continue;
-                    total++;
-                    if (wellPattern.test((''+v).trim())) hits++;
-                }
-                if (total > 0) {
-                    var ratio = hits/total;
-                    var score = hits + ratio*10;
-                    if (score > bestScore && hits >= 3 && ratio >= 0.4) { bestScore = score; bestIdx = ci; }
-                }
-            }
-            if (bestIdx >= 0) wellIdx = bestIdx;
-        }
-
-        var wellsOrdered = [];
-        var wellsSeen = new Set();
-        var intervalsSet = new Set();
-        for (var r=0;r<rows.length;r++) {
-            var row = rows[r] || [];
-            if (wellIdx >= 0) {
-                var w = row[wellIdx];
-                if (w !== null && w !== undefined) {
-                    var ws = (''+w).trim();
-                    if (ws !== '' && !wellsSeen.has(ws)) { wellsSeen.add(ws); wellsOrdered.push(ws); }
-                }
-            }
-            if (intervalIdx >= 0) {
-                var it = row[intervalIdx];
-                if (it !== null && it !== undefined && (''+it).trim() !== '') intervalsSet.add((''+it).trim());
-            }
-        }
-
-        // Basic statistics for a few common logs if present
-        function statsFor(colName){
-            var idx = header.indexOf(colName);
-            if (idx < 0) return null;
-            var count=0, min=Infinity, max=-Infinity, sum=0;
-            for (var r=0;r<rows.length;r++) {
-                var v = rows[r] ? rows[r][idx] : null;
-                var n = Number(v);
-                if (!isNaN(n)) {
-                    count++; sum += n; if (n<min) min=n; if (n>max) max=n;
-                }
-            }
-            if (count===0) return { count: 0, min: null, max: null, mean: null };
-            return { count: count, min: min, max: max, mean: sum/count };
-        }
-        var commonLogs = ['GR','RT','NPHI','RHOB'];
-        var statistics = {};
-        commonLogs.forEach(function(log){
-            var st = statsFor(log);
-            if (st) statistics[log] = st;
-        });
-
-        return {
-            columns: header.filter(function(h){ return h && h.length>0; }),
-            data_types: dataTypes,
-            wells: wellsOrdered,
-            intervals: Array.from(intervalsSet),
-            total_records: totalRecords,
-            statistics: statistics
-        };
-    });
 }
 
 // Lightweight details panel for CSV-driven structures
@@ -862,78 +563,27 @@ function navigateToDashboard() {
             fieldName: info.fieldName,
             structureName: info.structureName,
             filePath: info.filePath,
-            wells: info.wells || [],
-            columns: info.columns || [],
-            intervals: info.intervals || []
+            wells: info.wells,
+            columns: info.columns || []
         };
 
         // Switch to dashboard
         showPage('dashboard');
         handleNavigation('/dashboard');
-
-        // Ensure wells/intervals are populated for folder-based structures before rendering lists
-        ensureStructureDataLoaded().then(function(){
+        
+        // Initialize dashboard dengan data dari structure
+        setTimeout(function() {
             renderWellList(appState.availableWells);
+            clearIntervals();
             updateBadges();
-            // Optionally auto-select first well to load intervals immediately
-            if (appState.availableWells.length > 0 && appState.selectedWells.length === 0) {
-                appState.selectedWells = [appState.availableWells[0]];
-                updateWellSelection();
-                // Load a default plot and intervals
-                loadWellPlot(appState.selectedWells[0]);
-            }
-            updateIntervalsForSelectedWells();
             clearPlot();
             showSuccess('Dashboard loaded with ' + appState.availableWells.length + ' wells from ' + info.structureName);
-        }).catch(function(){
-            renderWellList(appState.availableWells);
-            updateBadges();
-        });
+        }, 100);
         
     } else {
         console.error('🚀 No structure details available for navigation');
         showError('No structure selected. Please select a structure first.');
     }
-}
-
-// Ensure currentStructure has wells (for folder-based structures) and updates availableWells
-function ensureStructureDataLoaded() {
-    return new Promise(function(resolve) {
-        var cs = appState.currentStructure || {};
-        var isFolder = /\/$/.test(cs.filePath || '');
-        // If folder-based and no wells yet, fetch from backend
-        if (isFolder && (!cs.wells || cs.wells.length === 0)) {
-            fetchJson('/structures/list_wells', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ folder_path: cs.filePath })
-            }).then(function(resp){
-                if (resp && resp.status === 'success') {
-                    cs.wells = resp.wells || [];
-                    appState.currentStructure = cs;
-                    appState.availableWells = cs.wells.slice();
-                    // Update persisted selection
-                    try {
-                        var saved = localStorage.getItem('selectedStructure');
-                        if (saved) {
-                            var parsed = JSON.parse(saved);
-                            if (parsed && parsed.structureName === cs.structureName && parsed.fieldName === cs.fieldName) {
-                                parsed.wells = cs.wells.slice();
-                                parsed.wells_count = cs.wells.length;
-                                localStorage.setItem('selectedStructure', JSON.stringify(parsed));
-                            }
-                        }
-                    } catch(e) {}
-                }
-            }).finally(function(){ resolve(); });
-        } else {
-            // Not a folder or wells already present
-            if (cs.wells && cs.wells.length > 0) {
-                appState.availableWells = cs.wells.slice();
-            }
-            resolve();
-        }
-    });
 }
 
 // Empty states for structures UI
@@ -987,21 +637,17 @@ function handleNavigation(path) {
                         structureName: structureInfo.structureName,
                         filePath: structureInfo.filePath,
                         wells: structureInfo.wells || [],
-                        columns: structureInfo.columns || [],
-                        intervals: structureInfo.intervals || []
+                        columns: structureInfo.columns || []
                     };
                 }
             }
-            if (!appState.currentStructure) {
+            if (appState.currentStructure && (!appState.availableWells || appState.availableWells.length === 0)) {
+                appState.availableWells = (appState.currentStructure.wells || []);
+                renderWellList(appState.availableWells);
+                updateBadges();
+                showSuccess('Dashboard loaded with data from ' + appState.currentStructure.structureName);
+            } else if (!appState.currentStructure) {
                 showMessage('Dashboard loaded - select a structure first to load well data', 'info');
-            } else {
-                ensureStructureDataLoaded().then(function(){
-                    if (!appState.availableWells || appState.availableWells.length === 0) {
-                        showMessage('No wells found for the selected structure', 'warning');
-                    }
-                    renderWellList(appState.availableWells);
-                    updateBadges();
-                });
             }
             break;
         default:
@@ -1790,29 +1436,21 @@ function updateIntervalsForSelectedWells() {
         return;
     }
 
-    // Prefer structure-specific intervals if present
-    if (appState.currentStructure && Array.isArray(appState.currentStructure.intervals) && appState.currentStructure.intervals.length > 0) {
-        appState.availableIntervals = appState.currentStructure.intervals.slice();
-        renderIntervalList(appState.availableIntervals);
-        updateBadges();
-        return;
-    }
-
-    // Otherwise, load from backend dataset markers
+    // Always load intervals/markers from CSV via backend
     fetchJson('/get_markers')
-        .then(function(response) {
-            if (response.status === 'success') {
-                appState.availableIntervals = response.markers;
-                renderIntervalList(response.markers);
-                updateBadges();
-            } else {
-                throw new Error(response.message || 'Failed to load intervals');
-            }
-        })
-        .catch(function(error) {
-            console.error('Error loading intervals:', error);
-            showError('Error loading intervals: ' + error.message);
-        });
+    .then(function(response) {
+        if (response.status === 'success') {
+            appState.availableIntervals = response.markers;
+            renderIntervalList(response.markers);
+            updateBadges();
+        } else {
+            throw new Error(response.message || 'Failed to load intervals');
+        }
+    })
+    .catch(function(error) {
+        console.error('Error loading intervals:', error);
+        showError('Error loading intervals: ' + error.message);
+    });
 }
 
 // Helper function untuk mencari structure data pada mock

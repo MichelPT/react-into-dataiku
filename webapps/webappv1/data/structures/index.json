@@ -1,70 +1,376 @@
 {
   "fields": [
     {
-      "field_name": "adera",
+      "field_name": "Adera",
       "structures_count": 4,
       "structures": [
-        { "structure_name": "Abab", "field_name": "adera", "file_path": "/structures/adera/Abab.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Benuang", "field_name": "adera", "file_path": "/structures/adera/Benuang.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Dewa", "field_name": "adera", "file_path": "/structures/adera/Dewa.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Raja", "field_name": "adera", "file_path": "/structures/adera/Raja.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] }
+        {
+          "structure_name": "Abab",
+          "field_name": "Adera",
+          "file_path": "/data/structures/Adera/Abab.xlsx",
+          "wells_count": 12,
+          "wells": ["ABB-001","ABB-002","ABB-003","ABB-004","ABB-005","ABB-006","ABB-007","ABB-008","ABB-009","ABB-010","ABB-011","ABB-012"],
+          "total_records": 1200,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["ABAB-TOP","ABAB-MID","ABAB-BOTTOM","ABAB-RESERVOIR"]
+        },
+        {
+          "structure_name": "Benuang",
+          "field_name": "Adera",
+          "file_path": "/data/structures/Adera/Benuang.xlsx",
+          "wells_count": 8,
+          "wells": ["BNG-001","BNG-002","BNG-003","BNG-004","BNG-005","BNG-006","BNG-007","BNG-008"],
+          "total_records": 850,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["BNG-UPPER","BNG-LOWER","BNG-MAIN"]
+        },
+        {
+          "structure_name": "Dewa",
+          "field_name": "Adera",
+          "file_path": "/data/structures/Adera/Dewa.xlsx",
+          "wells_count": 15,
+          "wells": ["DEW-001","DEW-002","DEW-003","DEW-004","DEW-005","DEW-006","DEW-007","DEW-008","DEW-009","DEW-010","DEW-011","DEW-012","DEW-013","DEW-014","DEW-015"],
+          "total_records": 1600,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT","SP"],
+          "intervals": ["DEWA-A","DEWA-B","DEWA-C","DEWA-RESERVOIR","DEWA-SEAL"]
+        },
+        {
+          "structure_name": "Raja",
+          "field_name": "Adera",
+          "file_path": "/data/structures/Adera/Raja.xlsx",
+          "wells_count": 10,
+          "wells": ["RJA-001","RJA-002","RJA-003","RJA-004","RJA-005","RJA-006","RJA-007","RJA-008","RJA-009","RJA-010"],
+          "total_records": 980,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["RAJA-TOP","RAJA-MIDDLE","RAJA-BOTTOM"]
+        }
       ]
     },
     {
-      "field_name": "limau",
+      "field_name": "Limau",
       "structures_count": 5,
       "structures": [
-        { "structure_name": "Belimbing", "field_name": "limau", "file_path": "/structures/limau/Belimbing.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Karangan", "field_name": "limau", "file_path": "/structures/limau/Karangan.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Limau Barat", "field_name": "limau", "file_path": "/structures/limau/Limau Barat.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Limau Tengah", "field_name": "limau", "file_path": "/structures/limau/Limau Tengah.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Tanjung Miring Barat", "field_name": "limau", "file_path": "/structures/limau/Tanjung Miring Barat.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] }
+        {
+          "structure_name": "Belimbing",
+          "field_name": "Limau",
+          "file_path": "/data/structures/Limau/Belimbing.xlsx",
+          "wells_count": 18,
+          "wells": ["LIM-BLB-001","LIM-BLB-002","LIM-BLB-003","LIM-BLB-004","LIM-BLB-005","LIM-BLB-006","LIM-BLB-007","LIM-BLB-008","LIM-BLB-009","LIM-BLB-010","LIM-BLB-011","LIM-BLB-012","LIM-BLB-013","LIM-BLB-014","LIM-BLB-015","LIM-BLB-016","LIM-BLB-017","LIM-BLB-018"],
+          "total_records": 2100,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT","SP"],
+          "intervals": ["BLB-ZONE-1","BLB-ZONE-2","BLB-ZONE-3","BLB-MAIN"]
+        },
+        {
+          "structure_name": "Karangan",
+          "field_name": "Limau",
+          "file_path": "/data/structures/Limau/Karangan.xlsx",
+          "wells_count": 7,
+          "wells": ["LIM-KRG-001","LIM-KRG-002","LIM-KRG-003","LIM-KRG-004","LIM-KRG-005","LIM-KRG-006","LIM-KRG-007"],
+          "total_records": 750,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["KRG-UPPER","KRG-LOWER"]
+        },
+        {
+          "structure_name": "Limau Barat",
+          "field_name": "Limau",
+          "file_path": "/data/structures/Limau/Limau Barat.xlsx",
+          "wells_count": 22,
+          "wells": ["LIM-LB-001","LIM-LB-002","LIM-LB-003","LIM-LB-004","LIM-LB-005","LIM-LB-006","LIM-LB-007","LIM-LB-008","LIM-LB-009","LIM-LB-010","LIM-LB-011","LIM-LB-012","LIM-LB-013","LIM-LB-014","LIM-LB-015","LIM-LB-016","LIM-LB-017","LIM-LB-018","LIM-LB-019","LIM-LB-020","LIM-LB-021","LIM-LB-022"],
+          "total_records": 2800,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT","SP","CALI"],
+          "intervals": ["LB-A","LB-B","LB-C","LB-D","LB-MAIN"]
+        },
+        {
+          "structure_name": "Limau Tengah",
+          "field_name": "Limau",
+          "file_path": "/data/structures/Limau/Limau Tengah.xlsx",
+          "wells_count": 16,
+          "wells": ["LIM-LT-001","LIM-LT-002","LIM-LT-003","LIM-LT-004","LIM-LT-005","LIM-LT-006","LIM-LT-007","LIM-LT-008","LIM-LT-009","LIM-LT-010","LIM-LT-011","LIM-LT-012","LIM-LT-013","LIM-LT-014","LIM-LT-015","LIM-LT-016"],
+          "total_records": 1950,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["LT-ZONE-1","LT-ZONE-2","LT-ZONE-3"]
+        },
+        {
+          "structure_name": "Tanjung Miring Barat",
+          "field_name": "Limau",
+          "file_path": "/data/structures/Limau/Tanjung Miring Barat.xlsx",
+          "wells_count": 14,
+          "wells": ["LIM-TMB-001","LIM-TMB-002","LIM-TMB-003","LIM-TMB-004","LIM-TMB-005","LIM-TMB-006","LIM-TMB-007","LIM-TMB-008","LIM-TMB-009","LIM-TMB-010","LIM-TMB-011","LIM-TMB-012","LIM-TMB-013","LIM-TMB-014"],
+          "total_records": 1650,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT","SP"],
+          "intervals": ["TMB-TOP","TMB-MIDDLE","TMB-BOTTOM"]
+        }
       ]
     },
     {
-      "field_name": "pendopo",
+      "field_name": "Pendopo",
       "structures_count": 5,
       "structures": [
-        { "structure_name": "Benakat Barat", "field_name": "pendopo", "file_path": "/structures/pendopo/Benakat Barat.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Betung", "field_name": "pendopo", "file_path": "/structures/pendopo/Betung.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Musi Timur", "field_name": "pendopo", "file_path": "/structures/pendopo/Musi Timur.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Sopa", "field_name": "pendopo", "file_path": "/structures/pendopo/Sopa.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Talang Akar Pendopo", "field_name": "pendopo", "file_path": "/structures/pendopo/Talang Akar Pendopo.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] }
+        {
+          "structure_name": "Benakat Barat",
+          "field_name": "Pendopo",
+          "file_path": "/data/structures/Pendopo/Benakat Barat.xlsx",
+          "wells_count": 11,
+          "wells": ["PDP-BKB-001","PDP-BKB-002","PDP-BKB-003","PDP-BKB-004","PDP-BKB-005","PDP-BKB-006","PDP-BKB-007","PDP-BKB-008","PDP-BKB-009","PDP-BKB-010","PDP-BKB-011"],
+          "total_records": 1100,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["BKB-TOP","BKB-MID","BKB-BOTTOM"]
+        },
+        {
+          "structure_name": "Betung",
+          "field_name": "Pendopo",
+          "file_path": "/data/structures/Pendopo/Betung.xlsx",
+          "wells_count": 9,
+          "wells": ["PDP-BTG-001","PDP-BTG-002","PDP-BTG-003","PDP-BTG-004","PDP-BTG-005","PDP-BTG-006","PDP-BTG-007","PDP-BTG-008","PDP-BTG-009"],
+          "total_records": 900,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["BTG-UPPER","BTG-LOWER"]
+        },
+        {
+          "structure_name": "Musi Timur",
+          "field_name": "Pendopo",
+          "file_path": "/data/structures/Pendopo/Musi Timur.xlsx",
+          "wells_count": 13,
+          "wells": ["PDP-MST-001","PDP-MST-002","PDP-MST-003","PDP-MST-004","PDP-MST-005","PDP-MST-006","PDP-MST-007","PDP-MST-008","PDP-MST-009","PDP-MST-010","PDP-MST-011","PDP-MST-012","PDP-MST-013"],
+          "total_records": 1300,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT","SP"],
+          "intervals": ["MST-ZONE-1","MST-ZONE-2","MST-ZONE-3"]
+        },
+        {
+          "structure_name": "Sopa",
+          "field_name": "Pendopo",
+          "file_path": "/data/structures/Pendopo/Sopa.xlsx",
+          "wells_count": 7,
+          "wells": ["PDP-SPA-001","PDP-SPA-002","PDP-SPA-003","PDP-SPA-004","PDP-SPA-005","PDP-SPA-006","PDP-SPA-007"],
+          "total_records": 700,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["SPA-TOP","SPA-BOTTOM"]
+        },
+        {
+          "structure_name": "Talang Akar",
+          "field_name": "Pendopo",
+          "file_path": "/data/structures/Pendopo/Talang Akar.xlsx",
+          "wells_count": 10,
+          "wells": ["PDP-TLA-001","PDP-TLA-002","PDP-TLA-003","PDP-TLA-004","PDP-TLA-005","PDP-TLA-006","PDP-TLA-007","PDP-TLA-008","PDP-TLA-009","PDP-TLA-010"],
+          "total_records": 1000,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["TLA-TOP","TLA-MID","TLA-BOTTOM"]
+        }
       ]
     },
     {
-      "field_name": "prabumulih",
-      "structures_count": 19,
+      "field_name": "Prabumulih",
+      "structures_count": 17,
       "structures": [
-        { "structure_name": "Beringin-A", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Beringin-A.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Beringin-C", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Beringin-C.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Beringin-D", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Beringin-D.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Beringin-E", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Beringin-E.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Beringin-F", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Beringin-F.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Beringin-H", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Beringin-H.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Gunung Kemala Barat", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Gunung Kemala Barat.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Gunung Kemala Tengah", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Gunung Kemala Tengah.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Gunung Kemala Timur", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Gunung Kemala Timur.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Lembak", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Lembak.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Ogan Timur", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Ogan Timur.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Prabumenang", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Prabumenang.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Prabumulih Barat", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Prabumulih Barat.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Talang Jimar Barat", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Talang Jimar Barat.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Talang Jimar Tengah", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Talang Jimar Tengah.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Talang Jimar Timur", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Talang Jimar Timur.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Tanjung Tiga Barat", "field_name": "prabumulih", "file_path": "/structures/prabumulih/Tanjung Tiga Barat.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] }
+        {
+          "structure_name": "Beringin-A",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Beringin-A.xlsx",
+          "wells_count": 8,
+          "wells": ["PRB-BGA-001","PRB-BGA-002","PRB-BGA-003","PRB-BGA-004","PRB-BGA-005","PRB-BGA-006","PRB-BGA-007","PRB-BGA-008"],
+          "total_records": 800,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["BGA-TOP","BGA-MID","BGA-BOTTOM"]
+        },
+        {
+          "structure_name": "Beringin-C",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Beringin-C.xlsx",
+          "wells_count": 6,
+          "wells": ["PRB-BGC-001","PRB-BGC-002","PRB-BGC-003","PRB-BGC-004","PRB-BGC-005","PRB-BGC-006"],
+          "total_records": 600,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["BGC-UPPER","BGC-LOWER"]
+        },
+        {
+          "structure_name": "Beringin-D",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Beringin-D.xlsx",
+          "wells_count": 7,
+          "wells": ["PRB-BGD-001","PRB-BGD-002","PRB-BGD-003","PRB-BGD-004","PRB-BGD-005","PRB-BGD-006","PRB-BGD-007"],
+          "total_records": 700,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["BGD-TOP","BGD-MID","BGD-BOTTOM"]
+        },
+        {
+          "structure_name": "Beringin-E",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Beringin-E.xlsx",
+          "wells_count": 5,
+          "wells": ["PRB-BGE-001","PRB-BGE-002","PRB-BGE-003","PRB-BGE-004","PRB-BGE-005"],
+          "total_records": 500,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["BGE-UPPER","BGE-LOWER"]
+        },
+        {
+          "structure_name": "Beringin-F",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Beringin-F.xlsx",
+          "wells_count": 4,
+          "wells": ["PRB-BGF-001","PRB-BGF-002","PRB-BGF-003","PRB-BGF-004"],
+          "total_records": 400,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["BGF-TOP","BGF-BOTTOM"]
+        },
+        {
+          "structure_name": "Beringin-H",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Beringin-H.xlsx",
+          "wells_count": 3,
+          "wells": ["PRB-BGH-001","PRB-BGH-002","PRB-BGH-003"],
+          "total_records": 300,
+          "columns": ["DEPTH","GR","NPHI"],
+          "intervals": ["BGH-ZONE"]
+        },
+        {
+          "structure_name": "Gunung Kemala Barat",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Gunung Kemala Barat.xlsx",
+          "wells_count": 9,
+          "wells": ["PRB-GKB-001","PRB-GKB-002","PRB-GKB-003","PRB-GKB-004","PRB-GKB-005","PRB-GKB-006","PRB-GKB-007","PRB-GKB-008","PRB-GKB-009"],
+          "total_records": 900,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["GKB-TOP","GKB-MID","GKB-BOTTOM"]
+        },
+        {
+          "structure_name": "Gunung Kemala Tengah",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Gunung Kemala Tengah.xlsx",
+          "wells_count": 7,
+          "wells": ["PRB-GKT-001","PRB-GKT-002","PRB-GKT-003","PRB-GKT-004","PRB-GKT-005","PRB-GKT-006","PRB-GKT-007"],
+          "total_records": 700,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["GKT-UPPER","GKT-LOWER"]
+        },
+        {
+          "structure_name": "Gunung Kemala Timur",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Gunung Kemala Timur.xlsx",
+          "wells_count": 6,
+          "wells": ["PRB-GKM-001","PRB-GKM-002","PRB-GKM-003","PRB-GKM-004","PRB-GKM-005","PRB-GKM-006"],
+          "total_records": 600,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["GKM-TOP","GKM-BOTTOM"]
+        },
+        {
+          "structure_name": "Lembak",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Lembak.xlsx",
+          "wells_count": 12,
+          "wells": ["PRB-LBK-001","PRB-LBK-002","PRB-LBK-003","PRB-LBK-004","PRB-LBK-005","PRB-LBK-006","PRB-LBK-007","PRB-LBK-008","PRB-LBK-009","PRB-LBK-010","PRB-LBK-011","PRB-LBK-012"],
+          "total_records": 1200,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["LBK-TOP","LBK-MID","LBK-BOTTOM"]
+        },
+        {
+          "structure_name": "Ogan Timur",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Ogan Timur.xlsx",
+          "wells_count": 8,
+          "wells": ["PRB-OGT-001","PRB-OGT-002","PRB-OGT-003","PRB-OGT-004","PRB-OGT-005","PRB-OGT-006","PRB-OGT-007","PRB-OGT-008"],
+          "total_records": 800,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["OGT-ZONE-1","OGT-ZONE-2"]
+        },
+        {
+          "structure_name": "Prabumenang",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Prabumenang.xlsx",
+          "wells_count": 10,
+          "wells": ["PRB-PBM-001","PRB-PBM-002","PRB-PBM-003","PRB-PBM-004","PRB-PBM-005","PRB-PBM-006","PRB-PBM-007","PRB-PBM-008","PRB-PBM-009","PRB-PBM-010"],
+          "total_records": 1000,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["PBM-TOP","PBM-BOTTOM"]
+        },
+        {
+          "structure_name": "Prabumulih Barat",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Prabumulih Barat.xlsx",
+          "wells_count": 11,
+          "wells": ["PRB-PBB-001","PRB-PBB-002","PRB-PBB-003","PRB-PBB-004","PRB-PBB-005","PRB-PBB-006","PRB-PBB-007","PRB-PBB-008","PRB-PBB-009","PRB-PBB-010","PRB-PBB-011"],
+          "total_records": 1100,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["PBB-TOP","PBB-MID","PBB-BOTTOM"]
+        },
+        {
+          "structure_name": "Talang Jimar Barat",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Talang Jimar Barat.xlsx",
+          "wells_count": 5,
+          "wells": ["PRB-TJB-001","PRB-TJB-002","PRB-TJB-003","PRB-TJB-004","PRB-TJB-005"],
+          "total_records": 500,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["TJB-ZONE"]
+        },
+        {
+          "structure_name": "Talang Jimar Tengah",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Talang Jimar Tengah.xlsx",
+          "wells_count": 6,
+          "wells": ["PRB-TJT-001","PRB-TJT-002","PRB-TJT-003","PRB-TJT-004","PRB-TJT-005","PRB-TJT-006"],
+          "total_records": 600,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["TJT-UPPER","TJT-LOWER"]
+        },
+        {
+          "structure_name": "Talang Jimar Timur",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Talang Jimar Timur.xlsx",
+          "wells_count": 7,
+          "wells": ["PRB-TJM-001","PRB-TJM-002","PRB-TJM-003","PRB-TJM-004","PRB-TJM-005","PRB-TJM-006","PRB-TJM-007"],
+          "total_records": 700,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["TJM-TOP","TJM-BOTTOM"]
+        },
+        {
+          "structure_name": "Tanjung Tiga Barat",
+          "field_name": "Prabumulih",
+          "file_path": "/data/structures/Prabumulih/Tanjung Tiga Barat.xlsx",
+          "wells_count": 8,
+          "wells": ["PRB-TTB-001","PRB-TTB-002","PRB-TTB-003","PRB-TTB-004","PRB-TTB-005","PRB-TTB-006","PRB-TTB-007","PRB-TTB-008"],
+          "total_records": 800,
+          "columns": ["DEPTH","GR","NPHI","RHOB","RT"],
+          "intervals": ["TTB-TOP","TTB-MID","TTB-BOTTOM"]
+        }
       ]
     },
     {
-      "field_name": "ramba",
+      "field_name": "Ramba",
       "structures_count": 3,
       "structures": [
-        { "structure_name": "Bentayan", "field_name": "ramba", "file_path": "/structures/ramba/Bentayan.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Mangunjaya", "field_name": "ramba", "file_path": "/structures/ramba/Mangunjaya.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] },
-        { "structure_name": "Ramba", "field_name": "ramba", "file_path": "/structures/ramba/Ramba.xlsx", "wells_count": 0, "wells": [], "total_records": 0, "columns": [], "intervals": [] }
+        {
+          "structure_name": "Bentayan",
+          "field_name": "Ramba",
+          "file_path": "/data/structures/Ramba/Bentayan.xlsx",
+          "wells_count": 4,
+          "wells": ["RMB-BTN-001","RMB-BTN-002","RMB-BTN-003","RMB-BTN-004"],
+          "total_records": 400,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["BTN-TOP","BTN-BOTTOM"]
+        },
+        {
+          "structure_name": "Mangunjaya",
+          "field_name": "Ramba",
+          "file_path": "/data/structures/Ramba/Mangunjaya.xlsx",
+          "wells_count": 5,
+          "wells": ["RMB-MNJ-001","RMB-MNJ-002","RMB-MNJ-003","RMB-MNJ-004","RMB-MNJ-005"],
+          "total_records": 500,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["MNJ-TOP","MNJ-BOTTOM"]
+        },
+        {
+          "structure_name": "Ramba",
+          "field_name": "Ramba",
+          "file_path": "/data/structures/Ramba/Ramba.xlsx",
+          "wells_count": 6,
+          "wells": ["RMB-RMB-001","RMB-RMB-002","RMB-RMB-003","RMB-RMB-004","RMB-RMB-005","RMB-RMB-006"],
+          "total_records": 600,
+          "columns": ["DEPTH","GR","NPHI","RHOB"],
+          "intervals": ["RMB-TOP","RMB-BOTTOM"]
+        }
       ]
     }
   ],
   "total_fields": 5,
-  "total_structures": 36
+  "total_structures": 35
 }

@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 from dataiku import pandasutils as pdu
 from scipy.stats import linregress
+import os
 
 # Import your services (assuming they exist)
 try:
@@ -759,6 +760,74 @@ def get_analysis_instance():
     if _analysis_instance is None:
         _analysis_instance = WellLogAnalysis()
     return _analysis_instance
+
+# -----------------------------
+# Structures utilities
+# -----------------------------
+def _scan_structures_folder():
+    try:
+        base_dir = os.path.dirname(__file__)
+        root = os.path.join(base_dir, 'structures')
+        fields = []
+        total_structures = 0
+        if not os.path.isdir(root):
+            return {"fields": [], "total_fields": 0, "total_structures": 0}
+        for fname in sorted(os.listdir(root)):
+            fpath = os.path.join(root, fname)
+            if not os.path.isdir(fpath):
+                continue
+            structures = []
+            for entry in sorted(os.listdir(fpath)):
+                if entry.lower().endswith('.xlsx'):
+                    web_path = f"/structures/{fname}/{entry}"
+                    structure_name = os.path.splitext(entry)[0]
+                    structures.append({
+                        "structure_name": structure_name,
+                        "field_name": fname.capitalize(),
+                        "file_path": web_path,
+                        "wells_count": 0,
+                        "wells": [],
+                        "total_records": 0,
+                        "columns": [],
+                        "intervals": []
+                    })
+            if structures:
+                total_structures += len(structures)
+                fields.append({
+                    "field_name": fname.capitalize(),
+                    "structures_count": len(structures),
+                    "structures": structures
+                })
+        return {"fields": fields, "total_fields": len(fields), "total_structures": total_structures}
+    except Exception:
+        traceback.print_exc()
+        return {"fields": [], "total_fields": 0, "total_structures": 0}
+
+@app.route('/scan_structures')
+def scan_structures():
+    try:
+        manifest = _scan_structures_folder()
+        return json.dumps({"status": "success", **manifest})
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
+
+@app.route('/get_structures_index')
+def get_structures_index():
+    try:
+        base_dir = os.path.dirname(__file__)
+        candidates = [
+            os.path.join(base_dir, 'data', 'structures', 'index.json'),
+            os.path.join(base_dir, 'structures', 'index.json')
+        ]
+        for p in candidates:
+            if os.path.isfile(p):
+                with open(p, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                return json.dumps({"status": "success", "source": p, "data": data})
+        return json.dumps({"status": "error", "message": "index.json not found"})
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"status": "error", "message": str(e)})
 
 # API Endpoints for Dataiku WebApp
 @app.route('/get_datasets')
