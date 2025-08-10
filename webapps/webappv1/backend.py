@@ -99,7 +99,7 @@ except ImportError as e:
 
 class WellLogAnalysis:
     def __init__(self, project_key=None):
-        """Initialize with optional project key and auto-load raw_well_data dataset"""
+        """Initialize with optional project key and auto-load fix_pass_qc dataset"""
         self.project_key = project_key
         if project_key:
             self.project = dataiku.Project(project_key)
@@ -107,7 +107,7 @@ class WellLogAnalysis:
         self.current_well_data = None
         self.available_datasets = []
         
-        # Auto-load the raw_well_data dataset
+        # Auto-load the fix_pass_qc dataset
         self.auto_load_default_dataset()
 
     # -----------------------------
@@ -151,36 +151,31 @@ class WellLogAnalysis:
         return new_df
     
     def auto_load_default_dataset(self):
-        """Automatically load the raw_well_data dataset on initialization"""
+        """Automatically load the raw_data_well dataset on initialization"""
         try:
-            # Try to find raw_well_data dataset
-            dataset_name = "raw_well_data"
+            # Try to find raw_data_well dataset
+            dataset_name = "raw_data_well"
             result = self.select_dataset(dataset_name)
             if result.get("status") == "success":
                 print(f"Successfully auto-loaded dataset: {dataset_name}")
             else:
-                # If raw_well_data not found, try raw_data_well
+                # If raw_data_well not found, try to find any dataset with 'raw' and 'well' in name
                 try:
-                    result = self.select_dataset("raw_data_well")
-                    if result.get("status") == "success":
-                        print(f"Successfully auto-loaded fallback dataset: raw_data_well")
-                    else:
-                        # Try to find any dataset with 'raw' and 'well' in name
-                        available_datasets = self.get_available_datasets()
-                        if available_datasets.get("status") == "success":
-                            datasets = available_datasets.get("datasets", [])
-                            raw_datasets = [ds for ds in datasets if 'raw' in ds.lower() and ('well' in ds.lower() or 'data' in ds.lower())]
-                            if raw_datasets:
-                                fallback_dataset = raw_datasets[0]
-                                result = self.select_dataset(fallback_dataset)
-                                if result.get("status") == "success":
-                                    print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
-                                else:
-                                    print(f"Failed to auto-load fallback dataset {fallback_dataset}")
+                    available_datasets = self.get_available_datasets()
+                    if available_datasets.get("status") == "success":
+                        datasets = available_datasets.get("datasets", [])
+                        raw_datasets = [ds for ds in datasets if 'raw' in ds.lower() and ('well' in ds.lower() or 'data' in ds.lower())]
+                        if raw_datasets:
+                            fallback_dataset = raw_datasets[0]
+                            result = self.select_dataset(fallback_dataset)
+                            if result.get("status") == "success":
+                                print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
                             else:
-                                print("No raw well data dataset found")
+                                print(f"Failed to auto-load fallback dataset {fallback_dataset}")
                         else:
-                            print("Failed to get available datasets for fallback")
+                            print("No raw well data dataset found")
+                    else:
+                        print("Failed to get available datasets for fallback")
                 except Exception as fallback_error:
                     print(f"Error during fallback dataset loading: {str(fallback_error)}")
         except Exception as e:
@@ -271,10 +266,14 @@ class WellLogAnalysis:
         except Exception as e:
             return {"status": "error", "message": f"Error getting well list: {str(e)}"}
     
-    def create_log_plot(self, well_name):
-        """Create log plot for a specific well"""
+    def create_log_plot(self, well_name, selected_intervals=None, structure_context=None):
+        """Create log plot for a specific well with optional intervals filtering"""
         try:
             print(f"Creating log plot for well: {well_name}")
+            if selected_intervals:
+                print(f"Selected intervals: {selected_intervals}")
+            if structure_context:
+                print(f"Structure context: {structure_context.get('structure_name', 'N/A')}")
             
             if self.current_well_data is None:
                 return {"status": "error", "message": "No dataset selected"}
@@ -287,6 +286,17 @@ class WellLogAnalysis:
                 available_wells = self.current_well_data['WELL_NAME'].unique().tolist()
                 return {"status": "error", "message": f"No data found for well {well_name}. Available wells: {available_wells}"}
             
+            # Filter by intervals if specified
+            if selected_intervals and len(selected_intervals) > 0 and 'MARKER' in well_data.columns:
+                print(f"Filtering data by selected intervals: {selected_intervals}")
+                original_count = len(well_data)
+                well_data = well_data[well_data['MARKER'].isin(selected_intervals)]
+                print(f"After interval filtering: {len(well_data)} rows (was {original_count})")
+                
+                if well_data.empty:
+                    available_intervals = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]['MARKER'].unique().tolist()
+                    return {"status": "error", "message": f"No data found for well {well_name} in selected intervals {selected_intervals}. Available intervals: {available_intervals}"}
+            
             # Check if we have essential columns
             required_cols = ['DEPTH']
             available_cols = [col for col in ['GR', 'RT', 'NPHI', 'RHOB'] if col in well_data.columns]
@@ -298,17 +308,25 @@ class WellLogAnalysis:
             df_marker = extract_markers_with_mean_depth(well_data)
             well_data_normalized = self._ensure_crossplot_norms(well_data)
             
-            # Create plot
+            # Create plot with interval information
             fig = plot_log_default(
                 df=well_data_normalized,
                 df_marker=df_marker,
                 df_well_marker=well_data_normalized
             )
             
+            # Add interval information to plot title if intervals were selected
+            if selected_intervals and len(selected_intervals) > 0:
+                current_title = fig.layout.title.text if fig.layout.title else f"Well Log - {well_name}"
+                interval_info = f" (Intervals: {', '.join(selected_intervals)})"
+                fig.update_layout(title=current_title + interval_info)
+            
             return {
                 "status": "success",
                 "figure": fig.to_dict(),
-                "well_name": well_name
+                "well_name": well_name,
+                "selected_intervals": selected_intervals or [],
+                "data_points": len(well_data_normalized)
             }
         except Exception as e:
             print(f"Error creating log plot: {str(e)}")
@@ -831,27 +849,20 @@ def find_raw_data_dataset(structure_name=None):
                     print(f"Found structure-specific dataset: {name}")
                     return name
             
-            # Priority 3: fix_pass_qc_<structure> (as backup)
-            target_name = f'fix_pass_qc_{structure_lower}'
-            for name in dataset_names:
-                if name.lower() == target_name:
-                    print(f"Found structure-specific dataset: {name}")
-                    return name
-            
-            # Priority 4: any dataset containing structure name and ('fix'/'qc'/'raw'/'well'/'data')
+            # Priority 3: any dataset containing structure name and 'raw'/'well'/'data'
             for name in dataset_names:
                 if (structure_lower in name.lower() and 
-                    ('fix' in name.lower() or 'qc' in name.lower() or 'raw' in name.lower() or 'well' in name.lower() or 'data' in name.lower())):
+                    ('raw' in name.lower() or 'well' in name.lower() or 'data' in name.lower())):
                     print(f"Found matching dataset with structure name: {name}")
                     return name
         
         # Fallback to general dataset discovery - try different patterns
         search_patterns = [
-            'raw_well_data',  # Primary dataset for raw data
             'raw_data_well',
+            'raw_well_data', 
             'well_data',
             'data_well',
-            'fix_pass_qc'  # QC'd data as fallback
+            'fix_pass_qc'  # Legacy fallback
         ]
         
         for pattern in search_patterns:
@@ -1031,8 +1042,13 @@ def get_well_plot():
     try:
         data = request.get_json()
         well_name = data.get('well_name')
+        selected_intervals = data.get('selected_intervals', [])
+        structure_context = data.get('structure_context')
+        
         analysis = get_analysis_instance()
-        result = analysis.create_log_plot(well_name)
+        
+        # Pass intervals and structure context to plot creation
+        result = analysis.create_log_plot(well_name, selected_intervals, structure_context)
         return json.dumps(result)
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})

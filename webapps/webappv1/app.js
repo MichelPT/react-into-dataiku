@@ -1231,42 +1231,20 @@ function showWarning(message) {
 function loadWells() {
     showLoading();
     
-    // Use raw_well_data as default dataset when refreshing
-    var payload = { dataset_name: 'raw_well_data' };
-    
-    // If there's a current structure, try to use structure-specific dataset
-    if (appState.currentStructure && appState.currentStructure.name) {
-        payload = {
-            dataset_name: 'raw_well_data_' + appState.currentStructure.name.toLowerCase(),
-            structure_name: appState.currentStructure.name
-        };
-    }
-    
-    fetchJson('/select_dataset', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-    })
+    fetchJson('/get_wells')
         .then(function(response) {
             if (response.status === 'success') {
                 appState.availableWells = response.wells;
-                appState.currentDataset = response.dataset_name;
                 renderWellList(response.wells);
-                
-                // Also load markers/intervals if available
-                if (response.markers && response.markers.length > 0) {
-                    appState.availableIntervals = response.markers;
-                    renderIntervalList(response.markers);
-                }
-                
                 updateBadges();
-                showSuccess('Refreshed data: Loaded ' + response.wells.length + ' wells from ' + response.dataset_name);
+                showSuccess('Loaded ' + response.wells.length + ' wells');
             } else {
                 throw new Error(response.message || 'Failed to load wells');
             }
         })
         .catch(function(error) {
             console.error('Error loading wells:', error);
-            showError('Failed to refresh data: ' + error.message);
+            showError('Failed to load wells: ' + error.message);
         })
         .finally(function() {
             hideLoading();
@@ -1350,15 +1328,16 @@ function toggleWell(wellId) {
     updateBadges();
 }
 
-// Enhanced plot loading dengan structure context
+// Enhanced plot loading dengan structure context dan intervals
 function loadWellPlot(wellName) {
     console.log('🚀 Loading plot for well:', wellName);
     setIsLoading(true);
     setError(null);
     
-    // Prepare request data with structure context
+    // Prepare request data with structure context and intervals
     var requestData = {
-        well_name: wellName
+        well_name: wellName,
+        selected_intervals: appState.selectedIntervals // Add intervals to request
     };
     
     // Add structure context if available
@@ -1612,6 +1591,12 @@ function toggleInterval(intervalId) {
     
     updateIntervalSelection();
     updateBadges();
+    
+    // Regenerate plot when intervals change (if wells are selected)
+    if (appState.selectedWells.length > 0) {
+        console.log('Regenerating plot with new interval selection');
+        generatePlot();
+    }
 }
 
 function updateIntervalSelection() {
@@ -1650,6 +1635,12 @@ function toggleAllIntervals() {
     
     updateIntervalSelection();
     updateBadges();
+    
+    // Regenerate plot when all intervals are toggled (if wells are selected)
+    if (appState.selectedWells.length > 0) {
+        console.log('Regenerating plot with all intervals toggled');
+        generatePlot();
+    }
 }
 
 function clearIntervals() {
@@ -1706,17 +1697,17 @@ function createPlot(figureData) {
             setTimeout(function() {
                 containerHeight = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
                 containerWidth = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
-            }, 150);
+            }, 100);
         }
         
-        if (containerHeight && containerHeight > 100) {
-            figureData.layout.height = containerHeight - 30; // Small margin for better fit
+        if (containerHeight && containerHeight > 0) {
+            figureData.layout.height = containerHeight - 20; // Small margin
         } else {
-            figureData.layout.height = 600; // Increased fallback height
+            figureData.layout.height = 400; // Fallback height
         }
         
-        if (containerWidth && containerWidth > 100) {
-            figureData.layout.width = containerWidth - 30; // Small margin for better fit
+        if (containerWidth && containerWidth > 0) {
+            figureData.layout.width = containerWidth - 20; // Small margin
         }
         
         Plotly.newPlot(plotArea, figureData.data, figureData.layout, config).then(function(){
@@ -1726,8 +1717,8 @@ function createPlot(figureData) {
                 var w = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
                 if (h && h > 100 && w && w > 100) {
                     Plotly.relayout(plotArea, { 
-                        height: h - 30, 
-                        width: w - 30 
+                        height: h - 20, 
+                        width: w - 20 
                     });
                 } else {
                     // Use Plotly's automatic resize
@@ -1804,12 +1795,10 @@ function displayCalculationPlot(plotData, title) {
         var containerWidth = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
         
         if (containerHeight && containerHeight > 100) {
-            plotData.layout.height = containerHeight - 30;
-        } else {
-            plotData.layout.height = 600; // Better fallback
+            plotData.layout.height = containerHeight - 20;
         }
         if (containerWidth && containerWidth > 100) {
-            plotData.layout.width = containerWidth - 30;
+            plotData.layout.width = containerWidth - 20;
         }
         
         // Create the plot
@@ -1820,8 +1809,8 @@ function displayCalculationPlot(plotData, title) {
                 var w = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
                 if (h && h > 100 && w && w > 100) {
                     Plotly.relayout(plotArea, { 
-                        height: h - 30, 
-                        width: w - 30 
+                        height: h - 20, 
+                        width: w - 20 
                     });
                 } else {
                     Plotly.Plots.resize(plotArea);
@@ -1855,6 +1844,24 @@ function refreshCurrentPlot() {
     } else {
         showSuccess('Calculation completed successfully');
     }
+}
+
+// Generate plot based on current selection (wells and intervals)
+function generatePlot() {
+    console.log('Generating plot for selected wells and intervals');
+    
+    if (appState.selectedWells.length === 0) {
+        showError('Please select at least one well to generate plot');
+        return;
+    }
+    
+    // Use the primary selected well for plotting
+    var primaryWell = appState.selectedWells[0];
+    
+    // Load plot with current intervals
+    loadWellPlot(primaryWell);
+    
+    console.log('Plot generated for well:', primaryWell, 'with intervals:', appState.selectedIntervals);
 }
 
 // Generate mock calculation plot for demo purposes
@@ -2998,7 +3005,7 @@ function initializeApp() {
 function autoLoadDefaultDataset() {
     // Check if user has selected a structure from structures page
     var selectedStructure = appState.currentStructure;
-    var datasetName = 'raw_well_data'; // default dataset back to raw_well_data
+    var datasetName = 'raw_data_well'; // default dataset
     var payload = { dataset_name: datasetName };
     
     if (selectedStructure && selectedStructure.name) {
@@ -3011,7 +3018,7 @@ function autoLoadDefaultDataset() {
         };
         console.log('Auto-loading dataset for structure:', selectedStructure.name, '- Dataset:', datasetName);
     } else {
-        console.log('Auto-loading default raw_well_data dataset...');
+        console.log('Auto-loading default raw_data_well dataset...');
     }
     
     return fetchJson('/select_dataset', {
@@ -3024,10 +3031,14 @@ function autoLoadDefaultDataset() {
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
             renderWellList(response.wells);
             
-            // Load intervals if available
+            // Also load intervals after dataset is selected
             if (response.markers && response.markers.length > 0) {
                 appState.availableIntervals = response.markers;
                 renderIntervalList(response.markers);
+                console.log('Loaded', response.markers.length, 'intervals from dataset');
+            } else {
+                // If no intervals in dataset response, fetch them separately
+                loadIntervalsFromDataset();
             }
             
             updateBadges();
@@ -3035,11 +3046,6 @@ function autoLoadDefaultDataset() {
             var successMessage = selectedStructure 
                 ? 'Loaded ' + response.wells.length + ' wells from ' + selectedStructure.name + ' structure (' + response.dataset_name + ')'
                 : 'Loaded ' + response.wells.length + ' wells from ' + response.dataset_name + ' dataset';
-            
-            if (response.markers && response.markers.length > 0) {
-                successMessage += ' with ' + response.markers.length + ' intervals';
-            }
-            
             showSuccess(successMessage);
         } else {
             throw new Error(response.message || 'Failed to load dataset');
@@ -3071,11 +3077,11 @@ function autoLoadDefaultDataset() {
 }
 
 function autoLoadFallbackDataset() {
-    console.log('Loading fallback dataset: raw_well_data');
+    console.log('Loading fallback dataset: raw_data_well');
     
     return fetchJson('/select_dataset', {
         method: 'POST',
-        body: JSON.stringify({ dataset_name: 'raw_well_data' })
+        body: JSON.stringify({ dataset_name: 'raw_data_well' })
     })
     .then(function(response) {
         if (response.status === 'success') {
@@ -3083,20 +3089,17 @@ function autoLoadFallbackDataset() {
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
             renderWellList(response.wells);
             
-            // Load intervals if available
+            // Also load intervals for fallback dataset
             if (response.markers && response.markers.length > 0) {
                 appState.availableIntervals = response.markers;
                 renderIntervalList(response.markers);
+                console.log('Loaded', response.markers.length, 'intervals from fallback dataset');
+            } else {
+                loadIntervalsFromDataset();
             }
             
             updateBadges();
-            
-            var successMessage = 'Loaded ' + response.wells.length + ' wells from fallback dataset: ' + response.dataset_name;
-            if (response.markers && response.markers.length > 0) {
-                successMessage += ' with ' + response.markers.length + ' intervals';
-            }
-            
-            showSuccess(successMessage);
+            showSuccess('Loaded ' + response.wells.length + ' wells from fallback dataset: ' + response.dataset_name);
         } else {
             throw new Error(response.message || 'Failed to load fallback dataset');
         }
@@ -3105,6 +3108,50 @@ function autoLoadFallbackDataset() {
         console.error('Error loading fallback dataset:', error);
         showError('Error loading fallback dataset: ' + error.message + '. Please ensure at least one dataset exists in your Dataiku project.');
     });
+}
+
+// Load intervals from dataset when not provided in dataset response
+function loadIntervalsFromDataset() {
+    console.log('Loading intervals from current dataset...');
+    
+    fetchJson('/get_markers')
+    .then(function(response) {
+        if (response.status === 'success' && response.markers) {
+            appState.availableIntervals = response.markers;
+            renderIntervalList(response.markers);
+            updateBadges();
+            console.log('Loaded', response.markers.length, 'intervals via separate API call');
+        } else {
+            console.log('No intervals found in dataset');
+            renderIntervalList([]);
+        }
+    })
+    .catch(function(error) {
+        console.error('Error loading intervals:', error);
+        renderIntervalList([]);
+    });
+}
+
+// Load intervals from current dataset  
+function loadIntervalsFromDataset() {
+    console.log('Loading intervals from current dataset...');
+    
+    fetchJson('/get_markers')
+        .then(function(response) {
+            if (response.status === 'success' && response.markers) {
+                appState.availableIntervals = response.markers;
+                renderIntervalList(response.markers);
+                updateBadges();
+                console.log('Loaded', response.markers.length, 'intervals from dataset');
+            } else {
+                console.log('No intervals found in dataset');
+                renderIntervalList([]);
+            }
+        })
+        .catch(function(error) {
+            console.error('Error loading intervals:', error);
+            renderIntervalList([]);
+        });
 }
 
 function setupEventListeners() {
