@@ -811,19 +811,22 @@ body {
 /* Main Content Styles */
 #mainContent {
     background: var(--bg-white);
-    padding: 2rem;
+    padding: 1.5rem;
     overflow-y: auto;
     height: calc(100vh - 4rem);
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .main-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
     border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 
 .main-header h2 {
@@ -846,8 +849,9 @@ body {
 
 .plot-container {
     width: 100%;
-    height: calc(100vh - 200px);
-    min-height: 600px;
+    height: calc(100vh - 280px);
+    min-height: 500px;
+    max-height: none;
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
     background-color: var(--bg-white);
@@ -856,6 +860,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
 }
 
 .empty-plot-state {
@@ -870,9 +875,22 @@ body {
 
 /* Ensure Plotly canvas centers and respects container size */
 #plotArea > .js-plotly-plot {
-    width: 95% !important;
-    height: 95% !important;
-    max-width: 1200px;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+}
+
+#plotArea > .js-plotly-plot > .plotly {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Make sure plotArea itself takes full container space */
+#plotArea {
+    width: 100%;
+    height: 100%;
+    position: relative;
 }
 
 .empty-plot-state h3 {
@@ -1242,11 +1260,18 @@ input[type="checkbox"] {
     #mainContent {
         height: auto;
         min-height: 60vh;
+        padding: 1rem;
     }
     
     .plot-container {
-        height: 400px;
+        height: calc(100vh - 350px);
         min-height: 400px;
+        max-height: 600px;
+    }
+    
+    .main-header {
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
     }
 }
 

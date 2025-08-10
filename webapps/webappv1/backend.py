@@ -237,7 +237,16 @@ class WellLogAnalysis:
                 "message": f"Dataset {dataset_name} selected successfully"
             }
         except Exception as e:
-            return {"status": "error", "message": f"Error selecting dataset: {str(e)}"}
+            error_msg = str(e)
+            # Make error messages more user-friendly
+            if 'dataset does not exist' in error_msg.lower():
+                user_msg = f"Dataset '{dataset_name}' does not exist in the project. Please check the dataset name or create the dataset first."
+            elif 'unable to fetch schema' in error_msg.lower():
+                user_msg = f"Unable to access dataset '{dataset_name}'. The dataset may not exist or you may not have permission to access it."
+            else:
+                user_msg = f"Error accessing dataset '{dataset_name}': {error_msg}"
+            
+            return {"status": "error", "message": user_msg}
     
     def get_well_list(self):
         """Get list of wells from current dataset"""

@@ -1664,6 +1664,7 @@ function createPlot(figureData) {
         var config = {
             responsive: true,
             displayModeBar: true,
+            displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d'],
             toImageButtonOptions: {
                 format: 'png',
@@ -1673,23 +1674,45 @@ function createPlot(figureData) {
                 scale: 1
             }
         };
-        // Set height to container height to ensure full visibility
+        
+        // Set size to fill the container
         var containerHeight = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
+        var containerWidth = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
+        
         if (containerHeight && containerHeight > 0) {
-            figureData.layout.height = containerHeight;
+            figureData.layout.height = containerHeight - 10; // Small margin
+        }
+        if (containerWidth && containerWidth > 0) {
+            figureData.layout.width = containerWidth - 10; // Small margin
         }
         
         Plotly.newPlot(plotArea, figureData.data, figureData.layout, config).then(function(){
             // Keep plot fitting on resize
             function handleResize() {
                 var h = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
-                if (h && h > 0) {
-                    Plotly.relayout(plotArea, { height: h });
+                var w = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
+                if (h && h > 0 && w && w > 0) {
+                    Plotly.relayout(plotArea, { 
+                        height: h - 10, 
+                        width: w - 10 
+                    });
                 } else {
                     Plotly.Plots.resize(plotArea);
                 }
             }
+            
+            // Add resize listener
             window.addEventListener('resize', handleResize);
+            
+            // Also handle when sidebar is resized or toggled
+            const resizeObserver = new ResizeObserver(function(entries) {
+                for (let entry of entries) {
+                    if (entry.target === plotArea) {
+                        handleResize();
+                    }
+                }
+            });
+            resizeObserver.observe(plotArea);
         });
         console.log('Plot created successfully');
     } catch (error) {
@@ -1938,7 +1961,6 @@ function showParameterForm(calculationType, parameters) {
 // Submit calculation parameters
 function submitCalculationParameters() {
     var parameterForm = document.getElementById('parameterForm');
-    var formData = new FormData(parameterForm.querySelector('form') || parameterForm);
     
     var params = {};
     var inputs = parameterForm.querySelectorAll('input, select');
@@ -2736,10 +2758,23 @@ function autoLoadDefaultDataset() {
     })
     .catch(function(error) {
         console.error('Error auto-loading dataset:', error);
-        showError('Error loading dataset: ' + error.message);
         
-        // If structure-specific dataset fails, try default
-        if (selectedStructure && payload.structure_name) {
+        // More specific error handling
+        var errorMessage = error.message;
+        if (errorMessage.includes('dataset does not exist')) {
+            if (selectedStructure) {
+                errorMessage = 'Dataset for structure "' + selectedStructure.name + '" not found. Trying fallback dataset...';
+                showError(errorMessage);
+                return autoLoadFallbackDataset();
+            } else {
+                errorMessage = 'Default dataset not found. Please check if raw_data_well dataset exists in your Dataiku project.';
+            }
+        }
+        
+        showError('Error loading dataset: ' + errorMessage);
+        
+        // If structure-specific dataset fails, try fallback
+        if (selectedStructure && payload.structure_name && !errorMessage.includes('fallback')) {
             console.log('Fallback to default dataset...');
             return autoLoadFallbackDataset();
         }
@@ -2756,13 +2791,17 @@ function autoLoadFallbackDataset() {
     .then(function(response) {
         if (response.status === 'success') {
             appState.availableWells = response.wells;
-            appState.currentDataset = 'raw_data_well';
+            appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
             renderWellList(response.wells);
             updateBadges();
-            showSuccess('Loaded ' + response.wells.length + ' wells from fallback dataset');
+            showSuccess('Loaded ' + response.wells.length + ' wells from fallback dataset: ' + response.dataset_name);
         } else {
             throw new Error(response.message || 'Failed to load fallback dataset');
         }
+    })
+    .catch(function(error) {
+        console.error('Error loading fallback dataset:', error);
+        showError('Error loading fallback dataset: ' + error.message + '. Please ensure at least one dataset exists in your Dataiku project.');
     });
 }
 
