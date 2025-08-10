@@ -2559,17 +2559,17 @@ function loadModule(moduleName) {
             break;
         case 'vsh-calculation':
         case 'vsh-gr':
-            showVshCalculationForm();
+            handleVshCalculation();
             break;
         case 'vsh-dn':
-            showVshDnCalculationForm();
+            handleVshDnCalculation();
             break;
         case 'porosity-calculation':
-            showPorosityCalculationForm();
+            handlePorosityCalculation();
             break;
         case 'sw-calculation':
         case 'sw-indonesia':
-            showSwCalculationForm();
+            handleSwCalculation();
             break;
         case 'sw-simandoux':
             handleSwSimandouxCalculation();
@@ -2595,15 +2595,6 @@ function loadModule(moduleName) {
             break;
         case 'water-resistivity-calculation':
             handleWaterResistivityCalculation();
-            break;
-        case 'sworad':
-            showSworadModule();
-            break;
-        case 'swgrad':
-            showSwgradModule();
-            break;
-        case 'rgbe-rpbe':
-            showRgbeRpbeModule();
             break;
         default:
             showWarning('Module "' + moduleName + '" is not implemented yet');
@@ -3810,388 +3801,144 @@ function loadHistogramModule(container) {
     `;
 }
 
-// Calculation Module Form Functions - VSH Calculation
-function showVshCalculationForm() {
-    hideLoading();
-    
-    var selectedWells = appState.selectedWells.join(', ') || 'N/A';
-    var selectedIntervals = appState.selectedIntervals || [];
-    
-    showParameterForm({
-        title: 'VSH Calculation Module',
-        subtitle: 'Volume of shale by gamma ray method',
-        selectedWells: selectedWells,
-        selectedIntervals: selectedIntervals,
-        parameters: getVshCalculationParameters(),
-        onSubmit: function(params) { runVshCalculation(params); },
-        onCancel: function() { hideParameterForm(); }
-    });
-}
-
-function getVshCalculationParameters() {
-    return [
-        { 
-            id: 1, 
-            location: 'Interval', 
-            mode: 'In_Out', 
-            comment: 'Option for VSH from gamma ray', 
-            unit: 'ALPHA*8', 
-            name: 'OPT_GR', 
-            value: 'LINEAR', 
-            type: 'select', 
-            options: ['LINEAR'] 
-        },
-        { 
-            id: 2, 
-            location: 'Interval', 
-            mode: 'In_Out', 
-            comment: 'Gamma ray matrix (clean)', 
-            unit: 'GAPI', 
-            name: 'GR_MA', 
-            value: '30', 
-            type: 'input' 
-        },
-        { 
-            id: 3, 
-            location: 'Interval', 
-            mode: 'In_Out', 
-            comment: 'Gamma ray shale', 
-            unit: 'GAPI', 
-            name: 'GR_SH', 
-            value: '120', 
-            type: 'input' 
-        },
-        { 
-            id: 4, 
-            location: 'Log', 
-            mode: 'Input', 
-            comment: 'Gamma ray log', 
-            unit: 'GAPI', 
-            name: 'GR', 
-            value: 'GR', 
-            type: 'log-select', 
-            filter: 'GR' 
-        },
-        { 
-            id: 5, 
-            location: 'Log', 
-            mode: 'Output', 
-            comment: 'VSH from gamma ray', 
-            unit: 'V/V', 
-            name: 'VSH_GR', 
-            value: 'VSH_GR', 
-            type: 'input' 
-        }
-    ];
-}
-
-function runVshCalculation(params) {
-    setIsLoading(true);
-    
-    var payload = {
-        params: params,
-        selected_wells: appState.selectedWells,
-        selected_intervals: appState.selectedIntervals
-    };
-    
-    console.log('Starting VSH calculation with payload:', payload);
-    
-    fetchJson('/run_vsh_calculation', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-    })
-    .then(function(response) {
-        if (response.status === 'success') {
-            showSuccess('VSH calculation completed successfully!');
-            if (response.plot) {
-                displayCalculationPlot(response.plot, 'VSH Calculation Results');
-            }
-            hideParameterForm();
-        } else {
-            throw new Error(response.message || 'VSH calculation failed');
-        }
-    })
-    .catch(function(error) {
-        console.error('VSH calculation error:', error);
-        showError('VSH calculation failed: ' + error.message);
-    })
-    .finally(function() {
-        setIsLoading(false);
-    });
-}
-
-// VSH-DN Calculation
-function showVshDnCalculationForm() {
-    hideLoading();
-    
-    var selectedWells = appState.selectedWells.join(', ') || 'N/A';
-    var selectedIntervals = appState.selectedIntervals || [];
-    
-    showParameterForm({
-        title: 'VSH-DN Calculation Module',
-        subtitle: 'Volume of shale by density neutron method',
-        selectedWells: selectedWells,
-        selectedIntervals: selectedIntervals,
-        parameters: getVshDnCalculationParameters(),
-        onSubmit: function(params) { runVshDnCalculation(params); },
-        onCancel: function() { hideParameterForm(); }
-    });
-}
-
-function getVshDnCalculationParameters() {
-    return [
-        { id: 1, location: 'Interval', mode: 'In_Out', comment: 'Matrix density', unit: 'G/C3', name: 'RHOB_MA', value: '2.65', type: 'input' },
-        { id: 2, location: 'Interval', mode: 'In_Out', comment: 'Shale density', unit: 'G/C3', name: 'RHOB_SH', value: '2.61', type: 'input' },
-        { id: 3, location: 'Interval', mode: 'In_Out', comment: 'Fluid density', unit: 'G/C3', name: 'RHOB_FL', value: '0.85', type: 'input' },
-        { id: 4, location: 'Interval', mode: 'In_Out', comment: 'Matrix neutron porosity', unit: 'V/V', name: 'NPHI_MA', value: '-0.02', type: 'input' },
-        { id: 5, location: 'Interval', mode: 'In_Out', comment: 'Shale neutron porosity', unit: 'V/V', name: 'NPHI_SH', value: '0.398', type: 'input' },
-        { id: 6, location: 'Interval', mode: 'In_Out', comment: 'Fluid neutron porosity', unit: 'V/V', name: 'NPHI_FL', value: '0.85', type: 'input' },
-        { id: 7, location: 'Log', mode: 'Input', comment: 'Density log', unit: 'G/C3', name: 'RHOB', value: 'RHOB', type: 'log-select', filter: 'RHOB' },
-        { id: 8, location: 'Log', mode: 'Input', comment: 'Neutron porosity log', unit: 'V/V', name: 'NPHI', value: 'NPHI', type: 'log-select', filter: 'NPHI' },
-        { id: 9, location: 'Log', mode: 'Output', comment: 'VSH from density‑neutron', unit: 'V/V', name: 'VSH', value: 'VSH_DN', type: 'input' }
-    ];
-}
-
-function runVshDnCalculation(params) {
-    setIsLoading(true);
-    
-    var payload = {
-        params: params,
-        selected_wells: appState.selectedWells,
-        selected_intervals: appState.selectedIntervals
-    };
-    
-    fetchJson('/run_vsh_dn_calculation', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-    })
-    .then(function(response) {
-        if (response.status === 'success') {
-            showSuccess('VSH-DN calculation completed successfully!');
-            if (response.plot) {
-                displayCalculationPlot(response.plot, 'VSH-DN Calculation Results');
-            }
-            hideParameterForm();
-        } else {
-            throw new Error(response.message || 'VSH-DN calculation failed');
-        }
-    })
-    .catch(function(error) {
-        console.error('VSH-DN calculation error:', error);
-        showError('VSH-DN calculation failed: ' + error.message);
-    })
-    .finally(function() {
-        setIsLoading(false);
-    });
-}
-
-// Porosity Calculation
-function showPorosityCalculationForm() {
-    hideLoading();
-    
-    var selectedWells = appState.selectedWells.join(', ') || 'N/A';
-    var selectedIntervals = appState.selectedIntervals || [];
-    
-    showParameterForm({
-        title: 'Porosity Calculation Module',
-        subtitle: 'Porosity from density-neutron using Bateman/Konen method',
-        selectedWells: selectedWells,
-        selectedIntervals: selectedIntervals,
-        parameters: getPorosityCalculationParameters(),
-        onSubmit: function(params) { runPorosityCalculation(params); },
-        onCancel: function() { hideParameterForm(); }
-    });
-}
-
-function getPorosityCalculationParameters() {
-    return [
-        { id: 1, location: 'Constant', mode: 'Input', comment: 'Fluid Density (e.g., 1.00 for water)', unit: 'g/cc', name: 'RHOB_FL', value: '1.00', type: 'input' },
-        { id: 2, location: 'Constant', mode: 'Input', comment: 'Shale Density', unit: 'g/cc', name: 'RHOB_SH', value: '2.45', type: 'input' },
-        { id: 3, location: 'Constant', mode: 'Input', comment: 'Dry Shale Density', unit: 'g/cc', name: 'RHOB_DSH', value: '2.60', type: 'input' },
-        { id: 4, location: 'Constant', mode: 'Input', comment: 'Shale Neutron Porosity', unit: 'v/v', name: 'NPHI_SH', value: '0.35', type: 'input' },
-        { id: 5, location: 'Constant', mode: 'Input', comment: 'Maximum allowed PHIE', unit: 'v/v', name: 'PHIE_MAX', value: '0.3', type: 'input' },
-        { id: 6, location: 'Constant', mode: 'Input', comment: 'Base Rock Matrix Density (Sandstone)', unit: 'kg/m3', name: 'RHOB_MA_BASE', value: '2.65', type: 'input' },
-        { id: 7, location: 'Constant', mode: 'Input', comment: 'Water Density', unit: 'g/cc', name: 'RHOB_W', value: '1.00', type: 'input' },
-        { id: 8, location: 'Constant', mode: 'Input', comment: 'Max Extreme Density (Sandstone)', unit: 'kg/m3', name: 'RHOB_MAX', value: '4.00', type: 'input' }
-    ];
-}
-
-function runPorosityCalculation(params) {
-    setIsLoading(true);
-    
-    var payload = {
-        params: params,
-        selected_wells: appState.selectedWells,
-        selected_intervals: appState.selectedIntervals
-    };
-    
-    fetchJson('/run_porosity_calculation', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-    })
-    .then(function(response) {
-        if (response.status === 'success') {
-            showSuccess('Porosity calculation completed successfully!');
-            if (response.plot) {
-                displayCalculationPlot(response.plot, 'Porosity Calculation Results');
-            }
-            hideParameterForm();
-        } else {
-            throw new Error(response.message || 'Porosity calculation failed');
-        }
-    })
-    .catch(function(error) {
-        console.error('Porosity calculation error:', error);
-        showError('Porosity calculation failed: ' + error.message);
-    })
-    .finally(function() {
-        setIsLoading(false);
-    });
-}
-
-// Water Saturation Calculation
-function showSwCalculationForm() {
-    hideLoading();
-    
-    var selectedWells = appState.selectedWells.join(', ') || 'N/A';
-    var selectedIntervals = appState.selectedIntervals || [];
-    
-    showParameterForm({
-        title: 'Water Saturation Calculation Module',
-        subtitle: 'Water saturation calculation using Indonesian equation',
-        selectedWells: selectedWells,
-        selectedIntervals: selectedIntervals,
-        parameters: getSwCalculationParameters(),
-        onSubmit: function(params) { runSwCalculation(params); },
-        onCancel: function() { hideParameterForm(); }
-    });
-}
-
-function getSwCalculationParameters() {
-    return [
-        { id: 1, location: 'Interval', mode: 'In_Out', comment: 'Tortuosity constant', unit: '', name: 'A', value: '1.0', type: 'input' },
-        { id: 2, location: 'Interval', mode: 'In_Out', comment: 'Cementation Factor', unit: '', name: 'M', value: '2.0', type: 'input' },
-        { id: 3, location: 'Interval', mode: 'In_Out', comment: 'Shale resistivity', unit: 'OHMM', name: 'RT_SH', value: '2.2', type: 'input' }
-    ];
-}
-
-function runSwCalculation(params) {
-    setIsLoading(true);
-    
-    var payload = {
-        params: params,
-        selected_wells: appState.selectedWells,
-        selected_intervals: appState.selectedIntervals
-    };
-    
-    fetchJson('/run_sw_calculation', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-    })
-    .then(function(response) {
-        if (response.status === 'success') {
-            showSuccess('Water Saturation calculation completed successfully!');
-            if (response.plot) {
-                displayCalculationPlot(response.plot, 'Water Saturation Calculation Results');
-            }
-            hideParameterForm();
-        } else {
-            throw new Error(response.message || 'Water Saturation calculation failed');
-        }
-    })
-    .catch(function(error) {
-        console.error('Water Saturation calculation error:', error);
-        showError('Water Saturation calculation failed: ' + error.message);
-    })
-    .finally(function() {
-        setIsLoading(false);
-    });
+function loadCrossplotModule(container) {
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Data Analysis: Crossplot</h3>
+            <div class="module-content">
+                <div class="parameters-section">
+                    <h4>Crossplot Parameters</h4>
+                    <div class="parameters-table-container">
+                        <table class="parameters-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>X-axis column</td>
+                                    <td>X_COLUMN</td>
+                                    <td><select class="param-input log-select"><option>Select X column</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Y-axis column</td>
+                                    <td>Y_COLUMN</td>
+                                    <td><select class="param-input log-select"><option>Select Y column</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Color by column (optional)</td>
+                                    <td>COLOR_COLUMN</td>
+                                    <td><select class="param-input log-select"><option value="">None</option></select></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>
+                    <button class="btn-primary" onclick="runCrossplot()">Generate Crossplot</button>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 function loadNormalizationModule(container) {
-    container.innerHTML = 
-        '<div class="data-prep-module-container">' +
-            '<h3>Data Preparation: Normalization</h3>' +
-            '<div class="module-content">' +
-                '<div class="file-selection-section">' +
-                    '<h4>Select Files for Normalization</h4>' +
-                    '<div class="file-list-container">' +
-                        '<div class="loading-state">Loading available files...</div>' +
-                    '</div>' +
-                '</div>' +
-                '<div class="parameters-section">' +
-                    '<h4>Parameters</h4>' +
-                    '<div class="parameters-table-container">' +
-                        '<table class="parameters-table">' +
-                            '<thead>' +
-                                '<tr>' +
-                                    '<th>Location</th>' +
-                                    '<th>Mode</th>' +
-                                    '<th>Comment</th>' +
-                                    '<th>Name</th>' +
-                                    '<th>Value</th>' +
-                                '</tr>' +
-                            '</thead>' +
-                            '<tbody>' +
-                                '<tr class="param-row bg-orange-600">' +
-                                    '<td>Parameter</td>' +
-                                    '<td>Input</td>' +
-                                    '<td>Normalization: Min-Max</td>' +
-                                    '<td>NORMALIZE_OPT</td>' +
-                                    '<td><input type="text" value="MIN-MAX" class="param-input" readonly></td>' +
-                                '</tr>' +
-                                '<tr class="param-row bg-yellow-300">' +
-                                    '<td>Constant</td>' +
-                                    '<td>Input</td>' +
-                                    '<td>Input low log value (P5)</td>' +
-                                    '<td>LOW_IN</td>' +
-                                    '<td><input type="text" value="5" class="param-input"></td>' +
-                                '</tr>' +
-                                '<tr class="param-row bg-yellow-300">' +
-                                    '<td>Constant</td>' +
-                                    '<td>Input</td>' +
-                                    '<td>Input high log value (P95)</td>' +
-                                    '<td>HIGH_IN</td>' +
-                                    '<td><input type="text" value="95" class="param-input"></td>' +
-                                '</tr>' +
-                                '<tr class="param-row bg-yellow-300">' +
-                                    '<td>Constant</td>' +
-                                    '<td>Input</td>' +
-                                    '<td>Reference log low value</td>' +
-                                    '<td>LOW_REF</td>' +
-                                    '<td><input type="text" value="40" class="param-input"></td>' +
-                                '</tr>' +
-                                '<tr class="param-row bg-yellow-300">' +
-                                    '<td>Constant</td>' +
-                                    '<td>Input</td>' +
-                                    '<td>Reference log high value</td>' +
-                                    '<td>HIGH_REF</td>' +
-                                    '<td><input type="text" value="140" class="param-input"></td>' +
-                                '</tr>' +
-                                '<tr class="param-row bg-cyan-400">' +
-                                    '<td>Log</td>' +
-                                    '<td>Input</td>' +
-                                    '<td>Input Log</td>' +
-                                    '<td>LOG_IN</td>' +
-                                    '<td><select class="param-input log-select"><option>Select log column</option></select></td>' +
-                                '</tr>' +
-                                '<tr class="param-row bg-cyan-200">' +
-                                    '<td>Log</td>' +
-                                    '<td>Output</td>' +
-                                    '<td>Output Log Name</td>' +
-                                    '<td>LOG_OUT</td>' +
-                                    '<td><input type="text" class="param-input log-output" placeholder="Auto-generated"></td>' +
-                                '</tr>' +
-                            '</tbody>' +
-                        '</table>' +
-                    '</div>' +
-                '</div>' +
-                '<div class="actions-section">' +
-                    '<button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>' +
-                    '<button class="btn-primary" onclick="runNormalization()">Start Normalization</button>' +
-                '</div>' +
-            '</div>' +
-        '</div>';
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Data Preparation: Normalization</h3>
+            <div class="module-content">
+                <div class="file-selection-section">
+                    <h4>Select Files for Normalization</h4>
+                    <div class="file-list-container">
+                        <div class="loading-state">Loading available files...</div>
+                    </div>
+                </div>
+                <div class="parameters-section">
+                    <h4>Parameters</h4>
+                    <div class="parameters-table-container">
+                        <table class="parameters-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="param-row bg-orange-600">
+                                    <td>Parameter</td>
+                                    <td>Input</td>
+                                    <td>Normalization: Min-Max</td>
+                                    <td>NORMALIZE_OPT</td>
+                                    <td><input type="text" value="MIN-MAX" class="param-input" readonly></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Input low log value (P5)</td>
+                                    <td>LOW_IN</td>
+                                    <td><input type="text" value="5" class="param-input"></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Input high log value (P95)</td>
+                                    <td>HIGH_IN</td>
+                                    <td><input type="text" value="95" class="param-input"></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Reference log low value</td>
+                                    <td>LOW_REF</td>
+                                    <td><input type="text" value="40" class="param-input"></td>
+                                </tr>
+                                <tr class="param-row bg-yellow-300">
+                                    <td>Constant</td>
+                                    <td>Input</td>
+                                    <td>Reference log high value</td>
+                                    <td>HIGH_REF</td>
+                                    <td><input type="text" value="140" class="param-input"></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Input Log</td>
+                                    <td>LOG_IN</td>
+                                    <td><select class="param-input log-select"><option>Select log column</option></select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-200">
+                                    <td>Log</td>
+                                    <td>Output</td>
+                                    <td>Output Log Name</td>
+                                    <td>LOG_OUT</td>
+                                    <td><input type="text" class="param-input log-output" placeholder="Auto-generated"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>
+                    <button class="btn-primary" onclick="runNormalization()">Start Normalization</button>
+                </div>
+            </div>
+        </div>
+    `;
     
     // Load available files
     loadDataPrepFiles();
@@ -4566,305 +4313,3 @@ window.testBackendConnection = testBackendConnection;
 window.navigateToDashboard = navigateToDashboard;
 // Make navigateToDataPreparation available globally
 window.navigateToDataPreparation = navigateToDataPreparation;
-
-// Universal Parameter Form Function
-function showParameterForm(config) {
-    // Hide the main plot area and show parameter form
-    document.getElementById('plotArea').style.display = 'none';
-    
-    var parameterForm = document.getElementById('parameterForm');
-    parameterForm.style.display = 'block';
-    
-    // Set title
-    var titleElement = parameterForm.querySelector('h3');
-    if (titleElement) {
-        titleElement.textContent = config.title;
-    }
-    
-    // Create parameter form content
-    var formContent = createParameterFormContent(config);
-    var formContentDiv = parameterForm.querySelector('.form-content');
-    if (formContentDiv) {
-        formContentDiv.innerHTML = formContent;
-    }
-    
-    // Setup form event handlers
-    setupParameterFormHandlers(config);
-}
-
-function createParameterFormContent(config) {
-    var selectedIntervals = config.selectedIntervals || [];
-    
-    var headerHTML = '<div class="parameter-form-header">' +
-        '<h3>' + config.title + '</h3>' +
-        '<p class="subtitle">' + (config.subtitle || '') + '</p>' +
-        '<div class="well-interval-info">' +
-        '<p>Well: ' + config.selectedWells + ' / Intervals: ' + selectedIntervals.length + ' selected</p>' +
-        '</div>' +
-        '</div>';
-    
-    var tableHTML = '<table id="parameterTable" class="parameters-table">' +
-        '<thead>' +
-        '<tr>' +
-        '<th>#</th>' +
-        '<th>Location</th>' +
-        '<th>Mode</th>' +
-        '<th>Comment</th>' +
-        '<th>Unit</th>' +
-        '<th>Name</th>' +
-        '<th>P</th>' +
-        selectedIntervals.map(function(interval) { return '<th>' + interval + '</th>'; }).join('') +
-        '</tr>' +
-        '</thead>' +
-        '<tbody>' +
-        config.parameters.map(function(param) { return createParameterRow(param, selectedIntervals); }).join('') +
-        '</tbody>' +
-        '</table>';
-    
-    var actionsHTML = '<div class="form-actions">' +
-        '<button id="cancelParams" class="btn-secondary">Cancel</button>' +
-        '<button id="submitParams" class="btn-primary">Start</button>' +
-        '</div>';
-    
-    return headerHTML + tableHTML + actionsHTML;
-}
-
-function createParameterRow(param, selectedIntervals) {
-    var rowClass = getCalculationParameterRowClass(param.location, param.mode);
-    var intervalCells = selectedIntervals.map(function(interval) {
-        return '<td>' + createParameterInputCell(param, interval) + '</td>';
-    }).join('');
-    
-    return '<tr class="' + rowClass + '" data-param-id="' + param.id + '">' +
-        '<td>' + param.id + '</td>' +
-        '<td>' + param.location + '</td>' +
-        '<td>' + param.mode + '</td>' +
-        '<td>' + param.comment + '</td>' +
-        '<td>' + param.unit + '</td>' +
-        '<td><strong>' + param.name + '</strong></td>' +
-        '<td><input type="checkbox" class="sync-checkbox" data-param-id="' + param.id + '"></td>' +
-        intervalCells +
-        '</tr>';
-}
-
-function createParameterInputCell(param, interval) {
-    var inputId = param.name + '_' + interval;
-    var availableColumns = Object.values(appState.wellColumns).flat();
-    
-    if (param.type === 'select' && param.options) {
-        var options = param.options.map(function(opt) {
-            return '<option value="' + opt + '"' + (opt === param.value ? ' selected' : '') + '>' + opt + '</option>';
-        }).join('');
-        return '<select class="parameter-input" id="' + inputId + '" data-param="' + param.name + '" data-interval="' + interval + '">' +
-            options +
-            '</select>';
-    } else if (param.type === 'log-select') {
-        var filteredColumns = [];
-        if (param.filter) {
-            filteredColumns = availableColumns.filter(function(col) {
-                return col.toUpperCase().includes(param.filter.toUpperCase());
-            });
-        }
-        var options = filteredColumns.length > 0 ? 
-            filteredColumns.map(function(col) {
-                return '<option value="' + col + '"' + (col === param.value ? ' selected' : '') + '>' + col + '</option>';
-            }).join('') : '<option value="">No match</option>';
-        return '<select class="parameter-input" id="' + inputId + '" data-param="' + param.name + '" data-interval="' + interval + '">' +
-            options +
-            '</select>';
-    } else {
-        return '<input type="text" class="parameter-input" id="' + inputId + '" ' +
-            'value="' + param.value + '" data-param="' + param.name + '" data-interval="' + interval + '">';
-    }
-}
-
-function getCalculationParameterRowClass(location, mode) {
-    switch (location) {
-        case 'Interval':
-            return 'param-row bg-green-400';
-        case 'Log':
-            return mode === 'Input' ? 'param-row bg-cyan-400' : 'param-row bg-cyan-200';
-        case 'Constant':
-            return mode === 'Input' ? 'param-row bg-yellow-300' : 'param-row bg-yellow-100';
-        default:
-            return 'param-row bg-white';
-    }
-}
-
-function setupParameterFormHandlers(config) {
-    // Setup sync checkboxes
-    document.querySelectorAll('.sync-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            var paramId = this.dataset.paramId;
-            var isChecked = this.checked;
-            
-            if (isChecked) {
-                var row = this.closest('tr');
-                var inputs = row.querySelectorAll('.parameter-input');
-                if (inputs.length > 0) {
-                    var firstValue = inputs[0].value;
-                    inputs.forEach(input => input.value = firstValue);
-                }
-            }
-        });
-    });
-    
-    // Setup cancel button
-    document.getElementById('cancelParams').onclick = function() {
-        config.onCancel();
-    };
-    
-    // Setup submit button
-    document.getElementById('submitParams').onclick = function() {
-        var params = collectParameterFormValues();
-        config.onSubmit(params);
-    };
-}
-
-function collectParameterFormValues() {
-    var params = {};
-    var selectedIntervals = appState.selectedIntervals || [];
-    
-    document.querySelectorAll('.parameter-input').forEach(input => {
-        var paramName = input.dataset.param;
-        var interval = input.dataset.interval;
-        
-        if (!params[paramName]) {
-            params[paramName] = {};
-        }
-        params[paramName][interval] = input.value;
-    });
-    
-    // Convert to single values (use first interval or average)
-    var formParams = {};
-    Object.keys(params).forEach(paramName => {
-        var intervalValues = params[paramName];
-        var firstInterval = selectedIntervals[0] || Object.keys(intervalValues)[0];
-        var value = intervalValues[firstInterval];
-        formParams[paramName] = isNaN(Number(value)) ? value : Number(value);
-    });
-    
-    return formParams;
-}
-
-function hideParameterForm() {
-    document.getElementById('parameterForm').style.display = 'none';
-    document.getElementById('plotArea').style.display = 'flex';
-}
-
-// SWORAD and SWGRAD Module Functions 
-function showSworadModule() {
-    if (appState.selectedWells.length === 0) {
-        showError('Please select at least one well before running SWORAD calculation');
-        return;
-    }
-    
-    setIsLoading(true);
-    
-    var payload = {
-        selected_wells: appState.selectedWells,
-        selected_intervals: appState.selectedIntervals,
-        params: {
-            a_param: 1,
-            m_param: 1.8,
-            n_param: 1.8,
-            rtsh: 1
-        }
-    };
-    
-    fetchJson('/run_swgrad', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-    })
-    .then(function(response) {
-        if (response.status === 'success') {
-            showSuccess('SWORAD calculation completed successfully!');
-            if (response.plot) {
-                displayCalculationPlot(response.plot, 'SWORAD Calculation Results');
-            }
-        } else {
-            throw new Error(response.message || 'SWORAD calculation failed');
-        }
-    })
-    .catch(function(error) {
-        console.error('SWORAD calculation error:', error);
-        showError('SWORAD calculation failed: ' + error.message);
-    })
-    .finally(function() {
-        setIsLoading(false);
-    });
-}
-
-function showSwgradModule() {
-    if (appState.selectedWells.length === 0) {
-        showError('Please select at least one well before running SWGRAD calculation');
-        return;
-    }
-    
-    setIsLoading(true);
-    
-    var payload = {
-        selected_wells: appState.selectedWells,
-        selected_intervals: appState.selectedIntervals,
-        params: {}
-    };
-    
-    fetchJson('/run_swgrad', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-    })
-    .then(function(response) {
-        if (response.status === 'success') {
-            showSuccess('SWGRAD calculation completed successfully!');
-            if (response.plot) {
-                displayCalculationPlot(response.plot, 'SWGRAD Calculation Results');
-            }
-        } else {
-            throw new Error(response.message || 'SWGRAD calculation failed');
-        }
-    })
-    .catch(function(error) {
-        console.error('SWGRAD calculation error:', error);
-        showError('SWGRAD calculation failed: ' + error.message);
-    })
-    .finally(function() {
-        setIsLoading(false);
-    });
-}
-
-function showRgbeRpbeModule() {
-    if (appState.selectedWells.length === 0) {
-        showError('Please select at least one well before running RGBE-RPBE calculation');
-        return;
-    }
-    
-    setIsLoading(true);
-    
-    var payload = {
-        selected_wells: appState.selectedWells,
-        selected_intervals: appState.selectedIntervals,
-        params: {}
-    };
-    
-    fetchJson('/run_rgbe_rpbe', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-    })
-    .then(function(response) {
-        if (response.status === 'success') {
-            showSuccess('RGBE-RPBE calculation completed successfully!');
-            if (response.plot) {
-                displayCalculationPlot(response.plot, 'RGBE-RPBE Calculation Results');
-            }
-        } else {
-            throw new Error(response.message || 'RGBE-RPBE calculation failed');
-        }
-    })
-    .catch(function(error) {
-        console.error('RGBE-RPBE calculation error:', error);
-        showError('RGBE-RPBE calculation failed: ' + error.message);
-    })
-    .finally(function() {
-        setIsLoading(false);
-    });
-}
