@@ -379,6 +379,7 @@ function handleStructureSelect(structureName) {
 
     // Persist selection for dashboard navigation
     var selectedInfo = {
+        name: structure.structure_name, // Add simplified name field
         fieldName: structuresState.selectedField,
         structureName: structure.structure_name,
         filePath: structure.file_path,
@@ -664,6 +665,7 @@ function handleNavigation(path) {
                 if (savedStructure) {
                     var structureInfo = JSON.parse(savedStructure);
                     appState.currentStructure = {
+                        name: structureInfo.structureName,
                         fieldName: structureInfo.fieldName,
                         structureName: structureInfo.structureName,
                         filePath: structureInfo.filePath,
@@ -672,15 +674,32 @@ function handleNavigation(path) {
                     };
                 }
             }
-            if (appState.currentStructure && (!appState.availableWells || appState.availableWells.length === 0)) {
-                appState.availableWells = (appState.currentStructure.wells || []);
-                renderWellList(appState.availableWells);
-                updateBadges();
-                showSuccess('Dashboard loaded with data from ' + appState.currentStructure.structureName);
-            } else if (!appState.currentStructure) {
-                showMessage('Dashboard loaded - select a structure first to load well data', 'info');
+            
+            // Auto-load dataset based on selected structure
+            if (appState.currentStructure) {
+                console.log('Auto-loading dataset for structure:', appState.currentStructure.name);
+                autoLoadDefaultDataset()
+                    .then(function() {
+                        showSuccess('Dashboard loaded with data from ' + appState.currentStructure.structureName + ' structure');
+                    })
+                    .catch(function(error) {
+                        console.error('Error loading structure dataset:', error);
+                        showWarning('Failed to load structure dataset, loading default data');
+                        // Fallback to mock data if needed
+                        if (!appState.availableWells || appState.availableWells.length === 0) {
+                            appState.availableWells = (appState.currentStructure.wells || []);
+                            renderWellList(appState.availableWells);
+                            updateBadges();
+                        }
+                    });
             } else {
-                showSuccess('Dashboard page loaded');
+                showMessage('Dashboard loaded - select a structure first to load well data', 'info');
+                // Try to load default dataset anyway
+                autoLoadDefaultDataset()
+                    .catch(function(error) {
+                        console.error('Error loading default dataset:', error);
+                        showMessage('Unable to load well data - please select a structure', 'warning');
+                    });
             }
             break;
         default:
@@ -2655,18 +2674,39 @@ function initializeApp() {
 }
 
 function autoLoadDefaultDataset() {
-    console.log('Auto-loading fix_pass_qc dataset...');
+    // Check if user has selected a structure from structures page
+    var selectedStructure = appState.currentStructure;
+    var datasetName = 'raw_data_well'; // default dataset
+    var payload = { dataset_name: datasetName };
+    
+    if (selectedStructure && selectedStructure.name) {
+        // Create dataset name based on selected structure
+        // e.g., "Adera" -> "raw_well_data_adera"
+        datasetName = 'raw_well_data_' + selectedStructure.name.toLowerCase();
+        payload = {
+            dataset_name: datasetName,
+            structure_name: selectedStructure.name
+        };
+        console.log('Auto-loading dataset for structure:', selectedStructure.name, '- Dataset:', datasetName);
+    } else {
+        console.log('Auto-loading default raw_data_well dataset...');
+    }
     
     return fetchJson('/select_dataset', {
         method: 'POST',
-        body: JSON.stringify({ dataset_name: 'fix_pass_qc' })
+        body: JSON.stringify(payload)
     })
     .then(function(response) {
         if (response.status === 'success') {
             appState.availableWells = response.wells;
+            appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
             renderWellList(response.wells);
             updateBadges();
-            showSuccess('Loaded ' + response.wells.length + ' wells from fix_pass_qc dataset');
+            
+            var successMessage = selectedStructure 
+                ? 'Loaded ' + response.wells.length + ' wells from ' + selectedStructure.name + ' structure (' + response.dataset_name + ')'
+                : 'Loaded ' + response.wells.length + ' wells from ' + response.dataset_name + ' dataset';
+            showSuccess(successMessage);
         } else {
             throw new Error(response.message || 'Failed to load dataset');
         }
@@ -2674,6 +2714,32 @@ function autoLoadDefaultDataset() {
     .catch(function(error) {
         console.error('Error auto-loading dataset:', error);
         showError('Error loading dataset: ' + error.message);
+        
+        // If structure-specific dataset fails, try default
+        if (selectedStructure && payload.structure_name) {
+            console.log('Fallback to default dataset...');
+            return autoLoadFallbackDataset();
+        }
+    });
+}
+
+function autoLoadFallbackDataset() {
+    console.log('Loading fallback dataset: raw_data_well');
+    
+    return fetchJson('/select_dataset', {
+        method: 'POST',
+        body: JSON.stringify({ dataset_name: 'raw_data_well' })
+    })
+    .then(function(response) {
+        if (response.status === 'success') {
+            appState.availableWells = response.wells;
+            appState.currentDataset = 'raw_data_well';
+            renderWellList(response.wells);
+            updateBadges();
+            showSuccess('Loaded ' + response.wells.length + ' wells from fallback dataset');
+        } else {
+            throw new Error(response.message || 'Failed to load fallback dataset');
+        }
     });
 }
 

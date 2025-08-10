@@ -791,28 +791,51 @@ def get_analysis_instance():
         _analysis_instance = WellLogAnalysis()
     return _analysis_instance
 
-def find_raw_data_dataset():
-    """Helper function to find the main raw data dataset"""
+def find_raw_data_dataset(structure_name=None):
+    """Helper function to find the main raw data dataset, optionally for a specific structure"""
     try:
         project = dataiku.api_client().get_project(dataiku.default_project_key())
         dataset_names = [ds['name'] for ds in project.list_datasets()]
         
-        # Priority 1: exact match for raw_data_well
+        # If structure name provided, look for structure-specific dataset first
+        if structure_name:
+            structure_lower = structure_name.lower()
+            
+            # Priority 1: raw_well_data_<structure>
+            target_name = f'raw_well_data_{structure_lower}'
+            for name in dataset_names:
+                if name.lower() == target_name:
+                    return name
+            
+            # Priority 2: raw_data_well_<structure>
+            target_name = f'raw_data_well_{structure_lower}'
+            for name in dataset_names:
+                if name.lower() == target_name:
+                    return name
+            
+            # Priority 3: any dataset containing structure name and 'raw'/'well'/'data'
+            for name in dataset_names:
+                if (structure_lower in name.lower() and 
+                    ('raw' in name.lower() or 'well' in name.lower() or 'data' in name.lower())):
+                    return name
+        
+        # Fallback to general dataset discovery
+        # Priority 4: exact match for raw_data_well
         for name in dataset_names:
             if name.lower() == 'raw_data_well':
                 return name
         
-        # Priority 2: datasets containing 'raw' and ('well' or 'data')
+        # Priority 5: datasets containing 'raw' and ('well' or 'data')
         for name in dataset_names:
             if 'raw' in name.lower() and ('well' in name.lower() or 'data' in name.lower()):
                 return name
         
-        # Priority 3: any dataset with 'raw' in name
+        # Priority 6: any dataset with 'raw' in name
         for name in dataset_names:
             if 'raw' in name.lower():
                 return name
         
-        # Priority 4: check if there are datasets in raw_data_well folder structure
+        # Priority 7: check if there are datasets in raw_data_well folder structure
         for name in dataset_names:
             if 'well' in name.lower() or 'data' in name.lower():
                 return name
@@ -907,7 +930,37 @@ def select_dataset():
     try:
         data = request.get_json()
         dataset_name = data.get('dataset_name')
+        structure_name = data.get('structure_name')  # Optional structure name
+        
         analysis = get_analysis_instance()
+        
+        # If dataset_name indicates a structure pattern, try to find the actual dataset
+        if dataset_name and 'raw_well_data_' in dataset_name:
+            # Extract structure name from dataset_name
+            structure_from_name = dataset_name.split('raw_well_data_')[-1]
+            actual_dataset = find_raw_data_dataset(structure_from_name)
+            if actual_dataset:
+                dataset_name = actual_dataset
+                print(f"Found structure-specific dataset: {actual_dataset}")
+        elif structure_name:
+            # Try to find dataset for specific structure
+            structure_dataset = find_raw_data_dataset(structure_name)
+            if structure_dataset:
+                dataset_name = structure_dataset
+                print(f"Found dataset for structure {structure_name}: {structure_dataset}")
+            else:
+                # Fallback to general dataset discovery
+                fallback_dataset = find_raw_data_dataset()
+                if fallback_dataset:
+                    dataset_name = fallback_dataset
+                    print(f"Using fallback dataset: {fallback_dataset}")
+        
+        if not dataset_name:
+            # Last resort: try to find any suitable dataset
+            dataset_name = find_raw_data_dataset()
+            if not dataset_name:
+                return json.dumps({"status": "error", "message": "No suitable dataset found"})
+        
         result = analysis.select_dataset(dataset_name)
         return json.dumps(result)
     except Exception as e:
