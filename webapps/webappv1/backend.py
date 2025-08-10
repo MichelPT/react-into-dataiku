@@ -812,34 +812,41 @@ def find_raw_data_dataset(structure_name=None):
         if structure_name:
             structure_lower = structure_name.lower()
             
-            # Priority 1: raw_well_data_<structure>
+            # Priority 1: fix_pass_qc_<structure>
+            target_name = f'fix_pass_qc_{structure_lower}'
+            for name in dataset_names:
+                if name.lower() == target_name:
+                    print(f"Found structure-specific QC dataset: {name}")
+                    return name
+            
+            # Priority 2: raw_well_data_<structure>
             target_name = f'raw_well_data_{structure_lower}'
             for name in dataset_names:
                 if name.lower() == target_name:
                     print(f"Found structure-specific dataset: {name}")
                     return name
             
-            # Priority 2: raw_data_well_<structure>
+            # Priority 3: raw_data_well_<structure>
             target_name = f'raw_data_well_{structure_lower}'
             for name in dataset_names:
                 if name.lower() == target_name:
                     print(f"Found structure-specific dataset: {name}")
                     return name
             
-            # Priority 3: any dataset containing structure name and 'raw'/'well'/'data'
+            # Priority 4: any dataset containing structure name and ('fix'/'qc'/'raw'/'well'/'data')
             for name in dataset_names:
                 if (structure_lower in name.lower() and 
-                    ('raw' in name.lower() or 'well' in name.lower() or 'data' in name.lower())):
+                    ('fix' in name.lower() or 'qc' in name.lower() or 'raw' in name.lower() or 'well' in name.lower() or 'data' in name.lower())):
                     print(f"Found matching dataset with structure name: {name}")
                     return name
         
         # Fallback to general dataset discovery - try different patterns
         search_patterns = [
+            'fix_pass_qc',  # Primary dataset for QC'd data
             'raw_data_well',
             'raw_well_data', 
             'well_data',
-            'data_well',
-            'fix_pass_qc'  # Legacy fallback
+            'data_well'
         ]
         
         for pattern in search_patterns:

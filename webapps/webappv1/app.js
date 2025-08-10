@@ -1231,20 +1231,42 @@ function showWarning(message) {
 function loadWells() {
     showLoading();
     
-    fetchJson('/get_wells')
+    // Use fix_pass_qc as default dataset when refreshing
+    var payload = { dataset_name: 'fix_pass_qc' };
+    
+    // If there's a current structure, try to use structure-specific dataset
+    if (appState.currentStructure && appState.currentStructure.name) {
+        payload = {
+            dataset_name: 'fix_pass_qc_' + appState.currentStructure.name.toLowerCase(),
+            structure_name: appState.currentStructure.name
+        };
+    }
+    
+    fetchJson('/select_dataset', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
         .then(function(response) {
             if (response.status === 'success') {
                 appState.availableWells = response.wells;
+                appState.currentDataset = response.dataset_name;
                 renderWellList(response.wells);
+                
+                // Also load markers/intervals if available
+                if (response.markers && response.markers.length > 0) {
+                    appState.availableIntervals = response.markers;
+                    renderIntervalList(response.markers);
+                }
+                
                 updateBadges();
-                showSuccess('Loaded ' + response.wells.length + ' wells');
+                showSuccess('Refreshed data: Loaded ' + response.wells.length + ' wells from ' + response.dataset_name);
             } else {
                 throw new Error(response.message || 'Failed to load wells');
             }
         })
         .catch(function(error) {
             console.error('Error loading wells:', error);
-            showError('Failed to load wells: ' + error.message);
+            showError('Failed to refresh data: ' + error.message);
         })
         .finally(function() {
             hideLoading();
@@ -1684,17 +1706,17 @@ function createPlot(figureData) {
             setTimeout(function() {
                 containerHeight = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
                 containerWidth = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
-            }, 100);
+            }, 150);
         }
         
-        if (containerHeight && containerHeight > 0) {
-            figureData.layout.height = containerHeight - 20; // Small margin
+        if (containerHeight && containerHeight > 100) {
+            figureData.layout.height = containerHeight - 30; // Small margin for better fit
         } else {
-            figureData.layout.height = 400; // Fallback height
+            figureData.layout.height = 600; // Increased fallback height
         }
         
-        if (containerWidth && containerWidth > 0) {
-            figureData.layout.width = containerWidth - 20; // Small margin
+        if (containerWidth && containerWidth > 100) {
+            figureData.layout.width = containerWidth - 30; // Small margin for better fit
         }
         
         Plotly.newPlot(plotArea, figureData.data, figureData.layout, config).then(function(){
@@ -1704,8 +1726,8 @@ function createPlot(figureData) {
                 var w = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
                 if (h && h > 100 && w && w > 100) {
                     Plotly.relayout(plotArea, { 
-                        height: h - 20, 
-                        width: w - 20 
+                        height: h - 30, 
+                        width: w - 30 
                     });
                 } else {
                     // Use Plotly's automatic resize
@@ -1782,10 +1804,12 @@ function displayCalculationPlot(plotData, title) {
         var containerWidth = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
         
         if (containerHeight && containerHeight > 100) {
-            plotData.layout.height = containerHeight - 20;
+            plotData.layout.height = containerHeight - 30;
+        } else {
+            plotData.layout.height = 600; // Better fallback
         }
         if (containerWidth && containerWidth > 100) {
-            plotData.layout.width = containerWidth - 20;
+            plotData.layout.width = containerWidth - 30;
         }
         
         // Create the plot
@@ -1796,8 +1820,8 @@ function displayCalculationPlot(plotData, title) {
                 var w = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
                 if (h && h > 100 && w && w > 100) {
                     Plotly.relayout(plotArea, { 
-                        height: h - 20, 
-                        width: w - 20 
+                        height: h - 30, 
+                        width: w - 30 
                     });
                 } else {
                     Plotly.Plots.resize(plotArea);
@@ -2974,20 +2998,20 @@ function initializeApp() {
 function autoLoadDefaultDataset() {
     // Check if user has selected a structure from structures page
     var selectedStructure = appState.currentStructure;
-    var datasetName = 'raw_data_well'; // default dataset
+    var datasetName = 'fix_pass_qc'; // default dataset changed to fix_pass_qc
     var payload = { dataset_name: datasetName };
     
     if (selectedStructure && selectedStructure.name) {
         // Create dataset name based on selected structure
-        // e.g., "Adera" -> "raw_well_data_adera"
-        datasetName = 'raw_well_data_' + selectedStructure.name.toLowerCase();
+        // e.g., "Adera" -> "fix_pass_qc_adera" or try "raw_well_data_adera" as fallback
+        datasetName = 'fix_pass_qc_' + selectedStructure.name.toLowerCase();
         payload = {
             dataset_name: datasetName,
             structure_name: selectedStructure.name
         };
         console.log('Auto-loading dataset for structure:', selectedStructure.name, '- Dataset:', datasetName);
     } else {
-        console.log('Auto-loading default raw_data_well dataset...');
+        console.log('Auto-loading default fix_pass_qc dataset...');
     }
     
     return fetchJson('/select_dataset', {
@@ -2999,11 +3023,23 @@ function autoLoadDefaultDataset() {
             appState.availableWells = response.wells;
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
             renderWellList(response.wells);
+            
+            // Load intervals if available
+            if (response.markers && response.markers.length > 0) {
+                appState.availableIntervals = response.markers;
+                renderIntervalList(response.markers);
+            }
+            
             updateBadges();
             
             var successMessage = selectedStructure 
                 ? 'Loaded ' + response.wells.length + ' wells from ' + selectedStructure.name + ' structure (' + response.dataset_name + ')'
                 : 'Loaded ' + response.wells.length + ' wells from ' + response.dataset_name + ' dataset';
+            
+            if (response.markers && response.markers.length > 0) {
+                successMessage += ' with ' + response.markers.length + ' intervals';
+            }
+            
             showSuccess(successMessage);
         } else {
             throw new Error(response.message || 'Failed to load dataset');
@@ -3035,19 +3071,32 @@ function autoLoadDefaultDataset() {
 }
 
 function autoLoadFallbackDataset() {
-    console.log('Loading fallback dataset: raw_data_well');
+    console.log('Loading fallback dataset: fix_pass_qc');
     
     return fetchJson('/select_dataset', {
         method: 'POST',
-        body: JSON.stringify({ dataset_name: 'raw_data_well' })
+        body: JSON.stringify({ dataset_name: 'fix_pass_qc' })
     })
     .then(function(response) {
         if (response.status === 'success') {
             appState.availableWells = response.wells;
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
             renderWellList(response.wells);
+            
+            // Load intervals if available
+            if (response.markers && response.markers.length > 0) {
+                appState.availableIntervals = response.markers;
+                renderIntervalList(response.markers);
+            }
+            
             updateBadges();
-            showSuccess('Loaded ' + response.wells.length + ' wells from fallback dataset: ' + response.dataset_name);
+            
+            var successMessage = 'Loaded ' + response.wells.length + ' wells from fallback dataset: ' + response.dataset_name;
+            if (response.markers && response.markers.length > 0) {
+                successMessage += ' with ' + response.markers.length + ' intervals';
+            }
+            
+            showSuccess(successMessage);
         } else {
             throw new Error(response.message || 'Failed to load fallback dataset');
         }

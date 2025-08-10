@@ -327,6 +327,38 @@ body {
     margin-left: 0;
     border-radius: var(--radius);
     box-shadow: var(--shadow-sm);
+    padding: 1rem;
+}
+
+#dataPrepMainContent .main-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+#dataPrepMainContent .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+#dataPrepMainContent .status-bar span {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+#dataPrepMainContent .plot-container {
+    margin-top: 0.5rem;
+}
+
+#dataPrepModuleArea {
+    flex: 1;
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #dataPrepRightSidebar {
@@ -532,7 +564,7 @@ body {
 #app {
     display: grid;
     grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-width);
-    min-height: calc(100vh - 4rem);
+    height: calc(100vh - 4rem);
     gap: 1px;
     background-color: var(--border-color);
 }
@@ -811,8 +843,8 @@ body {
 /* Main Content Styles */
 #mainContent {
     background: var(--bg-white);
-    padding: 1rem;
-    overflow-y: auto;
+    padding: 0.75rem;
+    overflow-y: hidden;
     height: calc(100vh - 4rem);
     position: relative;
     display: flex;
@@ -823,10 +855,11 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.5rem;
-    padding-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+    padding-bottom: 0.25rem;
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
+    min-height: 40px;
 }
 
 .main-header h2 {
@@ -850,7 +883,8 @@ body {
 .plot-container {
     width: 100%;
     flex: 1;
-    min-height: 400px;
+    min-height: 600px;
+    height: calc(100vh - 200px);
     max-height: none;
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
@@ -1307,12 +1341,25 @@ input[type="checkbox"] {
     
     #mainContent {
         height: auto;
-        min-height: calc(100vh - 200px);
+        min-height: calc(100vh - 150px);
+        padding: 0.5rem;
+        overflow-y: auto;
+    }
+    
+    #dataPrepMainContent {
         padding: 0.75rem;
+        margin: 8px;
+        margin-left: 0;
+    }
+    
+    #dataPrepMainContent .main-header {
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
     }
     
     .plot-container {
-        min-height: 350px;
+        min-height: 400px;
+        height: calc(100vh - 250px);
         flex: 1;
     }
     
