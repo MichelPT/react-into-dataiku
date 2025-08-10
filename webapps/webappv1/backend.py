@@ -151,14 +151,33 @@ class WellLogAnalysis:
         return new_df
     
     def auto_load_default_dataset(self):
-        """Automatically load the fix_pass_qc dataset on initialization"""
+        """Automatically load the raw_data_well dataset on initialization"""
         try:
-            dataset_name = "fix_pass_qc"
+            # Try to find raw_data_well dataset
+            dataset_name = "raw_data_well"
             result = self.select_dataset(dataset_name)
             if result.get("status") == "success":
                 print(f"Successfully auto-loaded dataset: {dataset_name}")
             else:
-                print(f"Failed to auto-load dataset {dataset_name}: {result.get('message', 'Unknown error')}")
+                # If raw_data_well not found, try to find any dataset with 'raw' and 'well' in name
+                try:
+                    available_datasets = self.get_available_datasets()
+                    if available_datasets.get("status") == "success":
+                        datasets = available_datasets.get("datasets", [])
+                        raw_datasets = [ds for ds in datasets if 'raw' in ds.lower() and ('well' in ds.lower() or 'data' in ds.lower())]
+                        if raw_datasets:
+                            fallback_dataset = raw_datasets[0]
+                            result = self.select_dataset(fallback_dataset)
+                            if result.get("status") == "success":
+                                print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
+                            else:
+                                print(f"Failed to auto-load fallback dataset {fallback_dataset}")
+                        else:
+                            print("No raw well data dataset found")
+                    else:
+                        print("Failed to get available datasets for fallback")
+                except Exception as fallback_error:
+                    print(f"Error during fallback dataset loading: {str(fallback_error)}")
         except Exception as e:
             print(f"Error auto-loading dataset: {str(e)}")
     
@@ -192,9 +211,20 @@ class WellLogAnalysis:
             self.current_dataset = dataset_name
             self.current_well_data = df
             
-            # Get basic info
-            wells = df['WELL_NAME'].unique().tolist() if 'WELL_NAME' in df.columns else []
-            markers = df['MARKER'].unique().tolist() if 'MARKER' in df.columns else []
+            # Get basic info - check for different well column names
+            wells = []
+            for well_col in ['WELL_NAME', 'WELL', 'Well', 'well', 'WELLNAME']:
+                if well_col in df.columns:
+                    wells = df[well_col].unique().tolist()
+                    break
+            
+            # Get markers - check for different marker column names
+            markers = []
+            for marker_col in ['MARKER', 'Marker', 'marker', 'FORMATION', 'Formation']:
+                if marker_col in df.columns:
+                    markers = df[marker_col].unique().tolist()
+                    break
+                    
             columns = df.columns.tolist()
             
             return {
@@ -761,6 +791,37 @@ def get_analysis_instance():
         _analysis_instance = WellLogAnalysis()
     return _analysis_instance
 
+def find_raw_data_dataset():
+    """Helper function to find the main raw data dataset"""
+    try:
+        project = dataiku.api_client().get_project(dataiku.default_project_key())
+        dataset_names = [ds['name'] for ds in project.list_datasets()]
+        
+        # Priority 1: exact match for raw_data_well
+        for name in dataset_names:
+            if name.lower() == 'raw_data_well':
+                return name
+        
+        # Priority 2: datasets containing 'raw' and ('well' or 'data')
+        for name in dataset_names:
+            if 'raw' in name.lower() and ('well' in name.lower() or 'data' in name.lower()):
+                return name
+        
+        # Priority 3: any dataset with 'raw' in name
+        for name in dataset_names:
+            if 'raw' in name.lower():
+                return name
+        
+        # Priority 4: check if there are datasets in raw_data_well folder structure
+        for name in dataset_names:
+            if 'well' in name.lower() or 'data' in name.lower():
+                return name
+                
+        return None
+    except Exception as e:
+        print(f"Error finding raw data dataset: {str(e)}")
+        return None
+
 # -----------------------------
 # Structures utilities
 # -----------------------------
@@ -1034,26 +1095,24 @@ def vsh_calculation_endpoint():
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         
-        # Get the dataset
-        project = dataiku.api_client().get_project(dataiku.default_project_key())
-        dataset_names = [ds['name'] for ds in project.list_datasets()]
-        
-        # Find raw_well_data or similar dataset
-        raw_data_name = None
-        for name in dataset_names:
-            if 'raw' in name.lower() and 'well' in name.lower():
-                raw_data_name = name
-                break
-        
+        # Find the raw data dataset
+        raw_data_name = find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data not found"})
+            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
         
+        print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
         df = dataset.get_dataframe()
         
-        # Filter for selected wells if specified
+        # Filter for selected wells if specified (check different well column names)
         if selected_wells:
-            df = df[df['WELL'].isin(selected_wells)] if 'WELL' in df.columns else df
+            well_col = None
+            for col in ['WELL', 'WELL_NAME', 'Well', 'well']:
+                if col in df.columns:
+                    well_col = col
+                    break
+            if well_col:
+                df = df[df[well_col].isin(selected_wells)]
         
         if method == 'vsh_gr':
             # VSH from Gamma Ray calculation
@@ -1069,7 +1128,8 @@ def vsh_calculation_endpoint():
                     "success": True, 
                     "message": "VSH-GR calculation completed",
                     "output_dataset": output_dataset_name,
-                    "rows_processed": len(result_df)
+                    "rows_processed": len(result_df),
+                    "source_dataset": raw_data_name
                 })
             except Exception as e:
                 return json.dumps({"success": False, "error": f"VSH-GR calculation failed: {str(e)}"})
@@ -1088,7 +1148,8 @@ def vsh_calculation_endpoint():
                     "success": True, 
                     "message": "VSH-DN calculation completed",
                     "output_dataset": output_dataset_name,
-                    "rows_processed": len(result_df)
+                    "rows_processed": len(result_df),
+                    "source_dataset": raw_data_name
                 })
             except Exception as e:
                 return json.dumps({"success": False, "error": f"VSH-DN calculation failed: {str(e)}"})
@@ -1108,26 +1169,24 @@ def porosity_calculation_endpoint():
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         
-        # Get the dataset
-        project = dataiku.api_client().get_project(dataiku.default_project_key())
-        dataset_names = [ds['name'] for ds in project.list_datasets()]
-        
-        # Find raw_well_data or similar dataset
-        raw_data_name = None
-        for name in dataset_names:
-            if 'raw' in name.lower() and 'well' in name.lower():
-                raw_data_name = name
-                break
-        
+        # Find the raw data dataset
+        raw_data_name = find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data not found"})
+            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
         
+        print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
         df = dataset.get_dataframe()
         
-        # Filter for selected wells if specified
+        # Filter for selected wells if specified (check different well column names)
         if selected_wells:
-            df = df[df['WELL'].isin(selected_wells)] if 'WELL' in df.columns else df
+            well_col = None
+            for col in ['WELL', 'WELL_NAME', 'Well', 'well']:
+                if col in df.columns:
+                    well_col = col
+                    break
+            if well_col:
+                df = df[df[well_col].isin(selected_wells)]
         
         # Perform porosity calculation
         result_df = calculate_porosity(df, parameters)
@@ -1141,7 +1200,8 @@ def porosity_calculation_endpoint():
             "success": True, 
             "message": "Porosity calculation completed",
             "output_dataset": output_dataset_name,
-            "rows_processed": len(result_df)
+            "rows_processed": len(result_df),
+            "source_dataset": raw_data_name
         })
         
     except Exception as e:
@@ -1158,26 +1218,24 @@ def sw_calculation_endpoint():
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         
-        # Get the dataset
-        project = dataiku.api_client().get_project(dataiku.default_project_key())
-        dataset_names = [ds['name'] for ds in project.list_datasets()]
-        
-        # Find raw_well_data or similar dataset
-        raw_data_name = None
-        for name in dataset_names:
-            if 'raw' in name.lower() and 'well' in name.lower():
-                raw_data_name = name
-                break
-        
+        # Find the raw data dataset
+        raw_data_name = find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data not found"})
+            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
         
+        print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
         df = dataset.get_dataframe()
         
-        # Filter for selected wells if specified
+        # Filter for selected wells if specified (check different well column names)
         if selected_wells:
-            df = df[df['WELL'].isin(selected_wells)] if 'WELL' in df.columns else df
+            well_col = None
+            for col in ['WELL', 'WELL_NAME', 'Well', 'well']:
+                if col in df.columns:
+                    well_col = col
+                    break
+            if well_col:
+                df = df[df[well_col].isin(selected_wells)]
         
         if method == 'sw_indonesia':
             # SW Indonesia calculation
@@ -1200,7 +1258,8 @@ def sw_calculation_endpoint():
             "success": True, 
             "message": f"SW {method.replace('sw_', '').upper()} calculation completed",
             "output_dataset": output_dataset_name,
-            "rows_processed": len(result_df)
+            "rows_processed": len(result_df),
+            "source_dataset": raw_data_name
         })
         
     except Exception as e:
@@ -1216,26 +1275,24 @@ def rwa_calculation_endpoint():
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         
-        # Get the dataset
-        project = dataiku.api_client().get_project(dataiku.default_project_key())
-        dataset_names = [ds['name'] for ds in project.list_datasets()]
-        
-        # Find raw_well_data or similar dataset
-        raw_data_name = None
-        for name in dataset_names:
-            if 'raw' in name.lower() and 'well' in name.lower():
-                raw_data_name = name
-                break
-        
+        # Find the raw data dataset
+        raw_data_name = find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data not found"})
+            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
         
+        print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
         df = dataset.get_dataframe()
         
-        # Filter for selected wells if specified
+        # Filter for selected wells if specified (check different well column names)
         if selected_wells:
-            df = df[df['WELL'].isin(selected_wells)] if 'WELL' in df.columns else df
+            well_col = None
+            for col in ['WELL', 'WELL_NAME', 'Well', 'well']:
+                if col in df.columns:
+                    well_col = col
+                    break
+            if well_col:
+                df = df[df[well_col].isin(selected_wells)]
         
         # Perform water resistivity calculation
         result_df = calculate_rwa(df, parameters)
@@ -1249,7 +1306,8 @@ def rwa_calculation_endpoint():
             "success": True, 
             "message": "Water Resistivity calculation completed",
             "output_dataset": output_dataset_name,
-            "rows_processed": len(result_df)
+            "rows_processed": len(result_df),
+            "source_dataset": raw_data_name
         })
         
     except Exception as e:
