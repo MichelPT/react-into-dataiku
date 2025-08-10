@@ -99,7 +99,7 @@ except ImportError as e:
 
 class WellLogAnalysis:
     def __init__(self, project_key=None):
-        """Initialize with optional project key and auto-load fix_pass_qc dataset"""
+        """Initialize with optional project key and auto-load raw_well_data dataset"""
         self.project_key = project_key
         if project_key:
             self.project = dataiku.Project(project_key)
@@ -107,7 +107,7 @@ class WellLogAnalysis:
         self.current_well_data = None
         self.available_datasets = []
         
-        # Auto-load the fix_pass_qc dataset
+        # Auto-load the raw_well_data dataset
         self.auto_load_default_dataset()
 
     # -----------------------------
@@ -151,31 +151,36 @@ class WellLogAnalysis:
         return new_df
     
     def auto_load_default_dataset(self):
-        """Automatically load the raw_data_well dataset on initialization"""
+        """Automatically load the raw_well_data dataset on initialization"""
         try:
-            # Try to find raw_data_well dataset
-            dataset_name = "raw_data_well"
+            # Try to find raw_well_data dataset
+            dataset_name = "raw_well_data"
             result = self.select_dataset(dataset_name)
             if result.get("status") == "success":
                 print(f"Successfully auto-loaded dataset: {dataset_name}")
             else:
-                # If raw_data_well not found, try to find any dataset with 'raw' and 'well' in name
+                # If raw_well_data not found, try raw_data_well
                 try:
-                    available_datasets = self.get_available_datasets()
-                    if available_datasets.get("status") == "success":
-                        datasets = available_datasets.get("datasets", [])
-                        raw_datasets = [ds for ds in datasets if 'raw' in ds.lower() and ('well' in ds.lower() or 'data' in ds.lower())]
-                        if raw_datasets:
-                            fallback_dataset = raw_datasets[0]
-                            result = self.select_dataset(fallback_dataset)
-                            if result.get("status") == "success":
-                                print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
-                            else:
-                                print(f"Failed to auto-load fallback dataset {fallback_dataset}")
-                        else:
-                            print("No raw well data dataset found")
+                    result = self.select_dataset("raw_data_well")
+                    if result.get("status") == "success":
+                        print(f"Successfully auto-loaded fallback dataset: raw_data_well")
                     else:
-                        print("Failed to get available datasets for fallback")
+                        # Try to find any dataset with 'raw' and 'well' in name
+                        available_datasets = self.get_available_datasets()
+                        if available_datasets.get("status") == "success":
+                            datasets = available_datasets.get("datasets", [])
+                            raw_datasets = [ds for ds in datasets if 'raw' in ds.lower() and ('well' in ds.lower() or 'data' in ds.lower())]
+                            if raw_datasets:
+                                fallback_dataset = raw_datasets[0]
+                                result = self.select_dataset(fallback_dataset)
+                                if result.get("status") == "success":
+                                    print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
+                                else:
+                                    print(f"Failed to auto-load fallback dataset {fallback_dataset}")
+                            else:
+                                print("No raw well data dataset found")
+                        else:
+                            print("Failed to get available datasets for fallback")
                 except Exception as fallback_error:
                     print(f"Error during fallback dataset loading: {str(fallback_error)}")
         except Exception as e:
@@ -812,22 +817,22 @@ def find_raw_data_dataset(structure_name=None):
         if structure_name:
             structure_lower = structure_name.lower()
             
-            # Priority 1: fix_pass_qc_<structure>
-            target_name = f'fix_pass_qc_{structure_lower}'
-            for name in dataset_names:
-                if name.lower() == target_name:
-                    print(f"Found structure-specific QC dataset: {name}")
-                    return name
-            
-            # Priority 2: raw_well_data_<structure>
+            # Priority 1: raw_well_data_<structure>
             target_name = f'raw_well_data_{structure_lower}'
             for name in dataset_names:
                 if name.lower() == target_name:
                     print(f"Found structure-specific dataset: {name}")
                     return name
             
-            # Priority 3: raw_data_well_<structure>
+            # Priority 2: raw_data_well_<structure>
             target_name = f'raw_data_well_{structure_lower}'
+            for name in dataset_names:
+                if name.lower() == target_name:
+                    print(f"Found structure-specific dataset: {name}")
+                    return name
+            
+            # Priority 3: fix_pass_qc_<structure> (as backup)
+            target_name = f'fix_pass_qc_{structure_lower}'
             for name in dataset_names:
                 if name.lower() == target_name:
                     print(f"Found structure-specific dataset: {name}")
@@ -842,11 +847,11 @@ def find_raw_data_dataset(structure_name=None):
         
         # Fallback to general dataset discovery - try different patterns
         search_patterns = [
-            'fix_pass_qc',  # Primary dataset for QC'd data
+            'raw_well_data',  # Primary dataset for raw data
             'raw_data_well',
-            'raw_well_data', 
             'well_data',
-            'data_well'
+            'data_well',
+            'fix_pass_qc'  # QC'd data as fallback
         ]
         
         for pattern in search_patterns:

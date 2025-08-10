@@ -1231,13 +1231,13 @@ function showWarning(message) {
 function loadWells() {
     showLoading();
     
-    // Use fix_pass_qc as default dataset when refreshing
-    var payload = { dataset_name: 'fix_pass_qc' };
+    // Use raw_well_data as default dataset when refreshing
+    var payload = { dataset_name: 'raw_well_data' };
     
     // If there's a current structure, try to use structure-specific dataset
     if (appState.currentStructure && appState.currentStructure.name) {
         payload = {
-            dataset_name: 'fix_pass_qc_' + appState.currentStructure.name.toLowerCase(),
+            dataset_name: 'raw_well_data_' + appState.currentStructure.name.toLowerCase(),
             structure_name: appState.currentStructure.name
         };
     }
@@ -2998,20 +2998,20 @@ function initializeApp() {
 function autoLoadDefaultDataset() {
     // Check if user has selected a structure from structures page
     var selectedStructure = appState.currentStructure;
-    var datasetName = 'fix_pass_qc'; // default dataset changed to fix_pass_qc
+    var datasetName = 'raw_well_data'; // default dataset back to raw_well_data
     var payload = { dataset_name: datasetName };
     
     if (selectedStructure && selectedStructure.name) {
         // Create dataset name based on selected structure
-        // e.g., "Adera" -> "fix_pass_qc_adera" or try "raw_well_data_adera" as fallback
-        datasetName = 'fix_pass_qc_' + selectedStructure.name.toLowerCase();
+        // e.g., "Adera" -> "raw_well_data_adera"
+        datasetName = 'raw_well_data_' + selectedStructure.name.toLowerCase();
         payload = {
             dataset_name: datasetName,
             structure_name: selectedStructure.name
         };
         console.log('Auto-loading dataset for structure:', selectedStructure.name, '- Dataset:', datasetName);
     } else {
-        console.log('Auto-loading default fix_pass_qc dataset...');
+        console.log('Auto-loading default raw_well_data dataset...');
     }
     
     return fetchJson('/select_dataset', {
@@ -3071,11 +3071,11 @@ function autoLoadDefaultDataset() {
 }
 
 function autoLoadFallbackDataset() {
-    console.log('Loading fallback dataset: fix_pass_qc');
+    console.log('Loading fallback dataset: raw_well_data');
     
     return fetchJson('/select_dataset', {
         method: 'POST',
-        body: JSON.stringify({ dataset_name: 'fix_pass_qc' })
+        body: JSON.stringify({ dataset_name: 'raw_well_data' })
     })
     .then(function(response) {
         if (response.status === 'success') {
