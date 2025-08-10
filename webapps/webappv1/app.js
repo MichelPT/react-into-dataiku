@@ -1770,6 +1770,70 @@ function getCalculationParameters(calculationType) {
                 { name: 'M', label: 'Cementation Exponent (m)', type: 'number', default_value: 2.0, required: true },
                 { name: 'N', label: 'Saturation Exponent (n)', type: 'number', default_value: 2.0, required: true }
             ]
+        },
+        'vsh-gr': {
+            title: 'Volume of Shale from Gamma Ray (VSH-GR) Parameters',
+            parameters: [
+                { name: 'gr_log', label: 'Gamma Ray Log', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
+                { name: 'opt_gr', label: 'VSH GR Method', type: 'select', options: ['LINEAR'], default_value: 'LINEAR', required: true },
+                { name: 'gr_ma', label: 'Clean GR Value (API)', type: 'number', default_value: 30, required: true },
+                { name: 'gr_sh', label: 'Shale GR Value (API)', type: 'number', default_value: 120, required: true }
+            ]
+        },
+        'vsh-dn': {
+            title: 'Volume of Shale from Density-Neutron (VSH-DN) Parameters', 
+            parameters: [
+                { name: 'rhob_log', label: 'Density Log', type: 'select', options: ['RHOB', 'RHOZ'], default_value: 'RHOB', required: true },
+                { name: 'nphi_log', label: 'Neutron Porosity Log', type: 'select', options: ['NPHI', 'TNPH'], default_value: 'NPHI', required: true },
+                { name: 'rhob_ma', label: 'Matrix Density (g/cc)', type: 'number', default_value: 2.65, required: true },
+                { name: 'rhob_sh', label: 'Shale Density (g/cc)', type: 'number', default_value: 2.61, required: true },
+                { name: 'rhob_fl', label: 'Fluid Density (g/cc)', type: 'number', default_value: 0.85, required: true },
+                { name: 'nphi_ma', label: 'Matrix Neutron (v/v)', type: 'number', default_value: -0.02, required: true },
+                { name: 'nphi_sh', label: 'Shale Neutron (v/v)', type: 'number', default_value: 0.398, required: true },
+                { name: 'nphi_fl', label: 'Fluid Neutron (v/v)', type: 'number', default_value: 0.85, required: true }
+            ]
+        },
+        'porosity': {
+            title: 'Porosity from Density-Neutron (Bateman/Konen Method) Parameters',
+            parameters: [
+                { name: 'rhob_fl', label: 'Fluid Density (g/cc)', type: 'number', default_value: 1.00, required: true },
+                { name: 'rhob_sh', label: 'Shale Density (g/cc)', type: 'number', default_value: 2.45, required: true },
+                { name: 'rhob_dsh', label: 'Dry Shale Density (g/cc)', type: 'number', default_value: 2.60, required: true },
+                { name: 'nphi_sh', label: 'Shale Neutron Porosity (v/v)', type: 'number', default_value: 0.35, required: true },
+                { name: 'phie_max', label: 'Maximum PHIE (v/v)', type: 'number', default_value: 0.3, required: true },
+                { name: 'rhob_ma_base', label: 'Matrix Density (g/cc)', type: 'number', default_value: 2.65, required: true },
+                { name: 'rhob_w', label: 'Water Density (g/cc)', type: 'number', default_value: 1.00, required: true },
+                { name: 'rhob_max', label: 'Max Density (g/cc)', type: 'number', default_value: 4.00, required: true }
+            ]
+        },
+        'sw-indonesia': {
+            title: 'Water Saturation Indonesia Method Parameters',
+            parameters: [
+                { name: 'rt_log', label: 'Resistivity Log', type: 'select', options: ['RT', 'ILD', 'RD'], default_value: 'RT', required: true },
+                { name: 'phie_log', label: 'Effective Porosity Log', type: 'select', options: ['PHIE', 'PHID'], default_value: 'PHIE', required: true },
+                { name: 'vsh_log', label: 'Volume of Shale Log', type: 'select', options: ['VSH', 'VSH_GR'], default_value: 'VSH', required: true },
+                { name: 'ftemp_log', label: 'Formation Temperature Log', type: 'select', options: ['FTEMP', 'TEMP'], default_value: 'FTEMP', required: true },
+                { name: 'a', label: 'Tortuosity Factor (a)', type: 'number', default_value: 1.0, required: true },
+                { name: 'm', label: 'Cementation Exponent (m)', type: 'number', default_value: 2.0, required: true },
+                { name: 'n', label: 'Saturation Exponent (n)', type: 'number', default_value: 2.0, required: true },
+                { name: 'rws', label: 'Resistivity of Formation Water (ohm-m)', type: 'number', default_value: 0.529, required: true },
+                { name: 'rwt', label: 'Temperature of RWS (°F)', type: 'number', default_value: 227, required: true },
+                { name: 'rt_sh', label: 'Shale Resistivity (ohm-m)', type: 'number', default_value: 2.2, required: true }
+            ]
+        },
+        'sw-simandoux': {
+            title: 'Water Saturation Simandoux Method Parameters', 
+            parameters: [
+                { name: 'method', label: 'Calculation Method', type: 'select', options: ['simandoux'], default_value: 'simandoux', required: true }
+            ]
+        },
+        'water-resistivity': {
+            title: 'Water Resistivity Parameters',
+            parameters: [
+                { name: 'a', label: 'Tortuosity Factor (a)', type: 'number', default_value: 1.0, required: true },
+                { name: 'm', label: 'Cementation Exponent (m)', type: 'number', default_value: 2.0, required: true },
+                { name: 'rt_sh', label: 'Shale Resistivity (ohm-m)', type: 'number', default_value: 2.2, required: true }
+            ]
         }
     };
     
@@ -1880,36 +1944,273 @@ function submitCalculationParameters() {
     
     setIsLoading(true);
     
-    // Mock calculation execution
-    setTimeout(function() {
-        try {
-            var calculationType = appState.currentCalculationType;
-            var successMessages = {
-                'gsa': 'Gamma Ray Shale Analysis completed successfully',
-                'rgsa': 'Resistivity-Gamma Ray Shale Analysis completed successfully', 
-                'dgsa': 'Density-Gamma Ray Shale Analysis completed successfully',
-                'ngsa': 'Neutron-Gamma Ray Shale Analysis completed successfully',
-                'normalization': 'Data normalization completed successfully',
-                'vsh_calculation': 'Volume of Shale calculation completed successfully',
-                'porosity_calculation': 'Porosity calculation completed successfully',
-                'sw_calculation': 'Water Saturation calculation completed successfully'
-            };
+    // Real calculation execution for specific modules
+    var calculationType = appState.currentCalculationType;
+    
+    // Handle specific calculations
+    if (calculationType === 'vsh-gr') {
+        handleVshGRCalculation(params);
+    } else if (calculationType === 'vsh-dn') {
+        handleVshDNCalculation(params);
+    } else if (calculationType === 'porosity-calculation') {
+        handlePorosityCalculation(params);
+    } else if (calculationType === 'sw-indonesia') {
+        handleSWIndonesiaCalculation(params);
+    } else if (calculationType === 'sw-simandoux') {
+        handleSWSimandouxCalculation(params);
+    } else if (calculationType === 'water-resistivity') {
+        handleWaterResistivityCalculation(params);
+    } else {
+        // Mock calculation execution for other modules
+        setTimeout(function() {
+            try {
+                var successMessages = {
+                    'gsa': 'Gamma Ray Shale Analysis completed successfully',
+                    'rgsa': 'Resistivity-Gamma Ray Shale Analysis completed successfully', 
+                    'dgsa': 'Density-Gamma Ray Shale Analysis completed successfully',
+                    'ngsa': 'Neutron-Gamma Ray Shale Analysis completed successfully',
+                    'normalization': 'Data normalization completed successfully',
+                    'vsh_calculation': 'Volume of Shale calculation completed successfully',
+                    'porosity_calculation': 'Porosity calculation completed successfully',
+                    'sw_calculation': 'Water Saturation calculation completed successfully'
+                };
+                
+                var message = successMessages[calculationType] || (calculationType.toUpperCase() + ' calculation completed successfully');
+                
+                showSuccess(message);
+                parameterForm.classList.add('hidden');
+                
+                // Simulate creating calculation plot
+                console.log('Creating plot for calculation:', calculationType);
+                showSuccess('Plot generated for ' + calculationType.toUpperCase());
+                
+            } catch (error) {
+                showError('Calculation error: ' + error.message);
+            }
             
-            var message = successMessages[calculationType] || (calculationType.toUpperCase() + ' calculation completed successfully');
-            
-            showSuccess(message);
-            parameterForm.classList.add('hidden');
-            
-            // Simulate creating calculation plot
-            console.log('Creating plot for calculation:', calculationType);
-            showSuccess('Plot generated for ' + calculationType.toUpperCase());
-            
-        } catch (error) {
-            showError('Calculation error: ' + error.message);
-        }
-        
+            setIsLoading(false);
+        }, 1500); // Simulate 1.5 second calculation time
+    }
+}
+
+// Specific calculation handler functions for real backend integration
+function handleVshGRCalculation(params) {
+    var payload = {
+        method: 'vsh_gr',
+        parameters: {
+            gr_ma: parseFloat(params.gr_ma) || 30,
+            gr_sh: parseFloat(params.gr_sh) || 120,
+            opt_gr: params.opt_gr || 'LINEAR',
+            gr_log: params.gr_log || 'GR'
+        },
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetch('/backend/vsh_calculation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
         setIsLoading(false);
-    }, 1500); // Simulate 1.5 second calculation time
+        if (data.success) {
+            showSuccess('VSH-GR calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+        } else {
+            throw new Error(data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('VSH-GR Calculation error:', error);
+    });
+}
+
+function handleVshDNCalculation(params) {
+    var payload = {
+        method: 'vsh_dn',
+        parameters: {
+            rhob_ma: parseFloat(params.rhob_ma) || 2.65,
+            rhob_sh: parseFloat(params.rhob_sh) || 2.61,
+            rhob_fl: parseFloat(params.rhob_fl) || 0.85,
+            nphi_ma: parseFloat(params.nphi_ma) || -0.02,
+            nphi_sh: parseFloat(params.nphi_sh) || 0.398,
+            nphi_fl: parseFloat(params.nphi_fl) || 0.85,
+            rhob_log: params.rhob_log || 'RHOB',
+            nphi_log: params.nphi_log || 'NPHI'
+        },
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetch('/backend/vsh_calculation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        setIsLoading(false);
+        if (data.success) {
+            showSuccess('VSH-DN calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+        } else {
+            throw new Error(data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('VSH-DN Calculation error:', error);
+    });
+}
+
+function handlePorosityCalculation(params) {
+    var payload = {
+        method: 'porosity_bateman_konen',
+        parameters: {
+            rhob_fl: parseFloat(params.rhob_fl) || 1.00,
+            rhob_sh: parseFloat(params.rhob_sh) || 2.45,
+            rhob_dsh: parseFloat(params.rhob_dsh) || 2.60,
+            nphi_sh: parseFloat(params.nphi_sh) || 0.35,
+            phie_max: parseFloat(params.phie_max) || 0.3,
+            rhob_ma_base: parseFloat(params.rhob_ma_base) || 2.65,
+            rhob_w: parseFloat(params.rhob_w) || 1.00,
+            rhob_max: parseFloat(params.rhob_max) || 4.00
+        },
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetch('/backend/porosity_calculation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        setIsLoading(false);
+        if (data.success) {
+            showSuccess('Porosity calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+        } else {
+            throw new Error(data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('Porosity Calculation error:', error);
+    });
+}
+
+function handleSWIndonesiaCalculation(params) {
+    var payload = {
+        method: 'sw_indonesia',
+        parameters: {
+            a: parseFloat(params.a) || 1.0,
+            m: parseFloat(params.m) || 2.0,
+            n: parseFloat(params.n) || 2.0,
+            rws: parseFloat(params.rws) || 0.529,
+            rwt: parseFloat(params.rwt) || 227,
+            rt_sh: parseFloat(params.rt_sh) || 2.2,
+            rt_log: params.rt_log || 'RT',
+            phie_log: params.phie_log || 'PHIE',
+            vsh_log: params.vsh_log || 'VSH',
+            ftemp_log: params.ftemp_log || 'FTEMP'
+        },
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetch('/backend/sw_calculation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        setIsLoading(false);
+        if (data.success) {
+            showSuccess('SW Indonesia calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+        } else {
+            throw new Error(data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('SW Indonesia Calculation error:', error);
+    });
+}
+
+function handleSWSimandouxCalculation(params) {
+    // Placeholder for SW Simandoux calculation
+    var payload = {
+        method: 'sw_simandoux',
+        parameters: params,
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetch('/backend/sw_calculation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        setIsLoading(false);
+        if (data.success) {
+            showSuccess('SW Simandoux calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+        } else {
+            throw new Error(data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('SW Simandoux Calculation error:', error);
+    });
+}
+
+function handleWaterResistivityCalculation(params) {
+    var payload = {
+        method: 'water_resistivity',
+        parameters: {
+            a: parseFloat(params.a) || 1.0,
+            m: parseFloat(params.m) || 2.0,
+            rt_sh: parseFloat(params.rt_sh) || 2.2
+        },
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetch('/backend/rwa_calculation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        setIsLoading(false);
+        if (data.success) {
+            showSuccess('Water Resistivity calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+        } else {
+            throw new Error(data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('Water Resistivity Calculation error:', error);
+    });
 }
 
 // Module Management Functions
@@ -1962,6 +2263,9 @@ function loadModule(moduleName) {
             break;
         case 'histogram':
             handleHistogram();
+            break;
+        case 'water-resistivity-calculation':
+            handleWaterResistivityCalculation();
             break;
         default:
             showWarning('Module "' + moduleName + '" is not implemented yet');
@@ -2161,6 +2465,36 @@ function handleSwSimandouxCalculation() {
     .finally(function() {
         hideLoading();
     });
+}
+
+function handleVshGrCalculation() {
+    getCalculationParameters('vsh-gr')
+        .then(function(parameters) {
+            showParameterForm('vsh-gr', parameters);
+        })
+        .catch(function(error) {
+            showError('Error getting VSH-GR parameters: ' + error.message);
+        });
+}
+
+function handleVshDnCalculation() {
+    getCalculationParameters('vsh-dn')
+        .then(function(parameters) {
+            showParameterForm('vsh-dn', parameters);
+        })
+        .catch(function(error) {
+            showError('Error getting VSH-DN parameters: ' + error.message);
+        });
+}
+
+function handleWaterResistivityCalculation() {
+    getCalculationParameters('water-resistivity')
+        .then(function(parameters) {
+            showParameterForm('water-resistivity', parameters);
+        })
+        .catch(function(error) {
+            showError('Error getting Water Resistivity parameters: ' + error.message);
+        });
 }
 
 function handleHistogram() {

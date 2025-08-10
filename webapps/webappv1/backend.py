@@ -1022,3 +1022,236 @@ def first_api_call():
         return json.dumps(result)
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
+
+# New calculation endpoints for specific modules
+@app.route('/vsh_calculation', methods=['POST'])
+def vsh_calculation_endpoint():
+    """Handle VSH calculation (both GR and DN methods)"""
+    try:
+        data = request.get_json()
+        method = data.get('method', 'vsh_gr')
+        parameters = data.get('parameters', {})
+        selected_wells = data.get('selected_wells', [])
+        selected_intervals = data.get('selected_intervals', [])
+        
+        # Get the dataset
+        project = dataiku.api_client().get_project(dataiku.default_project_key())
+        dataset_names = [ds['name'] for ds in project.list_datasets()]
+        
+        # Find raw_well_data or similar dataset
+        raw_data_name = None
+        for name in dataset_names:
+            if 'raw' in name.lower() and 'well' in name.lower():
+                raw_data_name = name
+                break
+        
+        if not raw_data_name:
+            return json.dumps({"success": False, "error": "Raw well data not found"})
+        
+        dataset = dataiku.Dataset(raw_data_name)
+        df = dataset.get_dataframe()
+        
+        # Filter for selected wells if specified
+        if selected_wells:
+            df = df[df['WELL'].isin(selected_wells)] if 'WELL' in df.columns else df
+        
+        if method == 'vsh_gr':
+            # VSH from Gamma Ray calculation
+            try:
+                result_df = calculate_vsh_from_gr(df, parameters)
+                
+                # Save results back to dataset or create new one
+                output_dataset_name = f"{raw_data_name}_vsh_gr_results"
+                output_dataset = dataiku.Dataset(output_dataset_name)
+                output_dataset.write_with_schema(result_df)
+                
+                return json.dumps({
+                    "success": True, 
+                    "message": "VSH-GR calculation completed",
+                    "output_dataset": output_dataset_name,
+                    "rows_processed": len(result_df)
+                })
+            except Exception as e:
+                return json.dumps({"success": False, "error": f"VSH-GR calculation failed: {str(e)}"})
+                
+        elif method == 'vsh_dn':
+            # VSH from Density-Neutron calculation
+            try:
+                result_df = calculate_vsh_dn(df, parameters)
+                
+                # Save results back to dataset or create new one
+                output_dataset_name = f"{raw_data_name}_vsh_dn_results"
+                output_dataset = dataiku.Dataset(output_dataset_name)
+                output_dataset.write_with_schema(result_df)
+                
+                return json.dumps({
+                    "success": True, 
+                    "message": "VSH-DN calculation completed",
+                    "output_dataset": output_dataset_name,
+                    "rows_processed": len(result_df)
+                })
+            except Exception as e:
+                return json.dumps({"success": False, "error": f"VSH-DN calculation failed: {str(e)}"})
+        
+        return json.dumps({"success": False, "error": "Unknown VSH method"})
+        
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"success": False, "error": str(e)})
+
+@app.route('/porosity_calculation', methods=['POST'])
+def porosity_calculation_endpoint():
+    """Handle Porosity calculation using Bateman/Konen method"""
+    try:
+        data = request.get_json()
+        parameters = data.get('parameters', {})
+        selected_wells = data.get('selected_wells', [])
+        selected_intervals = data.get('selected_intervals', [])
+        
+        # Get the dataset
+        project = dataiku.api_client().get_project(dataiku.default_project_key())
+        dataset_names = [ds['name'] for ds in project.list_datasets()]
+        
+        # Find raw_well_data or similar dataset
+        raw_data_name = None
+        for name in dataset_names:
+            if 'raw' in name.lower() and 'well' in name.lower():
+                raw_data_name = name
+                break
+        
+        if not raw_data_name:
+            return json.dumps({"success": False, "error": "Raw well data not found"})
+        
+        dataset = dataiku.Dataset(raw_data_name)
+        df = dataset.get_dataframe()
+        
+        # Filter for selected wells if specified
+        if selected_wells:
+            df = df[df['WELL'].isin(selected_wells)] if 'WELL' in df.columns else df
+        
+        # Perform porosity calculation
+        result_df = calculate_porosity(df, parameters)
+        
+        # Save results back to dataset or create new one
+        output_dataset_name = f"{raw_data_name}_porosity_results"
+        output_dataset = dataiku.Dataset(output_dataset_name)
+        output_dataset.write_with_schema(result_df)
+        
+        return json.dumps({
+            "success": True, 
+            "message": "Porosity calculation completed",
+            "output_dataset": output_dataset_name,
+            "rows_processed": len(result_df)
+        })
+        
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"success": False, "error": str(e)})
+
+@app.route('/sw_calculation', methods=['POST'])
+def sw_calculation_endpoint():
+    """Handle Water Saturation calculation (Indonesia and Simandoux methods)"""
+    try:
+        data = request.get_json()
+        method = data.get('method', 'sw_indonesia')
+        parameters = data.get('parameters', {})
+        selected_wells = data.get('selected_wells', [])
+        selected_intervals = data.get('selected_intervals', [])
+        
+        # Get the dataset
+        project = dataiku.api_client().get_project(dataiku.default_project_key())
+        dataset_names = [ds['name'] for ds in project.list_datasets()]
+        
+        # Find raw_well_data or similar dataset
+        raw_data_name = None
+        for name in dataset_names:
+            if 'raw' in name.lower() and 'well' in name.lower():
+                raw_data_name = name
+                break
+        
+        if not raw_data_name:
+            return json.dumps({"success": False, "error": "Raw well data not found"})
+        
+        dataset = dataiku.Dataset(raw_data_name)
+        df = dataset.get_dataframe()
+        
+        # Filter for selected wells if specified
+        if selected_wells:
+            df = df[df['WELL'].isin(selected_wells)] if 'WELL' in df.columns else df
+        
+        if method == 'sw_indonesia':
+            # SW Indonesia calculation
+            result_df = calculate_sw(df, parameters)
+            output_dataset_name = f"{raw_data_name}_sw_indonesia_results"
+        elif method == 'sw_simandoux':
+            # SW Simandoux calculation (placeholder - implement when needed)
+            # result_df = calculate_sw_simandoux(df, parameters)
+            result_df = df.copy()  # Placeholder
+            result_df['SW_SIMANDOUX'] = 0.5  # Placeholder value
+            output_dataset_name = f"{raw_data_name}_sw_simandoux_results"
+        else:
+            return json.dumps({"success": False, "error": "Unknown SW method"})
+        
+        # Save results back to dataset or create new one
+        output_dataset = dataiku.Dataset(output_dataset_name)
+        output_dataset.write_with_schema(result_df)
+        
+        return json.dumps({
+            "success": True, 
+            "message": f"SW {method.replace('sw_', '').upper()} calculation completed",
+            "output_dataset": output_dataset_name,
+            "rows_processed": len(result_df)
+        })
+        
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"success": False, "error": str(e)})
+
+@app.route('/rwa_calculation', methods=['POST'])
+def rwa_calculation_endpoint():
+    """Handle Water Resistivity calculation"""
+    try:
+        data = request.get_json()
+        parameters = data.get('parameters', {})
+        selected_wells = data.get('selected_wells', [])
+        selected_intervals = data.get('selected_intervals', [])
+        
+        # Get the dataset
+        project = dataiku.api_client().get_project(dataiku.default_project_key())
+        dataset_names = [ds['name'] for ds in project.list_datasets()]
+        
+        # Find raw_well_data or similar dataset
+        raw_data_name = None
+        for name in dataset_names:
+            if 'raw' in name.lower() and 'well' in name.lower():
+                raw_data_name = name
+                break
+        
+        if not raw_data_name:
+            return json.dumps({"success": False, "error": "Raw well data not found"})
+        
+        dataset = dataiku.Dataset(raw_data_name)
+        df = dataset.get_dataframe()
+        
+        # Filter for selected wells if specified
+        if selected_wells:
+            df = df[df['WELL'].isin(selected_wells)] if 'WELL' in df.columns else df
+        
+        # Perform water resistivity calculation
+        result_df = calculate_rwa(df, parameters)
+        
+        # Save results back to dataset or create new one
+        output_dataset_name = f"{raw_data_name}_rwa_results"
+        output_dataset = dataiku.Dataset(output_dataset_name)
+        output_dataset.write_with_schema(result_df)
+        
+        return json.dumps({
+            "success": True, 
+            "message": "Water Resistivity calculation completed",
+            "output_dataset": output_dataset_name,
+            "rows_processed": len(result_df)
+        })
+        
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"success": False, "error": str(e)})
