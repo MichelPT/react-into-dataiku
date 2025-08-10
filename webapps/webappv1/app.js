@@ -2327,9 +2327,11 @@ function handleLogPlot(wellName) {
 function handleVshCalculation() {
     getCalculationParameters('vsh')
         .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
             showParameterForm('vsh', parameters);
         })
         .catch(function(error) {
+            hideLoading(); // Hide loading on error
             showError('Error getting VSH parameters: ' + error.message);
         });
 }
@@ -2337,9 +2339,11 @@ function handleVshCalculation() {
 function handlePorosityCalculation() {
     getCalculationParameters('porosity')
         .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
             showParameterForm('porosity', parameters);
         })
         .catch(function(error) {
+            hideLoading(); // Hide loading on error
             showError('Error getting porosity parameters: ' + error.message);
         });
 }
@@ -2347,24 +2351,29 @@ function handlePorosityCalculation() {
 function handleSwCalculation() {
     getCalculationParameters('sw')
         .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
             showParameterForm('sw', parameters);
         })
         .catch(function(error) {
+            hideLoading(); // Hide loading on error
             showError('Error getting SW parameters: ' + error.message);
         });
 }
 
 function handleNormalization() {
     if (appState.selectedIntervals.length === 0) {
+        hideLoading(); // Hide loading before showing error
         showError('Please select at least one interval for normalization');
         return;
     }
     
     getCalculationParameters('normalization')
         .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
             showParameterForm('normalization', parameters);
         })
         .catch(function(error) {
+            hideLoading(); // Hide loading on error
             showError('Error getting normalization parameters: ' + error.message);
         });
 }
@@ -2372,9 +2381,11 @@ function handleNormalization() {
 function handleGsaCalculation() {
     getCalculationParameters('gsa')
         .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
             showParameterForm('gsa', parameters);
         })
         .catch(function(error) {
+            hideLoading(); // Hide loading on error
             showError('Error getting GSA parameters: ' + error.message);
         });
 }
@@ -2382,9 +2393,11 @@ function handleGsaCalculation() {
 function handleRgsaCalculation() {
     getCalculationParameters('rgsa')
         .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
             showParameterForm('rgsa', parameters);
         })
         .catch(function(error) {
+            hideLoading(); // Hide loading on error
             showError('Error getting RGSA parameters: ' + error.message);
         });
 }
@@ -2392,9 +2405,11 @@ function handleRgsaCalculation() {
 function handleDgsaCalculation() {
     getCalculationParameters('dgsa')
         .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
             showParameterForm('dgsa', parameters);
         })
         .catch(function(error) {
+            hideLoading(); // Hide loading on error
             showError('Error getting DGSA parameters: ' + error.message);
         });
 }
@@ -2402,9 +2417,11 @@ function handleDgsaCalculation() {
 function handleNgsaCalculation() {
     getCalculationParameters('ngsa')
         .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
             showParameterForm('ngsa', parameters);
         })
         .catch(function(error) {
+            hideLoading(); // Hide loading on error
             showError('Error getting NGSA parameters: ' + error.message);
         });
 }
@@ -2489,9 +2506,11 @@ function handleSwSimandouxCalculation() {
 function handleVshGrCalculation() {
     getCalculationParameters('vsh-gr')
         .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
             showParameterForm('vsh-gr', parameters);
         })
         .catch(function(error) {
+            hideLoading(); // Hide loading on error
             showError('Error getting VSH-GR parameters: ' + error.message);
         });
 }
@@ -2499,9 +2518,11 @@ function handleVshGrCalculation() {
 function handleVshDnCalculation() {
     getCalculationParameters('vsh-dn')
         .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
             showParameterForm('vsh-dn', parameters);
         })
         .catch(function(error) {
+            hideLoading(); // Hide loading on error
             showError('Error getting VSH-DN parameters: ' + error.message);
         });
 }
@@ -2509,9 +2530,11 @@ function handleVshDnCalculation() {
 function handleWaterResistivityCalculation() {
     getCalculationParameters('water-resistivity')
         .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
             showParameterForm('water-resistivity', parameters);
         })
         .catch(function(error) {
+            hideLoading(); // Hide loading on error
             showError('Error getting Water Resistivity parameters: ' + error.message);
         });
 }

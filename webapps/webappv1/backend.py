@@ -797,6 +797,8 @@ def find_raw_data_dataset(structure_name=None):
         project = dataiku.api_client().get_project(dataiku.default_project_key())
         dataset_names = [ds['name'] for ds in project.list_datasets()]
         
+        print(f"Available datasets in project: {dataset_names}")
+        
         # If structure name provided, look for structure-specific dataset first
         if structure_name:
             structure_lower = structure_name.lower()
@@ -805,44 +807,65 @@ def find_raw_data_dataset(structure_name=None):
             target_name = f'raw_well_data_{structure_lower}'
             for name in dataset_names:
                 if name.lower() == target_name:
+                    print(f"Found structure-specific dataset: {name}")
                     return name
             
             # Priority 2: raw_data_well_<structure>
             target_name = f'raw_data_well_{structure_lower}'
             for name in dataset_names:
                 if name.lower() == target_name:
+                    print(f"Found structure-specific dataset: {name}")
                     return name
             
             # Priority 3: any dataset containing structure name and 'raw'/'well'/'data'
             for name in dataset_names:
                 if (structure_lower in name.lower() and 
                     ('raw' in name.lower() or 'well' in name.lower() or 'data' in name.lower())):
+                    print(f"Found matching dataset with structure name: {name}")
                     return name
         
-        # Fallback to general dataset discovery
-        # Priority 4: exact match for raw_data_well
-        for name in dataset_names:
-            if name.lower() == 'raw_data_well':
-                return name
+        # Fallback to general dataset discovery - try different patterns
+        search_patterns = [
+            'raw_data_well',
+            'raw_well_data', 
+            'well_data',
+            'data_well',
+            'fix_pass_qc'  # Legacy fallback
+        ]
         
-        # Priority 5: datasets containing 'raw' and ('well' or 'data')
-        for name in dataset_names:
-            if 'raw' in name.lower() and ('well' in name.lower() or 'data' in name.lower()):
-                return name
+        for pattern in search_patterns:
+            # Exact match first
+            for name in dataset_names:
+                if name.lower() == pattern:
+                    print(f"Found exact match dataset: {name}")
+                    return name
+            
+            # Partial match
+            for name in dataset_names:
+                if pattern in name.lower():
+                    print(f"Found partial match dataset: {name}")
+                    return name
         
-        # Priority 6: any dataset with 'raw' in name
-        for name in dataset_names:
-            if 'raw' in name.lower():
-                return name
-        
-        # Priority 7: check if there are datasets in raw_data_well folder structure
+        # If no specific pattern found, try any dataset with 'well' or 'data' in name
         for name in dataset_names:
             if 'well' in name.lower() or 'data' in name.lower():
+                print(f"Found fallback dataset: {name}")
                 return name
                 
+        print("No suitable dataset found")
         return None
     except Exception as e:
         print(f"Error finding raw data dataset: {str(e)}")
+        # Try to get any available dataset as absolute fallback
+        try:
+            project = dataiku.api_client().get_project(dataiku.default_project_key())
+            dataset_names = [ds['name'] for ds in project.list_datasets()]
+            if dataset_names:
+                fallback_dataset = dataset_names[0]  # Use first available dataset
+                print(f"Using fallback dataset: {fallback_dataset}")
+                return fallback_dataset
+        except Exception as fallback_error:
+            print(f"Error getting fallback dataset: {fallback_error}")
         return None
 
 # -----------------------------
@@ -932,6 +955,8 @@ def select_dataset():
         dataset_name = data.get('dataset_name')
         structure_name = data.get('structure_name')  # Optional structure name
         
+        print(f"Dataset selection request - dataset_name: {dataset_name}, structure_name: {structure_name}")
+        
         analysis = get_analysis_instance()
         
         # If dataset_name indicates a structure pattern, try to find the actual dataset
@@ -959,12 +984,15 @@ def select_dataset():
             # Last resort: try to find any suitable dataset
             dataset_name = find_raw_data_dataset()
             if not dataset_name:
-                return json.dumps({"status": "error", "message": "No suitable dataset found"})
+                return json.dumps({"status": "error", "message": "No suitable dataset found in project"})
         
+        print(f"Final dataset selection: {dataset_name}")
         result = analysis.select_dataset(dataset_name)
         return json.dumps(result)
     except Exception as e:
-        return json.dumps({"status": "error", "message": str(e)})
+        error_msg = f"Error in select_dataset endpoint: {str(e)}"
+        print(error_msg)
+        return json.dumps({"status": "error", "message": error_msg})
 
 @app.route('/get_wells')
 def get_wells():
