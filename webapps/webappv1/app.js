@@ -1688,7 +1688,7 @@ function createPlot(figureData) {
             }
         };
         
-        // Set size to fill the container
+        // Set size - use a fixed height that allows for vertical scrolling
         var containerHeight = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
         var containerWidth = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
         
@@ -1700,28 +1700,29 @@ function createPlot(figureData) {
             }, 100);
         }
         
-        if (containerHeight && containerHeight > 0) {
-            figureData.layout.height = containerHeight - 20; // Small margin
-        } else {
-            figureData.layout.height = 400; // Fallback height
+        // Use a larger fixed height to allow for vertical scrolling
+        // The plot can be taller than the container, enabling scroll
+        var plotHeight = 1200; // Fixed height that's larger than container
+        if (figureData.layout.height && figureData.layout.height > plotHeight) {
+            plotHeight = figureData.layout.height; // Use provided height if larger
         }
+        
+        figureData.layout.height = plotHeight;
         
         if (containerWidth && containerWidth > 0) {
             figureData.layout.width = containerWidth - 20; // Small margin
         }
         
         Plotly.newPlot(plotArea, figureData.data, figureData.layout, config).then(function(){
-            // Keep plot fitting on resize
+            // Keep plot fitting on resize - only adjust width, keep height fixed for scrolling
             function handleResize() {
-                var h = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
                 var w = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
-                if (h && h > 100 && w && w > 100) {
+                if (w && w > 100) {
                     Plotly.relayout(plotArea, { 
-                        height: h - 20, 
                         width: w - 20 
                     });
                 } else {
-                    // Use Plotly's automatic resize
+                    // Use Plotly's automatic resize for width only
                     Plotly.Plots.resize(plotArea);
                 }
             }
@@ -1790,26 +1791,29 @@ function displayCalculationPlot(plotData, title) {
         plotData.layout.autosize = true;
         plotData.layout.margin = Object.assign({ t: 60, r: 30, b: 50, l: 60 }, plotData.layout.margin || {});
         
-        // Set size to fit container
+        // Set size - use a fixed height that allows for vertical scrolling
         var containerHeight = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
         var containerWidth = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
         
-        if (containerHeight && containerHeight > 100) {
-            plotData.layout.height = containerHeight - 20;
+        // Use a larger fixed height to allow for vertical scrolling
+        var plotHeight = 1200; // Fixed height that's larger than container
+        if (plotData.layout.height && plotData.layout.height > plotHeight) {
+            plotHeight = plotData.layout.height; // Use provided height if larger
         }
+        
+        plotData.layout.height = plotHeight;
+        
         if (containerWidth && containerWidth > 100) {
             plotData.layout.width = containerWidth - 20;
         }
         
         // Create the plot
         Plotly.newPlot(plotArea, plotData.data, plotData.layout, config).then(function(){
-            // Add resize handling for calculation plots
+            // Add resize handling for calculation plots - only adjust width, keep height fixed for scrolling
             function handleCalculationResize() {
-                var h = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
                 var w = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
-                if (h && h > 100 && w && w > 100) {
+                if (w && w > 100) {
                     Plotly.relayout(plotArea, { 
-                        height: h - 20, 
                         width: w - 20 
                     });
                 } else {
@@ -3005,20 +3009,20 @@ function initializeApp() {
 function autoLoadDefaultDataset() {
     // Check if user has selected a structure from structures page
     var selectedStructure = appState.currentStructure;
-    var datasetName = 'raw_data_well'; // default dataset
+    var datasetName = 'fix_pass_qc'; // default dataset
     var payload = { dataset_name: datasetName };
     
     if (selectedStructure && selectedStructure.name) {
         // Create dataset name based on selected structure
         // e.g., "Adera" -> "raw_well_data_adera"
-        datasetName = 'raw_well_data_' + selectedStructure.name.toLowerCase();
+        datasetName = 'fix_pass_qc_' + selectedStructure.name.toLowerCase();
         payload = {
             dataset_name: datasetName,
             structure_name: selectedStructure.name
         };
         console.log('Auto-loading dataset for structure:', selectedStructure.name, '- Dataset:', datasetName);
     } else {
-        console.log('Auto-loading default raw_data_well dataset...');
+        console.log('Auto-loading default fix_pass_qc dataset...');
     }
     
     return fetchJson('/select_dataset', {
