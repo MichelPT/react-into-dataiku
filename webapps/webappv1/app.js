@@ -1679,11 +1679,22 @@ function createPlot(figureData) {
         var containerHeight = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
         var containerWidth = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
         
-        if (containerHeight && containerHeight > 0) {
-            figureData.layout.height = containerHeight - 10; // Small margin
+        // Wait a bit for layout to settle if container has no size yet
+        if ((!containerHeight || containerHeight < 100) && (!containerWidth || containerWidth < 100)) {
+            setTimeout(function() {
+                containerHeight = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
+                containerWidth = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
+            }, 100);
         }
+        
+        if (containerHeight && containerHeight > 0) {
+            figureData.layout.height = containerHeight - 20; // Small margin
+        } else {
+            figureData.layout.height = 400; // Fallback height
+        }
+        
         if (containerWidth && containerWidth > 0) {
-            figureData.layout.width = containerWidth - 10; // Small margin
+            figureData.layout.width = containerWidth - 20; // Small margin
         }
         
         Plotly.newPlot(plotArea, figureData.data, figureData.layout, config).then(function(){
@@ -1691,12 +1702,13 @@ function createPlot(figureData) {
             function handleResize() {
                 var h = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
                 var w = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
-                if (h && h > 0 && w && w > 0) {
+                if (h && h > 100 && w && w > 100) {
                     Plotly.relayout(plotArea, { 
-                        height: h - 10, 
-                        width: w - 10 
+                        height: h - 20, 
+                        width: w - 20 
                     });
                 } else {
+                    // Use Plotly's automatic resize
                     Plotly.Plots.resize(plotArea);
                 }
             }
@@ -1726,6 +1738,212 @@ function clearPlot() {
     if (plotArea) {
         plotArea.innerHTML = '<div class="empty-plot-state"><h3>Select a well to view log data</h3><p>Choose one or more wells from the left sidebar to begin analysis</p></div>';
     }
+}
+
+// Display calculation results as plot
+function displayCalculationPlot(plotData, title) {
+    console.log('Displaying calculation plot:', title);
+    
+    try {
+        var plotArea = document.getElementById('plotArea');
+        if (!plotArea) {
+            throw new Error('Plot area not found');
+        }
+        
+        // Clear any existing empty state
+        plotArea.innerHTML = '';
+        
+        // Prepare plot configuration
+        var config = {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+            toImageButtonOptions: {
+                format: 'png',
+                filename: 'calculation_result_' + title.replace(/\s+/g, '_').toLowerCase(),
+                height: 1200,
+                width: 1000,
+                scale: 1
+            }
+        };
+        
+        // Set layout for calculation plot
+        if (!plotData.layout) {
+            plotData.layout = {};
+        }
+        
+        plotData.layout.title = plotData.layout.title || title;
+        plotData.layout.autosize = true;
+        plotData.layout.margin = Object.assign({ t: 60, r: 30, b: 50, l: 60 }, plotData.layout.margin || {});
+        
+        // Set size to fit container
+        var containerHeight = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
+        var containerWidth = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
+        
+        if (containerHeight && containerHeight > 100) {
+            plotData.layout.height = containerHeight - 20;
+        }
+        if (containerWidth && containerWidth > 100) {
+            plotData.layout.width = containerWidth - 20;
+        }
+        
+        // Create the plot
+        Plotly.newPlot(plotArea, plotData.data, plotData.layout, config).then(function(){
+            // Add resize handling for calculation plots
+            function handleCalculationResize() {
+                var h = plotArea.clientHeight || plotArea.getBoundingClientRect().height;
+                var w = plotArea.clientWidth || plotArea.getBoundingClientRect().width;
+                if (h && h > 100 && w && w > 100) {
+                    Plotly.relayout(plotArea, { 
+                        height: h - 20, 
+                        width: w - 20 
+                    });
+                } else {
+                    Plotly.Plots.resize(plotArea);
+                }
+            }
+            
+            window.addEventListener('resize', handleCalculationResize);
+        });
+        
+        console.log('Calculation plot created successfully:', title);
+        
+    } catch (error) {
+        console.error('Error creating calculation plot:', error);
+        showError('Error displaying calculation results: ' + error.message);
+    }
+}
+
+// Refresh current plot to show updated data
+function refreshCurrentPlot() {
+    console.log('Refreshing current plot with updated data');
+    
+    // If we have selected wells, regenerate the current plot
+    if (appState.selectedWells.length > 0) {
+        // Get current plot type
+        var currentPlotType = appState.plotType || 'default';
+        
+        // Regenerate plot based on current selection
+        generatePlot();
+        
+        showSuccess('Plot refreshed with updated calculation results');
+    } else {
+        showSuccess('Calculation completed successfully');
+    }
+}
+
+// Generate mock calculation plot for demo purposes
+function generateMockCalculationPlot(calculationType) {
+    console.log('Generating mock calculation plot for:', calculationType);
+    
+    var plotTitles = {
+        'gsa': 'Gamma Ray Shale Analysis Results',
+        'rgsa': 'Resistivity-Gamma Ray Shale Analysis Results',
+        'dgsa': 'Density-Gamma Ray Shale Analysis Results',
+        'ngsa': 'Neutron-Gamma Ray Shale Analysis Results',
+        'normalization': 'Data Normalization Results',
+        'vsh_calculation': 'Volume of Shale Calculation Results',
+        'porosity_calculation': 'Porosity Calculation Results',
+        'sw_calculation': 'Water Saturation Calculation Results'
+    };
+    
+    var title = plotTitles[calculationType] || (calculationType.toUpperCase() + ' Calculation Results');
+    
+    // Generate mock data based on calculation type
+    var mockPlotData = generateMockCalculationData(calculationType);
+    
+    // Display the mock plot
+    displayCalculationPlot(mockPlotData, title);
+}
+
+// Generate mock calculation data for different types
+function generateMockCalculationData(calculationType) {
+    var depth = [];
+    for (var i = 0; i < 50; i++) {
+        depth.push(3000 + i * 10);
+    }
+    
+    var data = [];
+    var layout = {
+        xaxis: { title: 'Value' },
+        yaxis: { title: 'Depth (ft)', autorange: 'reversed' },
+        showlegend: true
+    };
+    
+    switch (calculationType) {
+        case 'vsh_calculation':
+            var vsh = depth.map(() => Math.random() * 0.8 + 0.1);
+            data.push({
+                x: vsh,
+                y: depth,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'VSH',
+                line: { color: 'brown', width: 2 }
+            });
+            layout.xaxis.title = 'Volume of Shale (v/v)';
+            break;
+            
+        case 'porosity_calculation':
+            var porosity = depth.map(() => Math.random() * 0.3 + 0.05);
+            data.push({
+                x: porosity,
+                y: depth,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Porosity',
+                line: { color: 'blue', width: 2 }
+            });
+            layout.xaxis.title = 'Porosity (v/v)';
+            break;
+            
+        case 'sw_calculation':
+            var sw = depth.map(() => Math.random() * 0.8 + 0.2);
+            data.push({
+                x: sw,
+                y: depth,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Water Saturation',
+                line: { color: 'cyan', width: 2 }
+            });
+            layout.xaxis.title = 'Water Saturation (v/v)';
+            break;
+            
+        case 'gsa':
+        case 'rgsa':
+        case 'dgsa':
+        case 'ngsa':
+            var analysis = depth.map(() => Math.random() * 100 + 20);
+            data.push({
+                x: analysis,
+                y: depth,
+                type: 'scatter',
+                mode: 'lines',
+                name: calculationType.toUpperCase(),
+                line: { color: 'green', width: 2 }
+            });
+            layout.xaxis.title = 'Analysis Value';
+            break;
+            
+        default:
+            var result = depth.map(() => Math.random() * 50 + 25);
+            data.push({
+                x: result,
+                y: depth,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Calculated Result',
+                line: { color: 'purple', width: 2 }
+            });
+            layout.xaxis.title = 'Calculated Value';
+    }
+    
+    return {
+        data: data,
+        layout: layout
+    };
 }
 
 // Get calculation parameters from backend
@@ -2021,9 +2239,8 @@ function submitCalculationParameters() {
                 showSuccess(message);
                 parameterForm.classList.add('hidden');
                 
-                // Simulate creating calculation plot
-                console.log('Creating plot for calculation:', calculationType);
-                showSuccess('Plot generated for ' + calculationType.toUpperCase());
+                // Generate mock calculation plot to show results
+                generateMockCalculationPlot(calculationType);
                 
             } catch (error) {
                 showError('Calculation error: ' + error.message);
@@ -2048,7 +2265,7 @@ function handleVshGRCalculation(params) {
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/backend/vsh_calculation', {
+    fetch('/vsh_calculation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2056,11 +2273,19 @@ function handleVshGRCalculation(params) {
     .then(response => response.json())
     .then(data => {
         setIsLoading(false);
-        if (data.success) {
+        if (data.status === 'success') {
             showSuccess('VSH-GR calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'VSH-GR Calculation Results');
+            } else {
+                // If no plot data, refresh current plot to show updated data
+                refreshCurrentPlot();
+            }
         } else {
-            throw new Error(data.error || 'Calculation failed');
+            throw new Error(data.message || 'Calculation failed');
         }
     })
     .catch(error => {
@@ -2087,7 +2312,7 @@ function handleVshDNCalculation(params) {
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/backend/vsh_calculation', {
+    fetch('/vsh_calculation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2095,11 +2320,18 @@ function handleVshDNCalculation(params) {
     .then(response => response.json())
     .then(data => {
         setIsLoading(false);
-        if (data.success) {
+        if (data.status === 'success') {
             showSuccess('VSH-DN calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'VSH-DN Calculation Results');
+            } else {
+                refreshCurrentPlot();
+            }
         } else {
-            throw new Error(data.error || 'Calculation failed');
+            throw new Error(data.message || 'Calculation failed');
         }
     })
     .catch(error => {
@@ -2126,7 +2358,7 @@ function handlePorosityCalculation(params) {
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/backend/porosity_calculation', {
+    fetch('/porosity_calculation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2134,11 +2366,18 @@ function handlePorosityCalculation(params) {
     .then(response => response.json())
     .then(data => {
         setIsLoading(false);
-        if (data.success) {
+        if (data.status === 'success') {
             showSuccess('Porosity calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'Porosity Calculation Results');
+            } else {
+                refreshCurrentPlot();
+            }
         } else {
-            throw new Error(data.error || 'Calculation failed');
+            throw new Error(data.message || 'Calculation failed');
         }
     })
     .catch(error => {
@@ -2167,7 +2406,7 @@ function handleSWIndonesiaCalculation(params) {
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/backend/sw_calculation', {
+    fetch('/sw_calculation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2175,11 +2414,18 @@ function handleSWIndonesiaCalculation(params) {
     .then(response => response.json())
     .then(data => {
         setIsLoading(false);
-        if (data.success) {
+        if (data.status === 'success') {
             showSuccess('SW Indonesia calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'SW Indonesia Calculation Results');
+            } else {
+                refreshCurrentPlot();
+            }
         } else {
-            throw new Error(data.error || 'Calculation failed');
+            throw new Error(data.message || 'Calculation failed');
         }
     })
     .catch(error => {
@@ -2232,7 +2478,7 @@ function handleWaterResistivityCalculation(params) {
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/backend/rwa_calculation', {
+    fetch('/rwa_calculation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2240,11 +2486,18 @@ function handleWaterResistivityCalculation(params) {
     .then(response => response.json())
     .then(data => {
         setIsLoading(false);
-        if (data.success) {
+        if (data.status === 'success') {
             showSuccess('Water Resistivity calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'Water Resistivity Calculation Results');
+            } else {
+                refreshCurrentPlot();
+            }
         } else {
-            throw new Error(data.error || 'Calculation failed');
+            throw new Error(data.message || 'Calculation failed');
         }
     })
     .catch(error => {
