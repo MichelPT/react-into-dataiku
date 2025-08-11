@@ -18,7 +18,7 @@ import os
 
 # Import your services (assuming they exist)
 try:
-    from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr
+    from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr, calculate_vsh_from_gr_with_params
     from standardwebappv1.services.porosity import calculate_porosity
     from standardwebappv1.services.depth_matching import depth_matching
     from standardwebappv1.services.rgsa import process_all_wells_rgsa
@@ -1255,6 +1255,28 @@ def vsh_calculation_endpoint():
         parameters = data.get('parameters', {})
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
+        interval_specific_params = data.get('interval_specific_params')
+        
+        print(f"VSH Calculation Request:")
+        print(f"  Method: {method}")
+        print(f"  Parameters: {parameters}")
+        print(f"  Selected Wells: {selected_wells}")
+        print(f"  Selected Intervals: {selected_intervals}")
+        print(f"  Interval-Specific Params: {interval_specific_params}")
+        
+        # Get analysis instance and process interval-specific parameters if available
+        analysis = get_analysis_instance()
+        if selected_intervals:
+            analysis.selected_intervals = selected_intervals
+        
+        # Process interval-specific parameters
+        final_params = parameters
+        if interval_specific_params and isinstance(interval_specific_params, dict) and selected_intervals:
+            # Use first interval's parameters as primary
+            first_interval = selected_intervals[0] if selected_intervals else None
+            if first_interval and first_interval in interval_specific_params:
+                final_params = interval_specific_params[first_interval]
+                print(f"Using interval-specific params for {first_interval}: {final_params}")
         
         # Find the raw data dataset
         raw_data_name = find_raw_data_dataset()
@@ -1278,48 +1300,46 @@ def vsh_calculation_endpoint():
         if method == 'vsh_gr':
             # VSH from Gamma Ray calculation
             try:
-                result_df = calculate_vsh_from_gr(df, parameters)
+                result_df = calculate_vsh_from_gr_with_params(df, final_params)
                 
-                # Save results back to dataset or create new one
-                output_dataset_name = f"{raw_data_name}_vsh_gr_results"
-                output_dataset = dataiku.Dataset(output_dataset_name)
-                output_dataset.write_with_schema(result_df)
+                # Update current data in analysis instance
+                analysis.current_well_data = result_df
                 
                 return json.dumps({
-                    "success": True, 
+                    "status": "success", 
                     "message": "VSH-GR calculation completed",
-                    "output_dataset": output_dataset_name,
+                    "calculation_type": "vsh",
                     "rows_processed": len(result_df),
-                    "source_dataset": raw_data_name
+                    "selected_intervals": selected_intervals,
+                    "selected_wells": selected_wells
                 })
             except Exception as e:
-                return json.dumps({"success": False, "error": f"VSH-GR calculation failed: {str(e)}"})
+                return json.dumps({"status": "error", "message": f"VSH-GR calculation failed: {str(e)}"})
                 
         elif method == 'vsh_dn':
             # VSH from Density-Neutron calculation
             try:
-                result_df = calculate_vsh_dn(df, parameters)
+                result_df = calculate_vsh_dn(df, final_params)
                 
-                # Save results back to dataset or create new one
-                output_dataset_name = f"{raw_data_name}_vsh_dn_results"
-                output_dataset = dataiku.Dataset(output_dataset_name)
-                output_dataset.write_with_schema(result_df)
+                # Update current data in analysis instance
+                analysis.current_well_data = result_df
                 
                 return json.dumps({
-                    "success": True, 
+                    "status": "success", 
                     "message": "VSH-DN calculation completed",
-                    "output_dataset": output_dataset_name,
+                    "calculation_type": "vsh",
                     "rows_processed": len(result_df),
-                    "source_dataset": raw_data_name
+                    "selected_intervals": selected_intervals,
+                    "selected_wells": selected_wells
                 })
             except Exception as e:
-                return json.dumps({"success": False, "error": f"VSH-DN calculation failed: {str(e)}"})
+                return json.dumps({"status": "error", "message": f"VSH-DN calculation failed: {str(e)}"})
         
-        return json.dumps({"success": False, "error": "Unknown VSH method"})
+        return json.dumps({"status": "error", "message": "Unknown VSH method"})
         
     except Exception as e:
         traceback.print_exc()
-        return json.dumps({"success": False, "error": str(e)})
+        return json.dumps({"status": "error", "message": str(e)})
 
 @app.route('/porosity_calculation', methods=['POST'])
 def porosity_calculation_endpoint():

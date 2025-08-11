@@ -2450,97 +2450,99 @@ function submitCalculationParameters() {
 function handleVshGRCalculation(params) {
     // Extract parameters from interval-specific format if available
     var finalParams = params;
+    var intervalSpecific = null;
+    
     if (params.intervals && Object.keys(params.intervals).length > 0) {
-        // Use first interval's parameters as default
+        // Use first interval's parameters as default for main calculation
         var firstInterval = Object.keys(params.intervals)[0];
         finalParams = params.intervals[firstInterval];
+        intervalSpecific = params.intervals;
     }
     
     var payload = {
-        method: 'vsh_gr',
-        parameters: {
-            gr_ma: parseFloat(finalParams.gr_ma) || 30,
-            gr_sh: parseFloat(finalParams.gr_sh) || 120,
-            opt_gr: finalParams.opt_gr || 'LINEAR',
-            gr_log: finalParams.gr_log || 'GR'
-        },
-        selected_wells: appState.selectedWells,
-        selected_intervals: appState.selectedIntervals,
-        interval_specific_params: params.intervals || null
-    };
-    
-    fetch('/vsh_calculation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    })
-    .then(response => response.json())
-    .then(data => {
-        setIsLoading(false);
-        if (data.status === 'success') {
-            showSuccess('VSH-GR calculation completed successfully!');
-            document.getElementById('parameterForm').classList.add('hidden');
-            
-            // Display calculation results as plot
-            if (data.plot_data) {
-                displayCalculationPlot(data.plot_data, 'VSH-GR Calculation Results');
-            } else {
-                // If no plot data, refresh current plot to show updated data
-                refreshCurrentPlot();
-            }
-        } else {
-            throw new Error(data.message || 'Calculation failed');
-        }
-    })
-    .catch(error => {
-        setIsLoading(false);
-        showError('Error: ' + error.message);
-        console.error('VSH-GR Calculation error:', error);
-    });
-}
-
-function handleVshDNCalculation(params) {
-    var payload = {
-        method: 'vsh_dn',
-        parameters: {
-            rhob_ma: parseFloat(params.rhob_ma) || 2.65,
-            rhob_sh: parseFloat(params.rhob_sh) || 2.61,
-            rhob_fl: parseFloat(params.rhob_fl) || 0.85,
-            nphi_ma: parseFloat(params.nphi_ma) || -0.02,
-            nphi_sh: parseFloat(params.nphi_sh) || 0.398,
-            nphi_fl: parseFloat(params.nphi_fl) || 0.85,
-            rhob_log: params.rhob_log || 'RHOB',
-            nphi_log: params.nphi_log || 'NPHI'
+        calculation_type: 'vsh',
+        params: {
+            gr_ma: parseFloat(finalParams.GR_MA || finalParams.gr_ma) || 30,
+            gr_sh: parseFloat(finalParams.GR_SH || finalParams.gr_sh) || 120,
+            input_log: finalParams.GR_LOG || finalParams.gr_log || 'GR',
+            output_log: finalParams.VSH_GR || finalParams.output_log || 'VSH_GR',
+            intervals: intervalSpecific
         },
         selected_wells: appState.selectedWells,
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/vsh_calculation', {
+    console.log('🚀 VSH-GR Calculation payload:', payload);
+    
+    fetchJson('/run_calculation_endpoint', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(function(data) {
+        setIsLoading(false);
+        if (data.status === 'success') {
+            showSuccess('VSH-GR calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Create calculation plot to show results
+            createCalculationPlot('vsh');
+        } else {
+            throw new Error(data.message || 'VSH-GR calculation failed');
+        }
+    })
+    .catch(function(error) {
+        setIsLoading(false);
+        showError('Error in VSH-GR calculation: ' + error.message);
+        console.error('VSH-GR Calculation error:', error);
+    });
+}
+
+function handleVshDNCalculation(params) {
+    // Extract parameters from interval-specific format if available
+    var finalParams = params;
+    var intervalSpecific = null;
+    
+    if (params.intervals && Object.keys(params.intervals).length > 0) {
+        // Use first interval's parameters as default for main calculation
+        var firstInterval = Object.keys(params.intervals)[0];
+        finalParams = params.intervals[firstInterval];
+        intervalSpecific = params.intervals;
+    }
+    
+    var payload = {
+        calculation_type: 'vsh',
+        params: {
+            RHOB_MA: parseFloat(finalParams.RHOB_MA || finalParams.rhob_ma) || 2.65,
+            RHOB_SH: parseFloat(finalParams.RHOB_SH || finalParams.rhob_sh) || 2.2,
+            input_log: finalParams.RHOB_LOG || finalParams.rhob_log || 'RHOB',
+            output_log: finalParams.VSH_DN || finalParams.output_log || 'VSH_DN',
+            intervals: intervalSpecific
+        },
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    console.log('🚀 VSH-DN Calculation payload:', payload);
+    
+    fetchJson('/run_calculation_endpoint', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(function(data) {
         setIsLoading(false);
         if (data.status === 'success') {
             showSuccess('VSH-DN calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
             
-            // Display calculation results as plot
-            if (data.plot_data) {
-                displayCalculationPlot(data.plot_data, 'VSH-DN Calculation Results');
-            } else {
-                refreshCurrentPlot();
-            }
+            // Create calculation plot to show results
+            createCalculationPlot('vsh');
         } else {
-            throw new Error(data.message || 'Calculation failed');
+            throw new Error(data.message || 'VSH-DN calculation failed');
         }
     })
-    .catch(error => {
+    .catch(function(error) {
         setIsLoading(false);
-        showError('Error: ' + error.message);
+        showError('Error in VSH-DN calculation: ' + error.message);
         console.error('VSH-DN Calculation error:', error);
     });
 }
