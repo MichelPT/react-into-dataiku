@@ -18,7 +18,7 @@ import os
 
 # Import your services (assuming they exist)
 try:
-    from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr
+    from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr, calculate_vsh_gr_with_params
     from standardwebappv1.services.porosity import calculate_porosity
     from standardwebappv1.services.depth_matching import depth_matching
     from standardwebappv1.services.rgsa import process_all_wells_rgsa
@@ -550,21 +550,25 @@ class WellLogAnalysis:
             return {"status": "error", "message": f"Error running calculation: {str(e)}"}
     
     def _run_vsh_calculation(self, df, params):
-        """Run VSH calculation"""
+        """Run VSH calculation using proper service function"""
         try:
-            gr_ma = float(params.get('GR_MA', 30))
-            gr_sh = float(params.get('GR_SH', 120))
-            input_log = params.get('input_log', 'GR')
-            output_log = params.get('output_log', 'VSH_GR')
+            method = params.get('method', 'vsh_gr')
             
-            if input_log not in df.columns:
-                raise ValueError(f"Input log {input_log} not found in dataset")
+            if method == 'vsh_gr':
+                # VSH from Gamma Ray
+                result_df = calculate_vsh_gr_with_params(df, params)
+                print("VSH-GR calculation completed using service function")
+                
+            elif method == 'vsh_dn':
+                # VSH from Density-Neutron
+                result_df = calculate_vsh_dn(df, params)
+                print("VSH-DN calculation completed using service function")
+                
+            else:
+                raise ValueError(f"Unknown VSH method: {method}")
             
-            # Simple VSH calculation
-            df[output_log] = (df[input_log] - gr_ma) / (gr_sh - gr_ma)
-            df[output_log] = df[output_log].clip(0, 1)
+            return result_df
             
-            return df
         except Exception as e:
             raise Exception(f"VSH calculation error: {str(e)}")
     
@@ -636,81 +640,42 @@ class WellLogAnalysis:
             
             # Check for required columns with better error messages
             missing_columns = []
+            available_columns = list(df.columns)
             
-            # Check for resistivity column (RT or similar)
+            # Check for resistivity column (flexible naming)
             rt_column = None
-            if 'RT' in df.columns:
-                rt_column = 'RT'
-            elif 'RES' in df.columns:
-                rt_column = 'RES'
-            elif 'RESISTIVITY' in df.columns:
-                rt_column = 'RESISTIVITY'
-            else:
-                missing_columns.append('RT (Resistivity)')
+            for col_name in ['RT', 'RES', 'RESISTIVITY']:
+                if col_name in available_columns:
+                    rt_column = col_name
+                    break
+            if rt_column is None:
+                missing_columns.append('RT/RES/RESISTIVITY (Resistivity log)')
             
             # Check for effective porosity column
             phie_column = None
-            if 'PHIE' in df.columns:
-                phie_column = 'PHIE'
-            elif 'EFFECTIVE_POROSITY' in df.columns:
-                phie_column = 'EFFECTIVE_POROSITY'
-            else:
+            for col_name in ['PHIE', 'PHIE_DEN', 'EFFECTIVE_POROSITY']:
+                if col_name in available_columns:
+                    phie_column = col_name
+                    break
+            if phie_column is None:
                 missing_columns.append('PHIE (Effective Porosity)')
-            
-            # Check for VSH if using Simandoux equation
-            calc_method = params.get('method', 'archie').lower()
-            if calc_method == 'simandoux' and 'VSH' not in df.columns:
-                missing_columns.append('VSH (Volume of Shale)')
             
             if missing_columns:
                 suggestions = []
                 if 'PHIE (Effective Porosity)' in missing_columns:
                     suggestions.append("Run Porosity Calculation module first to calculate PHIE")
-                if 'VSH (Volume of Shale)' in missing_columns:
-                    suggestions.append("Run VSH Calculation module first to calculate VSH")
-                if 'RT (Resistivity)' in missing_columns:
-                    suggestions.append("Ensure your dataset contains resistivity log data (RT, RES, or RESISTIVITY column)")
+                if 'RT/RES/RESISTIVITY (Resistivity log)' in missing_columns:
+                    suggestions.append("Ensure your dataset contains resistivity log data")
                 
-                suggestion_text = "\n\nSuggestions:\n- " + "\n- ".join(suggestions) if suggestions else ""
-                raise ValueError(f"Missing required columns: {', '.join(missing_columns)}{suggestion_text}")
+                available_cols_info = f"Available columns: {', '.join(available_columns)}"
+                suggestion_text = f" | Suggestions: {'; '.join(suggestions)}" if suggestions else ""
+                raise ValueError(f"Missing required columns: {', '.join(missing_columns)}{suggestion_text} | {available_cols_info}")
             
-            # Choose calculation method
-            if calc_method == 'simandoux':
-                # Simandoux equation for shaly sands
-                rt_sh = float(params.get('rt_sh', 2.2))  # Shale resistivity
-                
-                # Calculate using Simandoux equation
-                vsh = df['VSH']
-                phie = df[phie_column]
-                rt = df[rt_column]
-                
-                # Avoid division by zero
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    # Simandoux equation: 1/RT = VSH/RT_SH + PHIE^m * SW^n / (a * RW)
-                    # Rearranging: SW = ((1/RT - VSH/RT_SH) * a * RW / PHIE^m)^(1/n)
-                    term1 = 1/rt
-                    term2 = vsh/rt_sh
-                    numerator = (term1 - term2) * a * rw
-                    denominator = phie ** m
-                    
-                    sw_raw = np.where(denominator > 0, (numerator / denominator) ** (1/n), 1.0)
-                    df['SW'] = np.clip(sw_raw, 0, 1)
-                    
-            else:
-                # Archie's equation (default)
-                phie = df[phie_column]
-                rt = df[rt_column]
-                
-                # Archie's equation: SW = ((a * RW) / (RT * PHIE^m))^(1/n)
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    sw_raw = ((a * rw) / (rt * phie ** m)) ** (1/n)
-                    df['SW'] = np.clip(sw_raw, 0, 1)
-            
-            # Set SW = 1 for very low porosity zones
-            df.loc[df[phie_column] < 0.005, 'SW'] = 1.0
+            # Archie's equation using detected columns
+            df['SW'] = ((a * rw) / (df[rt_column] * df[phie_column] ** m)) ** (1/n)
+            df['SW'] = df['SW'].clip(0, 1)
             
             return df
-            
         except Exception as e:
             raise Exception(f"SW calculation error: {str(e)}")
     
