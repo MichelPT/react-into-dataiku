@@ -315,14 +315,12 @@ body {
 #dataPrepLeftSidebar {
     width: var(--sidebar-width);
     min-width: var(--sidebar-width);
-    margin-right: 16px;
 }
 
 #dataPrepMainContent {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 16px;
     min-width: 0;
     background: var(--bg-white);
     margin: 16px;
@@ -1089,6 +1087,165 @@ body {
     max-height: 85%;
     overflow: hidden;
     z-index: 1000;
+}
+
+.parameter-form-header {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-gray);
+}
+
+.parameter-form-header h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* Detection Info Styles */
+.detection-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    margin-top: 0.5rem;
+}
+
+.detection-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+}
+
+.detection-label {
+    font-weight: 600;
+    color: #475569;
+    min-width: 80px;
+}
+
+.detection-text {
+    flex: 1;
+    color: #1e293b;
+    font-family: monospace;
+    font-size: 0.8rem;
+    background: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    border: 1px solid #e2e8f0;
+}
+
+.wells-list {
+    color: #059669;
+}
+
+.intervals-list {
+    color: #dc2626;
+}
+
+/* Enhanced Parameter Table */
+.parameters-table-container {
+    overflow-x: auto;
+    margin-top: 1rem;
+}
+
+.parameters-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    min-width: 800px; /* Ensure minimum width for interval columns */
+}
+
+.parameters-table th,
+.parameters-table td {
+    padding: 0.75rem 0.5rem;
+    border: 1px solid var(--border-color);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.parameters-table th {
+    background: var(--bg-gray);
+    font-weight: 600;
+    color: var(--text-primary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* Base column widths */
+.parameters-table th:nth-child(1), /* Location */
+.parameters-table td:nth-child(1) {
+    width: 12%;
+}
+
+.parameters-table th:nth-child(2), /* Mode */
+.parameters-table td:nth-child(2) {
+    width: 10%;
+}
+
+.parameters-table th:nth-child(3), /* Comment */
+.parameters-table td:nth-child(3) {
+    width: 25%;
+}
+
+.parameters-table th:nth-child(4), /* Name */
+.parameters-table td:nth-child(4) {
+    width: 15%;
+    font-family: monospace;
+    font-weight: 600;
+}
+
+.parameters-table th:nth-child(5), /* Value */
+.parameters-table td:nth-child(5) {
+    width: 20%;
+}
+
+/* Interval columns (6th column and beyond) */
+.parameters-table th:nth-child(n+6),
+.parameters-table td:nth-child(n+6) {
+    width: 120px;
+    min-width: 120px;
+    background: #fef3c7; /* Light yellow background for interval columns */
+    position: relative;
+}
+
+.parameters-table th:nth-child(n+6) {
+    background: #f59e0b;
+    color: white;
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+/* Input Styling */
+.param-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.875rem;
+    background: var(--bg-white);
+}
+
+.param-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.interval-input {
+    background: #fffbeb;
+    border-color: #f59e0b;
+}
+
+.interval-input:focus {
+    border-color: #d97706;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1);
 }
 
 .form-header {
