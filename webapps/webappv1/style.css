@@ -884,6 +884,101 @@ body {
     background: var(--secondary-color);
 }
 
+/* VSH Calculation Interface Styles */
+.vsh-calculation-container {
+    padding: 1rem;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}
+
+.vsh-calculation-container h2 {
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+}
+
+.vsh-calculation-container h3 {
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.info-section {
+    background-color: var(--bg-gray);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1rem;
+}
+
+.parameter-table-container {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.parameter-table-container table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.parameter-table-container th {
+    background-color: #f8f9fa;
+    color: var(--text-primary);
+    font-weight: 600;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.parameter-table-container td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+/* Row background colors for VSH table */
+.bg-green-200 {
+    background-color: #bbf7d0;
+}
+
+.bg-cyan-200 {
+    background-color: #a7f3d0;
+}
+
+.bg-blue-200 {
+    background-color: #bfdbfe;
+}
+
+/* Input styling within table */
+.parameter-table-container input,
+.parameter-table-container select {
+    width: 100%;
+    min-width: 100px;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    background-color: white;
+    font-size: 0.875rem;
+}
+
+.parameter-table-container input:focus,
+.parameter-table-container select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+.sync-checkbox {
+    min-width: auto !important;
+    width: 1rem !important;
+    height: 1rem !important;
+}
+
 .empty-plot-state {
     display: flex;
     flex-direction: column;

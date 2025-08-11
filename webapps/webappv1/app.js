@@ -2067,25 +2067,97 @@ function getCalculationParameters(calculationType) {
             ]
         },
         'vsh-gr': {
-            title: 'Volume of Shale from Gamma Ray (VSH-GR) Parameters',
+            title: 'Volume of shale by gamma ray method',
             parameters: [
-                { name: 'gr_log', label: 'Gamma Ray Log', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
-                { name: 'opt_gr', label: 'VSH GR Method', type: 'select', options: ['LINEAR'], default_value: 'LINEAR', required: true },
-                { name: 'gr_ma', label: 'Clean GR Value (API)', type: 'number', default_value: 30, required: true },
-                { name: 'gr_sh', label: 'Shale GR Value (API)', type: 'number', default_value: 120, required: true }
+                { 
+                    id: 1, location: 'Interval', mode: 'In_Out', 
+                    comment: 'Option for VSH from gamma ray', unit: 'ALPHA*8', 
+                    name: 'OPT_GR', default_value: 'LINEAR', 
+                    type: 'select', options: ['LINEAR'], required: true 
+                },
+                { 
+                    id: 2, location: 'Interval', mode: 'In_Out', 
+                    comment: 'Gamma ray matrix (clean)', unit: 'GAPI', 
+                    name: 'GR_MA', default_value: 30, 
+                    type: 'number', required: true 
+                },
+                { 
+                    id: 3, location: 'Interval', mode: 'In_Out', 
+                    comment: 'Gamma ray shale', unit: 'GAPI', 
+                    name: 'GR_SH', default_value: 120, 
+                    type: 'number', required: true 
+                },
+                { 
+                    id: 4, location: 'Log', mode: 'Input', 
+                    comment: 'Gamma ray log', unit: 'GAPI', 
+                    name: 'GR', default_value: 'GR', 
+                    type: 'select', options: [], required: true 
+                },
+                { 
+                    id: 5, location: 'Log', mode: 'Output', 
+                    comment: 'VSH from gamma ray', unit: 'V/V', 
+                    name: 'VSH_GR', default_value: 'VSH_GR', 
+                    type: 'text', required: true 
+                }
             ]
         },
         'vsh-dn': {
-            title: 'Volume of Shale from Density-Neutron (VSH-DN) Parameters', 
+            title: 'Volume of shale by density neutron method',
             parameters: [
-                { name: 'rhob_log', label: 'Density Log', type: 'select', options: ['RHOB', 'RHOZ'], default_value: 'RHOB', required: true },
-                { name: 'nphi_log', label: 'Neutron Porosity Log', type: 'select', options: ['NPHI', 'TNPH'], default_value: 'NPHI', required: true },
-                { name: 'rhob_ma', label: 'Matrix Density (g/cc)', type: 'number', default_value: 2.65, required: true },
-                { name: 'rhob_sh', label: 'Shale Density (g/cc)', type: 'number', default_value: 2.61, required: true },
-                { name: 'rhob_fl', label: 'Fluid Density (g/cc)', type: 'number', default_value: 0.85, required: true },
-                { name: 'nphi_ma', label: 'Matrix Neutron (v/v)', type: 'number', default_value: -0.02, required: true },
-                { name: 'nphi_sh', label: 'Shale Neutron (v/v)', type: 'number', default_value: 0.398, required: true },
-                { name: 'nphi_fl', label: 'Fluid Neutron (v/v)', type: 'number', default_value: 0.85, required: true }
+                { 
+                    id: 1, location: 'Interval', mode: 'In_Out', 
+                    comment: 'Matrix density', unit: 'G/C3', 
+                    name: 'RHOB_MA', default_value: 2.65, 
+                    type: 'number', required: true 
+                },
+                { 
+                    id: 2, location: 'Interval', mode: 'In_Out', 
+                    comment: 'Shale density', unit: 'G/C3', 
+                    name: 'RHOB_SH', default_value: 2.61, 
+                    type: 'number', required: true 
+                },
+                { 
+                    id: 3, location: 'Interval', mode: 'In_Out', 
+                    comment: 'Fluid density', unit: 'G/C3', 
+                    name: 'RHOB_FL', default_value: 0.85, 
+                    type: 'number', required: true 
+                },
+                { 
+                    id: 4, location: 'Interval', mode: 'In_Out', 
+                    comment: 'Matrix neutron porosity', unit: 'V/V', 
+                    name: 'NPHI_MA', default_value: -0.02, 
+                    type: 'number', required: true 
+                },
+                { 
+                    id: 5, location: 'Interval', mode: 'In_Out', 
+                    comment: 'Shale neutron porosity', unit: 'V/V', 
+                    name: 'NPHI_SH', default_value: 0.398, 
+                    type: 'number', required: true 
+                },
+                { 
+                    id: 6, location: 'Interval', mode: 'In_Out', 
+                    comment: 'Fluid neutron porosity', unit: 'V/V', 
+                    name: 'NPHI_FL', default_value: 0.85, 
+                    type: 'number', required: true 
+                },
+                { 
+                    id: 9, location: 'Log', mode: 'Input', 
+                    comment: 'Density log', unit: 'G/C3', 
+                    name: 'RHOB', default_value: 'RHOB', 
+                    type: 'select', options: [], required: true 
+                },
+                { 
+                    id: 10, location: 'Log', mode: 'Input', 
+                    comment: 'Neutron porosity log', unit: 'V/V', 
+                    name: 'NPHI', default_value: 'NPHI', 
+                    type: 'select', options: [], required: true 
+                },
+                { 
+                    id: 11, location: 'Log', mode: 'Output', 
+                    comment: 'VSH from density-neutron', unit: 'V/V', 
+                    name: 'VSH', default_value: 'VSH_DN', 
+                    type: 'text', required: true 
+                }
             ]
         },
         'porosity': {
@@ -2312,11 +2384,10 @@ function handleVshGRCalculation(params) {
             showSuccess('VSH-GR calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
             
-            // Display calculation results as plot
-            if (data.plot_data) {
-                displayCalculationPlot(data.plot_data, 'VSH-GR Calculation Results');
+            // Refresh the current well log plot to show the updated data with VSH column
+            if (appState.selectedWells.length > 0) {
+                loadWellPlot(appState.selectedWells[0]);
             } else {
-                // If no plot data, refresh current plot to show updated data
                 refreshCurrentPlot();
             }
         } else {
@@ -2359,9 +2430,9 @@ function handleVshDNCalculation(params) {
             showSuccess('VSH-DN calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
             
-            // Display calculation results as plot
-            if (data.plot_data) {
-                displayCalculationPlot(data.plot_data, 'VSH-DN Calculation Results');
+            // Refresh the current well log plot to show the updated data with VSH column
+            if (appState.selectedWells.length > 0) {
+                loadWellPlot(appState.selectedWells[0]);
             } else {
                 refreshCurrentPlot();
             }
@@ -2405,9 +2476,9 @@ function handlePorosityCalculation(params) {
             showSuccess('Porosity calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
             
-            // Display calculation results as plot
-            if (data.plot_data) {
-                displayCalculationPlot(data.plot_data, 'Porosity Calculation Results');
+            // Refresh the current well log plot to show the updated data with Porosity columns
+            if (appState.selectedWells.length > 0) {
+                loadWellPlot(appState.selectedWells[0]);
             } else {
                 refreshCurrentPlot();
             }
@@ -2453,9 +2524,9 @@ function handleSWIndonesiaCalculation(params) {
             showSuccess('SW Indonesia calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
             
-            // Display calculation results as plot
-            if (data.plot_data) {
-                displayCalculationPlot(data.plot_data, 'SW Indonesia Calculation Results');
+            // Refresh the current well log plot to show the updated data with SW column
+            if (appState.selectedWells.length > 0) {
+                loadWellPlot(appState.selectedWells[0]);
             } else {
                 refreshCurrentPlot();
             }
@@ -2525,9 +2596,9 @@ function handleWaterResistivityCalculation(params) {
             showSuccess('Water Resistivity calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
             
-            // Display calculation results as plot
-            if (data.plot_data) {
-                displayCalculationPlot(data.plot_data, 'Water Resistivity Calculation Results');
+            // Refresh the current well log plot to show the updated data
+            if (appState.selectedWells.length > 0) {
+                loadWellPlot(appState.selectedWells[0]);
             } else {
                 refreshCurrentPlot();
             }
@@ -2635,15 +2706,303 @@ function handleLogPlot(wellName) {
 
 // Enhanced module handlers with parameter forms
 function handleVshCalculation() {
-    getCalculationParameters('vsh')
-        .then(function(parameters) {
-            hideLoading(); // Hide loading when showing parameter form
-            showParameterForm('vsh', parameters);
-        })
-        .catch(function(error) {
-            hideLoading(); // Hide loading on error
-            showError('Error getting VSH parameters: ' + error.message);
+    showVshCalculationInterface('vsh-gr');
+}
+
+function handleVshDnCalculation() {
+    showVshCalculationInterface('vsh-dn');
+}
+
+// New function to show VSH calculation interface with proper table structure
+function showVshCalculationInterface(calculationType) {
+    var paramDefs = moduleParameterDefinitions[calculationType];
+    if (!paramDefs) {
+        showError('Parameter definitions not found for: ' + calculationType);
+        hideLoading();
+        return;
+    }
+    
+    var parameters = paramDefs.parameters;
+    var selectedWells = appState.selectedWells || [];
+    var selectedIntervals = appState.selectedIntervals || ['default'];
+    
+    // Get available columns for log selection
+    var availableColumns = [];
+    if (appState.wellColumns && selectedWells.length > 0) {
+        var firstWell = selectedWells[0];
+        availableColumns = appState.wellColumns[firstWell] || [];
+    }
+    
+    // Update log parameter options with available columns
+    parameters.forEach(function(param) {
+        if (param.location === 'Log' && param.mode === 'Input') {
+            if (param.name === 'GR') {
+                param.options = availableColumns.filter(function(col) {
+                    return col.toUpperCase().includes('GR');
+                });
+            } else if (param.name === 'RHOB') {
+                param.options = availableColumns.filter(function(col) {
+                    return col.toUpperCase().includes('RHOB') || col.toUpperCase().includes('RHOZ');
+                });
+            } else if (param.name === 'NPHI') {
+                param.options = availableColumns.filter(function(col) {
+                    return col.toUpperCase().includes('NPHI') || col.toUpperCase().includes('TNPH');
+                });
+            }
+            
+            if (param.options.length === 0) {
+                param.options = [param.default_value]; // Fallback
+            }
+        }
+    });
+    
+    // Create interval values for each parameter
+    parameters.forEach(function(param) {
+        param.values = {};
+        selectedIntervals.forEach(function(interval) {
+            param.values[interval] = param.default_value;
         });
+        param.isEnabled = true;
+        param.isSync = false; // For "P" column checkbox
+    });
+    
+    var html = '<div class="vsh-calculation-container">';
+    html += '<h2 class="text-xl font-bold mb-4">' + paramDefs.title + '</h2>';
+    
+    // Wells and intervals info
+    html += '<div class="info-section mb-6 p-4 border rounded-lg bg-gray-50">';
+    html += '<p class="text-sm font-medium text-gray-700">Well: ' + selectedWells.join(', ') + ' / Intervals: ' + selectedIntervals.length + ' selected</p>';
+    html += '</div>';
+    
+    // Parameters table
+    html += '<h3 class="text-lg font-semibold mb-2">Parameters</h3>';
+    html += '<div class="parameter-table-container border border-gray-300 rounded-lg" style="max-height: 400px; overflow-y: auto;">';
+    html += '<table class="min-w-full text-sm table-auto">';
+    
+    // Table headers
+    html += '<thead class="bg-gray-200 sticky top-0">';
+    html += '<tr>';
+    html += '<th class="px-3 py-2 text-left font-semibold border-b border-r">#</th>';
+    html += '<th class="px-3 py-2 text-left font-semibold border-b border-r">Location</th>';
+    html += '<th class="px-3 py-2 text-left font-semibold border-b border-r">Mode</th>';
+    html += '<th class="px-3 py-2 text-left font-semibold border-b border-r">Comment</th>';
+    html += '<th class="px-3 py-2 text-left font-semibold border-b border-r">Unit</th>';
+    html += '<th class="px-3 py-2 text-left font-semibold border-b border-r">Name</th>';
+    html += '<th class="px-3 py-2 text-left font-semibold border-b border-r">P</th>';
+    
+    // Dynamic interval columns
+    selectedIntervals.forEach(function(interval) {
+        html += '<th class="px-3 py-2 text-left font-semibold border-b border-r">' + interval + '</th>';
+    });
+    html += '</tr></thead>';
+    
+    // Table body
+    html += '<tbody>';
+    parameters.forEach(function(param) {
+        var bgColor = getVshRowBgColor(param.location, param.mode);
+        html += '<tr class="border-b ' + bgColor + '">';
+        html += '<td class="px-3 py-2 border-r text-center">' + param.id + '</td>';
+        html += '<td class="px-3 py-2 border-r">' + param.location + '</td>';
+        html += '<td class="px-3 py-2 border-r">' + param.mode + '</td>';
+        html += '<td class="px-3 py-2 border-r" style="max-width: 200px;">' + param.comment + '</td>';
+        html += '<td class="px-3 py-2 border-r">' + param.unit + '</td>';
+        html += '<td class="px-3 py-2 border-r font-semibold">' + param.name + '</td>';
+        html += '<td class="px-3 py-2 border-r text-center">';
+        html += '<input type="checkbox" class="sync-checkbox" data-param-id="' + param.id + '" onchange="handleVshParamSync(' + param.id + ', this.checked)">';
+        html += '</td>';
+        
+        // Dynamic interval value columns
+        selectedIntervals.forEach(function(interval) {
+            html += '<td class="px-3 py-2 border-r bg-white">';
+            
+            if (param.type === 'select') {
+                html += '<select class="w-full p-1 bg-white" data-param-id="' + param.id + '" data-interval="' + interval + '" onchange="handleVshParamChange(' + param.id + ', \'' + interval + '\', this.value)">';
+                param.options.forEach(function(option) {
+                    var selected = option === param.default_value ? 'selected' : '';
+                    html += '<option value="' + option + '" ' + selected + '>' + option + '</option>';
+                });
+                html += '</select>';
+            } else {
+                html += '<input type="' + (param.type === 'number' ? 'number' : 'text') + '" class="w-full p-1 bg-white" ';
+                html += 'data-param-id="' + param.id + '" data-interval="' + interval + '" ';
+                html += 'value="' + param.default_value + '" ';
+                html += 'onchange="handleVshParamChange(' + param.id + ', \'' + interval + '\', this.value)">';
+            }
+            html += '</td>';
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    
+    // Submit buttons
+    html += '<div class="form-actions mt-4">';
+    html += '<button type="button" onclick="cancelVshCalculation()" class="btn-secondary mr-2">Cancel</button>';
+    html += '<button type="button" onclick="submitVshCalculation(\'' + calculationType + '\')" class="btn-primary">Start</button>';
+    html += '</div>';
+    
+    html += '</div>';
+    
+    // Store parameters in global state for later use
+    appState.vshCalculationParams = parameters;
+    appState.vshCalculationType = calculationType;
+    
+    // Show the interface
+    var parameterForm = document.getElementById('parameterForm');
+    var formContent = parameterForm.querySelector('.form-content');
+    formContent.innerHTML = html;
+    parameterForm.classList.remove('hidden');
+    hideLoading();
+}
+
+// Helper function to get background colors for VSH table rows
+function getVshRowBgColor(location, mode) {
+    if (location === 'Interval') {
+        return 'bg-green-200';
+    } else if (location === 'Log') {
+        if (mode === 'Input') {
+            return 'bg-cyan-200';
+        } else if (mode === 'Output') {
+            return 'bg-blue-200';
+        }
+    }
+    return 'bg-white';
+}
+
+// Handle parameter value changes in VSH calculation
+function handleVshParamChange(paramId, interval, value) {
+    if (!appState.vshCalculationParams) return;
+    
+    var param = appState.vshCalculationParams.find(function(p) { return p.id === paramId; });
+    if (!param) return;
+    
+    if (param.isSync) {
+        // If sync is enabled, update all intervals
+        Object.keys(param.values).forEach(function(int) {
+            param.values[int] = value;
+            // Update all input elements for this parameter
+            var inputs = document.querySelectorAll('[data-param-id="' + paramId + '"]');
+            inputs.forEach(function(input) {
+                if (input.tagName === 'SELECT' || input.tagName === 'INPUT') {
+                    input.value = value;
+                }
+            });
+        });
+    } else {
+        // Update only the specific interval
+        param.values[interval] = value;
+    }
+}
+
+// Handle parameter sync checkbox changes in VSH calculation
+function handleVshParamSync(paramId, isSync) {
+    if (!appState.vshCalculationParams) return;
+    
+    var param = appState.vshCalculationParams.find(function(p) { return p.id === paramId; });
+    if (!param) return;
+    
+    param.isSync = isSync;
+    
+    if (isSync) {
+        // Get the value from the first interval and apply to all
+        var firstInterval = Object.keys(param.values)[0];
+        var firstValue = param.values[firstInterval];
+        
+        Object.keys(param.values).forEach(function(interval) {
+            param.values[interval] = firstValue;
+            // Update input elements
+            var input = document.querySelector('[data-param-id="' + paramId + '"][data-interval="' + interval + '"]');
+            if (input) {
+                input.value = firstValue;
+            }
+        });
+    }
+}
+
+// Submit VSH calculation
+function submitVshCalculation(calculationType) {
+    if (!appState.vshCalculationParams) {
+        showError('No calculation parameters found');
+        return;
+    }
+    
+    setIsLoading(true);
+    
+    // Prepare parameters for submission
+    var params = {};
+    appState.vshCalculationParams.forEach(function(param) {
+        if (param.isEnabled) {
+            // Use the first interval value as representative (or could collect all)
+            var firstInterval = Object.keys(param.values)[0];
+            var value = param.values[firstInterval];
+            
+            // Convert parameter names to backend format
+            if (calculationType === 'vsh-gr') {
+                switch(param.name) {
+                    case 'OPT_GR': params.opt_gr = value; break;
+                    case 'GR_MA': params.gr_ma = parseFloat(value) || 30; break;
+                    case 'GR_SH': params.gr_sh = parseFloat(value) || 120; break;
+                    case 'GR': params.gr_log = value || 'GR'; break;
+                    case 'VSH_GR': params.vsh_output = value || 'VSH_GR'; break;
+                }
+            } else if (calculationType === 'vsh-dn') {
+                switch(param.name) {
+                    case 'RHOB_MA': params.rhob_ma = parseFloat(value) || 2.65; break;
+                    case 'RHOB_SH': params.rhob_sh = parseFloat(value) || 2.61; break;
+                    case 'RHOB_FL': params.rhob_fl = parseFloat(value) || 0.85; break;
+                    case 'NPHI_MA': params.nphi_ma = parseFloat(value) || -0.02; break;
+                    case 'NPHI_SH': params.nphi_sh = parseFloat(value) || 0.398; break;
+                    case 'NPHI_FL': params.nphi_fl = parseFloat(value) || 0.85; break;
+                    case 'RHOB': params.rhob_log = value || 'RHOB'; break;
+                    case 'NPHI': params.nphi_log = value || 'NPHI'; break;
+                    case 'VSH': params.vsh_output = value || 'VSH_DN'; break;
+                }
+            }
+        }
+    });
+    
+    var payload = {
+        method: calculationType,
+        parameters: params,
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetch('/vsh_calculation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(function(response) {
+        return response.json();
+    })
+    .then(function(data) {
+        setIsLoading(false);
+        if (data.status === 'success') {
+            showSuccess('VSH calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Refresh the current well log plot to show the updated data with VSH column
+            if (appState.selectedWells.length > 0) {
+                loadWellPlot(appState.selectedWells[0]);
+            } else {
+                refreshCurrentPlot();
+            }
+        } else {
+            throw new Error(data.message || 'Calculation failed');
+        }
+    })
+    .catch(function(error) {
+        setIsLoading(false);
+        showError('VSH calculation error: ' + error.message);
+        console.error('VSH Calculation error:', error);
+    });
+}
+
+// Cancel VSH calculation
+function cancelVshCalculation() {
+    document.getElementById('parameterForm').classList.add('hidden');
+    appState.vshCalculationParams = null;
+    appState.vshCalculationType = null;
 }
 
 function handlePorosityCalculation() {
@@ -3035,6 +3394,31 @@ function autoLoadDefaultDataset() {
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
             renderWellList(response.wells);
             
+            // Populate wellColumns with structure information
+            if (selectedStructure && selectedStructure.columns) {
+                // Use structure columns for all wells in this structure
+                appState.wellColumns = {};
+                response.wells.forEach(function(well) {
+                    appState.wellColumns[well] = selectedStructure.columns;
+                });
+                console.log('Populated well columns from structure:', selectedStructure.columns);
+            } else if (response.columns) {
+                // Use columns from backend response if available
+                appState.wellColumns = {};
+                response.wells.forEach(function(well) {
+                    appState.wellColumns[well] = response.columns;
+                });
+                console.log('Populated well columns from backend response:', response.columns);
+            } else {
+                // Default columns if no structure or backend columns available
+                var defaultColumns = ["DEPTH", "GR", "NPHI", "RHOB", "RT"];
+                appState.wellColumns = {};
+                response.wells.forEach(function(well) {
+                    appState.wellColumns[well] = defaultColumns;
+                });
+                console.log('Populated well columns with defaults:', defaultColumns);
+            }
+            
             // Also load intervals after dataset is selected
             if (response.markers && response.markers.length > 0) {
                 appState.availableIntervals = response.markers;
@@ -3092,6 +3476,17 @@ function autoLoadFallbackDataset() {
             appState.availableWells = response.wells;
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
             renderWellList(response.wells);
+            
+            // Populate wellColumns for fallback dataset
+            var defaultColumns = ["DEPTH", "GR", "NPHI", "RHOB", "RT"];
+            if (response.columns) {
+                defaultColumns = response.columns;
+            }
+            appState.wellColumns = {};
+            response.wells.forEach(function(well) {
+                appState.wellColumns[well] = defaultColumns;
+            });
+            console.log('Populated fallback well columns:', defaultColumns);
             
             // Also load intervals for fallback dataset
             if (response.markers && response.markers.length > 0) {
