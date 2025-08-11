@@ -1344,14 +1344,17 @@ function toggleWell(wellId) {
 // Enhanced plot loading dengan structure context dan intervals
 function loadWellPlot(wellName) {
     console.log('🚀 Loading plot for well:', wellName);
-    console.log('🎯 Selected intervals for plotting:', appState.selectedIntervals);
+    console.log('🎯 Current appState.selectedIntervals:', appState.selectedIntervals);
+    console.log('🎯 Type of selectedIntervals:', typeof appState.selectedIntervals);
+    console.log('🎯 Length of selectedIntervals:', appState.selectedIntervals?.length || 'N/A');
+    
     setIsLoading(true);
     setError(null);
     
     // Prepare request data with structure context and intervals
     var requestData = {
         well_name: wellName,
-        selected_intervals: appState.selectedIntervals // Add intervals to request
+        selected_intervals: appState.selectedIntervals || [] // Ensure it's always an array
     };
     
     // Add structure context if available
@@ -1366,7 +1369,7 @@ function loadWellPlot(wellName) {
         console.log('🏗️ Adding structure context:', requestData.structure_context);
     }
     
-    console.log('📤 Sending request data:', requestData);
+    console.log('📤 Final request data being sent:', JSON.stringify(requestData, null, 2));
     
     fetchJson('/get_well_plot', {
         method: 'POST',
@@ -1910,7 +1913,42 @@ function generatePlot() {
     console.log('Plot generated for well:', primaryWell, 'with intervals:', appState.selectedIntervals);
 }
 
-// Generate mock calculation plot for demo purposes
+function debugIntervals() {
+    console.log('🔍 Running interval debug...');
+    
+    if (appState.selectedWells.length === 0) {
+        console.log('❌ No wells selected for debug');
+        return;
+    }
+    
+    var wellName = appState.selectedWells[0];
+    var requestData = {
+        well_name: wellName,
+        selected_intervals: appState.selectedIntervals || []
+    };
+    
+    console.log('📤 Debug request:', requestData);
+    
+    fetchJson('/debug_intervals', {
+        method: 'POST',
+        body: JSON.stringify(requestData)
+    })
+    .then(function(response) {
+        console.log('🔍 Debug response:', response);
+        if (response.status === 'success') {
+            console.table(response.debug_info);
+            alert('Debug info logged to console. Check browser console for detailed information.');
+        } else {
+            console.error('Debug failed:', response.message);
+        }
+    })
+    .catch(function(error) {
+        console.error('Debug error:', error);
+    });
+}
+
+// Add to window for manual debugging
+window.debugIntervals = debugIntervals;
 function generateMockCalculationPlot(calculationType) {
     console.log('Generating mock calculation plot for:', calculationType);
     

@@ -291,11 +291,31 @@ class WellLogAnalysis:
                 print(f"🎯 Filtering data by selected intervals: {selected_intervals}")
                 original_count = len(well_data)
                 available_intervals_before = well_data['MARKER'].unique().tolist()
-                print(f"📊 Available intervals in data: {available_intervals_before}")
+                print(f"📊 Available intervals in well data BEFORE filtering: {available_intervals_before}")
+                
+                # Show some sample rows before filtering
+                print(f"🔍 Sample data BEFORE filtering:")
+                if len(well_data) > 0:
+                    sample_rows = well_data[['DEPTH', 'MARKER']].head(10) if 'DEPTH' in well_data.columns else well_data[['MARKER']].head(10)
+                    print(sample_rows.to_string())
                 
                 well_data = well_data[well_data['MARKER'].isin(selected_intervals)]
                 filtered_count = len(well_data)
                 print(f"✅ After interval filtering: {filtered_count} rows (was {original_count})")
+                
+                # Show some sample rows after filtering
+                if filtered_count > 0:
+                    print(f"🔍 Sample data AFTER filtering:")
+                    sample_rows_after = well_data[['DEPTH', 'MARKER']].head(10) if 'DEPTH' in well_data.columns else well_data[['MARKER']].head(10)
+                    print(sample_rows_after.to_string())
+                    
+                    actual_filtered_intervals = well_data['MARKER'].unique().tolist()
+                    print(f"📊 Actual intervals in filtered data: {actual_filtered_intervals}")
+                    
+                    # Validate that filtered intervals match what was requested
+                    missing_intervals = set(selected_intervals) - set(actual_filtered_intervals)
+                    if missing_intervals:
+                        print(f"⚠️ WARNING: Requested intervals not found in data: {list(missing_intervals)}")
                 
                 if well_data.empty:
                     available_intervals = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]['MARKER'].unique().tolist()
@@ -318,8 +338,17 @@ class WellLogAnalysis:
                 return {"status": "error", "message": "No log data columns found"}
             
             # Extract markers and ensure cross-plot normalized columns exist
+            print(f"🔍 Before extract_markers_with_mean_depth: well_data has {len(well_data)} rows")
+            if 'MARKER' in well_data.columns:
+                print(f"🔍 Markers in filtered data: {well_data['MARKER'].unique().tolist()}")
+            
             df_marker = extract_markers_with_mean_depth(well_data)
+            print(f"🔍 Extracted markers for plotting: {df_marker['Surface'].tolist() if not df_marker.empty else 'None'}")
+            
             well_data_normalized = self._ensure_crossplot_norms(well_data)
+            print(f"🔍 After normalization: {len(well_data_normalized)} rows")
+            if 'MARKER' in well_data_normalized.columns:
+                print(f"🔍 Markers in normalized data: {well_data_normalized['MARKER'].unique().tolist()}")
             
             # Create plot with interval information
             fig = plot_log_default(
@@ -1057,6 +1086,58 @@ def get_wells():
         return json.dumps(result)
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
+
+@app.route('/debug_intervals', methods=['POST'])
+def debug_intervals():
+    """Debug endpoint untuk testing interval filtering"""
+    try:
+        data = request.get_json()
+        well_name = data.get('well_name', 'WELL-001')
+        selected_intervals = data.get('selected_intervals', [])
+        
+        if not hasattr(app, 'analysis') or app.analysis.current_well_data is None:
+            return {"status": "error", "message": "No dataset selected"}
+        
+        # Get well data
+        well_data = app.analysis.current_well_data[app.analysis.current_well_data['WELL_NAME'] == well_name]
+        
+        debug_info = {
+            "total_rows_for_well": len(well_data),
+            "columns": list(well_data.columns),
+            "has_marker_column": 'MARKER' in well_data.columns,
+            "requested_intervals": selected_intervals
+        }
+        
+        if 'MARKER' in well_data.columns:
+            all_intervals = well_data['MARKER'].unique().tolist()
+            debug_info["all_available_intervals"] = all_intervals
+            
+            # Show sample of each interval
+            interval_samples = {}
+            for interval in all_intervals[:5]:  # Limit to first 5 intervals
+                interval_data = well_data[well_data['MARKER'] == interval]
+                interval_samples[interval] = {
+                    "count": len(interval_data),
+                    "depth_range": f"{interval_data['DEPTH'].min():.1f} - {interval_data['DEPTH'].max():.1f}" if 'DEPTH' in interval_data.columns else "N/A"
+                }
+            debug_info["interval_samples"] = interval_samples
+            
+            # Test filtering
+            if selected_intervals:
+                filtered_data = well_data[well_data['MARKER'].isin(selected_intervals)]
+                debug_info["filtered_results"] = {
+                    "filtered_rows": len(filtered_data),
+                    "resulting_intervals": filtered_data['MARKER'].unique().tolist() if len(filtered_data) > 0 else []
+                }
+        
+        return {
+            "status": "success", 
+            "debug_info": debug_info
+        }
+        
+    except Exception as e:
+        print(f"Error in debug_intervals: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 @app.route('/get_well_plot', methods=['POST'])
 def get_well_plot():
