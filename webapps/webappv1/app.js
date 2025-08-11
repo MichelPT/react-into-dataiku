@@ -15,103 +15,8 @@ var appState = {
     selectedFilePath: null, // Added for file-based plots
     plotFigure: { data: [], layout: {} }, // Added for plot state
     error: null, // Added for error handling
-    wellColumns: {}, // Added for well columns
-    detectedWells: [], // Added for detected wells in calculations
-    detectedIntervals: [], // Added for detected intervals in calculations
-    calculationContext: null // Added for current calculation context
+    wellColumns: {} // Added for well columns
 };
-
-// Enhanced functions for wells and intervals detection
-function detectCurrentWellsAndIntervals() {
-    // Detect from current plot data
-    var detectedWells = [];
-    var detectedIntervals = [];
-    
-    // Check if we have plot data
-    if (appState.plotData && appState.plotData.data) {
-        appState.plotData.data.forEach(function(trace) {
-            if (trace.meta && trace.meta.well) {
-                if (detectedWells.indexOf(trace.meta.well) === -1) {
-                    detectedWells.push(trace.meta.well);
-                }
-            }
-        });
-    }
-    
-    // Check from selected wells in main dashboard
-    if (appState.selectedWells && appState.selectedWells.length > 0) {
-        appState.selectedWells.forEach(function(well) {
-            if (detectedWells.indexOf(well) === -1) {
-                detectedWells.push(well);
-            }
-        });
-    }
-    
-    // Check from selected intervals
-    if (appState.selectedIntervals && appState.selectedIntervals.length > 0) {
-        appState.selectedIntervals.forEach(function(interval) {
-            if (detectedIntervals.indexOf(interval) === -1) {
-                detectedIntervals.push(interval);
-            }
-        });
-    }
-    
-    // If no wells detected, use mock data for demo
-    if (detectedWells.length === 0) {
-        detectedWells = ['WELL-001', 'WELL-002', 'WELL-003'];
-    }
-    
-    // If no intervals detected, use mock intervals based on current structure
-    if (detectedIntervals.length === 0) {
-        if (appState.currentStructure && appState.currentStructure.intervals) {
-            detectedIntervals = appState.currentStructure.intervals;
-        } else {
-            detectedIntervals = ['TOP-INTERVAL', 'MID-INTERVAL', 'BOTTOM-INTERVAL'];
-        }
-    }
-    
-    appState.detectedWells = detectedWells;
-    appState.detectedIntervals = detectedIntervals;
-    
-    return {
-        wells: detectedWells,
-        intervals: detectedIntervals
-    };
-}
-
-function updateCalculationModuleHeader(moduleName, wellsAndIntervals) {
-    var headerElement = document.querySelector('.parameter-form-header');
-    if (!headerElement) return;
-    
-    var wellsInfo = wellsAndIntervals.wells.length > 0 ? 
-        `Wells: ${wellsAndIntervals.wells.join(', ')}` : 
-        'No wells detected';
-        
-    var intervalsInfo = wellsAndIntervals.intervals.length > 0 ? 
-        `Intervals: ${wellsAndIntervals.intervals.join(', ')}` : 
-        'No intervals detected';
-    
-    var detectionInfo = `
-        <div class="detection-info">
-            <div class="detection-row">
-                <span class="detection-label">🎯</span>
-                <span class="detection-text">${wellsInfo}</span>
-            </div>
-            <div class="detection-row">
-                <span class="detection-label">📏</span>
-                <span class="detection-text">${intervalsInfo}</span>
-            </div>
-        </div>
-    `;
-    
-    // Find or create detection info container
-    var existingDetection = headerElement.querySelector('.detection-info');
-    if (existingDetection) {
-        existingDetection.remove();
-    }
-    
-    headerElement.insertAdjacentHTML('beforeend', detectionInfo);
-}
 
 // Mock data untuk testing ketika backend tidak tersedia
 var mockData = {
@@ -2242,324 +2147,68 @@ function getCalculationParameters(calculationType) {
     return Promise.resolve(params);
 }
 
-// Show parameter form for calculations - Enhanced with well/interval detection
+// Show parameter form for calculations
 function showParameterForm(calculationType, parameters) {
-    console.log('Showing parameter form for:', calculationType);
-    
     var parameterForm = document.getElementById('parameterForm');
     var parameterRows = document.getElementById('parameterRows');
     
     if (!parameterForm || !parameterRows) {
-        console.error('Parameter form elements not found');
         showError('Parameter form not found in DOM');
         return;
     }
-
-    // Detect current wells and intervals
-    var detectionResult = detectCurrentWellsAndIntervals();
-    appState.calculationContext = {
-        type: calculationType,
-        wells: detectionResult.wells,
-        intervals: detectionResult.intervals
-    };
     
-    // Get parameter configuration
-    var config = getCalculationParameters(calculationType);
-    if (!config) {
-        showError('Unknown calculation type: ' + calculationType);
-        return;
+    // Clear existing parameters
+    parameterRows.innerHTML = '';
+    
+    // Set form title
+    var formTitle = document.querySelector('#parameterForm .form-header h3');
+    if (formTitle) {
+        formTitle.textContent = parameters.title || (calculationType.toUpperCase() + ' Parameters');
     }
-
-    // Create enhanced header with detection info
-    var headerContent = createParameterFormHeaderContent(calculationType, config.title, detectionResult);
     
-    // Create parameter table content with interval-aware structure
-    var tableContent = createParameterFormTableContent(config.parameters, detectionResult);
-    
-    parameterForm.innerHTML = headerContent + tableContent;
+    // Create parameter rows
+    parameters.parameters.forEach(function(param, index) {
+        var row = document.createElement('tr');
+        
+        var cellHtml = '<td>' + (index + 1) + '</td>' +
+                      '<td>' + param.label + '</td>' +
+                      '<td>';
+        
+        if (param.type === 'select') {
+            cellHtml += '<select name="' + param.name + '" class="select-input">';
+            param.options.forEach(function(option) {
+                var selected = option === param.default_value ? 'selected' : '';
+                cellHtml += '<option value="' + option + '" ' + selected + '>' + option + '</option>';
+            });
+            cellHtml += '</select>';
+        } else if (param.type === 'number') {
+            var step = '0.01';
+            var min = param.min !== undefined ? 'min="' + param.min + '"' : '';
+            var max = param.max !== undefined ? 'max="' + param.max + '"' : '';
+            var defaultVal = param.default_value !== undefined ? param.default_value : '';
+            cellHtml += '<input type="number" name="' + param.name + '" value="' + defaultVal + '" step="' + step + '" ' + min + ' ' + max + ' class="select-input">';
+        } else {
+            var defaultVal = param.default_value !== undefined ? param.default_value : '';
+            cellHtml += '<input type="text" name="' + param.name + '" value="' + defaultVal + '" class="select-input">';
+        }
+        
+        cellHtml += '</td>' +
+                   '<td>' + (param.description || '') + '</td>' +
+                   '<td>' + (param.unit || '') + '</td>' +
+                   '<td>' + param.name + '</td>' +
+                   '<td><input type="checkbox" ' + (param.required ? 'checked' : '') + '></td>';
+        
+        row.innerHTML = cellHtml;
+        parameterRows.appendChild(row);
+    });
     
     // Show the form
-    parameterForm.style.display = 'block';
+    parameterForm.classList.remove('hidden');
     
-    // Add event listeners for dynamic updates
-    bindParameterFormEvents(calculationType, detectionResult);
+    // Store current calculation type
+    appState.currentCalculationType = calculationType;
     
-    console.log('Parameter form displayed for:', calculationType, 'with detection:', detectionResult);
-}
-
-function createParameterFormHeaderContent(calculationType, title, detectionResult) {
-    var wellsInfo = detectionResult.wells.length > 0 ? 
-        detectionResult.wells.join(', ') : 'No wells detected';
-        
-    var intervalsInfo = detectionResult.intervals.length > 0 ? 
-        detectionResult.intervals.join(', ') : 'No intervals detected';
-
-    return '<div class="parameter-form-header">' +
-        '<h3>' + title + '</h3>' +
-        '<div class="detection-info">' +
-            '<div class="detection-row">' +
-                '<span class="detection-label">🎯 Wells:</span>' +
-                '<span class="detection-text wells-list">' + wellsInfo + '</span>' +
-            '</div>' +
-            '<div class="detection-row">' +
-                '<span class="detection-label">📏 Intervals:</span>' +
-                '<span class="detection-text intervals-list">' + intervalsInfo + '</span>' +
-            '</div>' +
-        '</div>' +
-        '</div>';
-}
-
-function createParameterFormTableContent(parameters, detectionResult) {
-    if (!parameters || parameters.length === 0) {
-        return '<div class="empty-parameters">No parameters defined for this calculation</div>';
-    }
-
-    var tableHeader = '<div class="parameters-table-container">' +
-        '<table class="parameters-table">' +
-        '<thead>' +
-            '<tr>' +
-                '<th>Location</th>' +
-                '<th>Mode</th>' +
-                '<th>Comment</th>' +
-                '<th>Name</th>' +
-                '<th>Value</th>';
-                
-    // Add interval columns if intervals are detected
-    if (detectionResult.intervals.length > 0) {
-        detectionResult.intervals.forEach(function(interval) {
-            tableHeader += '<th>' + interval + '</th>';
-        });
-    }
-    
-    tableHeader += '</tr>' +
-        '</thead>' +
-        '<tbody>';
-
-    var tableRows = '';
-    parameters.forEach(function(param, index) {
-        var rowClass = getParameterRowClass(param.type, index);
-        var inputHtml = createParameterInputHTML(param);
-        
-        tableRows += '<tr class="param-row ' + rowClass + '">' +
-            '<td>' + getParameterLocation(param.type) + '</td>' +
-            '<td>Input</td>' +
-            '<td>' + (param.description || param.label || param.name) + '</td>' +
-            '<td>' + param.name + '</td>' +
-            '<td>' + inputHtml + '</td>';
-            
-        // Add interval-specific values if intervals are detected
-        if (detectionResult.intervals.length > 0) {
-            detectionResult.intervals.forEach(function(interval) {
-                tableRows += '<td><input type="text" class="param-input interval-input" data-interval="' + interval + '" data-param="' + param.name + '" placeholder="' + (param.default_value || '') + '"></td>';
-            });
-        }
-        
-        tableRows += '</tr>';
-    });
-
-    return tableHeader + tableRows + '</tbody></table></div>' +
-        '<div class="actions-section">' +
-            '<button class="btn-secondary" onclick="hideParameterForm()">Cancel</button>' +
-            '<button class="btn-primary" onclick="executeCalculationFromForm()">Run Calculation</button>' +
-        '</div>';
-}
-
-function getParameterLocation(paramType) {
-    switch(paramType) {
-        case 'select':
-            return 'Log';
-        case 'number':
-            return 'Constant';
-        default:
-            return 'Parameter';
-    }
-}
-
-function getParameterRowClass(paramType, index) {
-    var classes = ['bg-orange-600', 'bg-yellow-300', 'bg-cyan-400', 'bg-cyan-200', 'bg-green-400'];
-    if (paramType === 'select') {
-        return 'bg-cyan-400';
-    } else if (paramType === 'number') {
-        return 'bg-yellow-300';
-    }
-    return classes[index % classes.length];
-}
-
-function createParameterInputHTML(param) {
-    if (param.type === 'select' && param.options) {
-        var optionsHtml = param.options.map(function(option) {
-            var selected = option === param.default_value ? ' selected' : '';
-            return '<option value="' + option + '"' + selected + '>' + option + '</option>';
-        }).join('');
-        return '<select class="param-input" name="' + param.name + '" data-param="' + param.name + '">' + optionsHtml + '</select>';
-    } else {
-        var inputType = param.type === 'number' ? 'number' : 'text';
-        var value = param.default_value || '';
-        var step = param.type === 'number' ? ' step="0.01"' : '';
-        return '<input type="' + inputType + '" class="param-input" name="' + param.name + '" data-param="' + param.name + '" value="' + value + '"' + step + '>';
-    }
-}
-
-function bindParameterFormEvents(calculationType, detectionResult) {
-    // Add event listeners for well/interval changes
-    document.querySelectorAll('.param-input').forEach(function(input) {
-        input.addEventListener('change', function() {
-            updateParameterFormState(calculationType, detectionResult);
-        });
-    });
-    
-    // Add listeners for interval-specific inputs
-    document.querySelectorAll('.interval-input').forEach(function(input) {
-        input.addEventListener('change', function() {
-            updateIntervalParameterState(this);
-        });
-    });
-}
-
-function updateParameterFormState(calculationType, detectionResult) {
-    // Update form state when parameters change
-    console.log('Parameter form state updated for:', calculationType);
-}
-
-function updateIntervalParameterState(inputElement) {
-    var interval = inputElement.getAttribute('data-interval');
-    var param = inputElement.getAttribute('data-param');
-    var value = inputElement.value;
-    
-    console.log('Interval parameter updated:', {
-        interval: interval,
-        param: param,
-        value: value
-    });
-    
-    // Store interval-specific parameter values
-    if (!appState.intervalParameters) {
-        appState.intervalParameters = {};
-    }
-    if (!appState.intervalParameters[interval]) {
-        appState.intervalParameters[interval] = {};
-    }
-    appState.intervalParameters[interval][param] = value;
-}
-
-function hideParameterForm() {
-    var parameterForm = document.getElementById('parameterForm');
-    if (parameterForm) {
-        parameterForm.style.display = 'none';
-    }
-}
-
-function executeCalculationFromForm() {
-    if (!appState.calculationContext) {
-        showError('No calculation context available');
-        return;
-    }
-    
-    var calculationType = appState.calculationContext.type;
-    var formData = collectParameterFormData();
-    
-    console.log('Executing calculation:', calculationType, 'with data:', formData);
-    
-    // Call the appropriate backend calculation
-    executeCalculation(calculationType, formData);
-}
-
-function collectParameterFormData() {
-    var formData = {
-        parameters: {},
-        wells: appState.calculationContext.wells,
-        intervals: appState.calculationContext.intervals,
-        intervalParameters: appState.intervalParameters || {}
-    };
-    
-    // Collect main parameters
-    document.querySelectorAll('.param-input:not(.interval-input)').forEach(function(input) {
-        var paramName = input.getAttribute('data-param');
-        if (paramName) {
-            formData.parameters[paramName] = input.value;
-        }
-    });
-    
-    return formData;
-}
-
-// Execute calculation with backend integration
-function executeCalculation(calculationType, formData) {
-    console.log('Executing calculation:', calculationType, 'with data:', formData);
-    
-    showLoading();
-    
-    var backendEndpoint = getBackendEndpoint(calculationType);
-    if (!backendEndpoint) {
-        showError('No backend endpoint defined for: ' + calculationType);
-        hideLoading();
-        return;
-    }
-    
-    var requestData = {
-        method: calculationType.replace('-', '_'), // Convert vsh-gr to vsh_gr for backend
-        parameters: formData.parameters,
-        selected_wells: formData.wells,
-        selected_intervals: formData.intervals,
-        interval_parameters: formData.intervalParameters
-    };
-    
-    // Call backend API
-    fetchJson(backendEndpoint, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestData)
-    })
-    .then(function(response) {
-        hideLoading();
-        
-        if (response.success) {
-            showSuccess(response.message || 'Calculation completed successfully');
-            
-            // Update plot if needed
-            if (response.plot_data) {
-                createPlot(response.plot_data);
-            }
-            
-            // Close parameter form
-            hideParameterForm();
-            
-            // Refresh main dashboard with new results
-            refreshDashboard();
-            
-        } else {
-            showError('Calculation failed: ' + (response.error || 'Unknown error'));
-        }
-    })
-    .catch(function(error) {
-        hideLoading();
-        console.error('Calculation error:', error);
-        showError('Calculation failed: ' + error.message);
-    });
-}
-
-function getBackendEndpoint(calculationType) {
-    var endpoints = {
-        'vsh-gr': '/vsh_calculation',
-        'vsh-dn': '/vsh_calculation',
-        'porosity': '/porosity_calculation',
-        'sw-indonesia': '/sw_calculation',
-        'sw': '/sw_calculation',
-        'rwa': '/rwa_calculation'
-    };
-    
-    return endpoints[calculationType] || null;
-}
-
-function refreshDashboard() {
-    // Reload well list and update plot if needed
-    if (appState.selectedWells.length > 0) {
-        var wellName = appState.selectedWells[0];
-        // Trigger plot refresh
-        handleLogPlot(wellName);
-    }
+    console.log('Parameter form shown for:', calculationType);
 }
 
 // Submit calculation parameters
@@ -2984,53 +2633,20 @@ function handleLogPlot(wellName) {
     });
 }
 
-// Enhanced module handlers with parameter forms and backend integration
+// Enhanced module handlers with parameter forms
 function handleVshCalculation() {
-    console.log('Handling VSH-GR calculation module');
-    
-    // Detect current context
-    var detectionResult = detectCurrentWellsAndIntervals();
-    
-    // Get VSH-GR parameters from configuration
-    var vshGrConfig = getCalculationParameters('vsh-gr');
-    if (!vshGrConfig) {
-        showError('VSH-GR configuration not found');
-        hideLoading();
-        return;
-    }
-    
-    hideLoading();
-    
-    // Show parameter form with detected wells and intervals
-    showParameterForm('vsh-gr', vshGrConfig.parameters);
-}
-
-function handleVshDnCalculation() {
-    console.log('Handling VSH-DN calculation module');
-    
-    // Detect current context
-    var detectionResult = detectCurrentWellsAndIntervals();
-    
-    // Get VSH-DN parameters from configuration
-    var vshDnConfig = getCalculationParameters('vsh-dn');
-    if (!vshDnConfig) {
-        showError('VSH-DN configuration not found');
-        hideLoading();
-        return;
-    }
-    
-    hideLoading();
-    
-    // Show parameter form with detected wells and intervals
-    showParameterForm('vsh-dn', vshDnConfig.parameters);
+    getCalculationParameters('vsh')
+        .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
+            showParameterForm('vsh', parameters);
+        })
+        .catch(function(error) {
+            hideLoading(); // Hide loading on error
+            showError('Error getting VSH parameters: ' + error.message);
+        });
 }
 
 function handlePorosityCalculation() {
-    console.log('Handling Porosity calculation module');
-    
-    // Detect current context
-    var detectionResult = detectCurrentWellsAndIntervals();
-    
     getCalculationParameters('porosity')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
@@ -3043,11 +2659,6 @@ function handlePorosityCalculation() {
 }
 
 function handleSwCalculation() {
-    console.log('Handling SW calculation module');
-    
-    // Detect current context
-    var detectionResult = detectCurrentWellsAndIntervals();
-    
     getCalculationParameters('sw')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
