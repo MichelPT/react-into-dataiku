@@ -2158,7 +2158,6 @@ function getCalculationParameters(calculationType) {
 // Show parameter form for calculations
 function showParameterForm(calculationType, parameters) {
     var parameterForm = document.getElementById('parameterForm');
-    var parameterFormOverlay = document.getElementById('parameterFormOverlay');
     var parameterRows = document.getElementById('parameterRows');
     
     if (!parameterForm || !parameterRows) {
@@ -2166,56 +2165,46 @@ function showParameterForm(calculationType, parameters) {
         return;
     }
     
-    // Show overlay first
-    if (parameterFormOverlay) {
-        parameterFormOverlay.classList.remove('hidden');
-    }
-    
     // Clear existing parameters
     parameterRows.innerHTML = '';
     
-    // Set form title with icon
-    var formTitle = document.getElementById('formTitle');
+    // Set form title
+    var formTitle = document.querySelector('#parameterForm .form-header h3');
     if (formTitle) {
-        var titleText = parameters.title || (calculationType.toUpperCase() + ' Parameters');
-        formTitle.innerHTML = '🎯 ' + titleText;
+        formTitle.textContent = parameters.title || (calculationType.toUpperCase() + ' Parameters');
     }
     
-    // Update wells and intervals info header
-    var infoHeader = document.getElementById('wellsIntervalsInfo');
-    if (infoHeader) {
-        if (appState.selectedWells.length > 0 || appState.selectedIntervals.length > 0) {
-            infoHeader.classList.remove('hidden');
-            infoHeader.innerHTML = 
-                '<p>🎯 <strong>Selected Wells:</strong> ' + 
-                (appState.selectedWells.length > 0 ? appState.selectedWells.join(', ') : 'None') + '</p>' +
-                '<p>📊 <strong>Selected Intervals:</strong> ' + 
-                (appState.selectedIntervals.length > 0 ? appState.selectedIntervals.join(', ') + ' (' + appState.selectedIntervals.length + ' total)' : 'None') + '</p>';
-        } else {
-            infoHeader.classList.add('hidden');
+    // Add wells and intervals info header
+    var infoHeader = document.querySelector('#parameterForm .wells-intervals-info');
+    if (!infoHeader) {
+        infoHeader = document.createElement('div');
+        infoHeader.className = 'wells-intervals-info';
+        infoHeader.style.cssText = 'padding: 10px; background: #f0f8ff; border: 1px solid #ddd; margin-bottom: 15px; border-radius: 4px;';
+        var formHeader = document.querySelector('#parameterForm .form-header');
+        if (formHeader) {
+            formHeader.appendChild(infoHeader);
         }
     }
+    infoHeader.innerHTML = '<p style="margin: 0; font-weight: bold;">Wells: ' + 
+        (appState.selectedWells.length > 0 ? appState.selectedWells.join(', ') : 'None selected') + 
+        ' | Intervals: ' + appState.selectedIntervals.length + ' selected</p>';
     
     // Create table header with dynamic interval columns
     var tableHeader = document.querySelector('#parameterForm .parameter-table thead');
     if (tableHeader) {
         var headerHtml = '<tr>' +
-            '<th scope="col">#</th>' +
-            '<th scope="col">Location</th>' +
-            '<th scope="col">Mode</th>' +
-            '<th scope="col">Comment</th>' +
-            '<th scope="col">Unit</th>' +
-            '<th scope="col">Name</th>' +
-            '<th scope="col" title="Sync parameter across intervals">🔗</th>';
+            '<th>#</th>' +
+            '<th>Location</th>' +
+            '<th>Mode</th>' +
+            '<th>Comment</th>' +
+            '<th>Unit</th>' +
+            '<th>Name</th>' +
+            '<th>P</th>';
         
-        // Add interval columns if intervals are selected
-        if (appState.selectedIntervals && appState.selectedIntervals.length > 0) {
-            appState.selectedIntervals.forEach(function(interval) {
-                headerHtml += '<th scope="col" class="interval-header" title="Values for ' + interval + '">' + interval + '</th>';
-            });
-        } else {
-            headerHtml += '<th scope="col">Value</th>';
-        }
+        // Add header for each selected interval
+        appState.selectedIntervals.forEach(function(interval) {
+            headerHtml += '<th>' + interval + '</th>';
+        });
         
         headerHtml += '</tr>';
         tableHeader.innerHTML = headerHtml;
@@ -2224,8 +2213,7 @@ function showParameterForm(calculationType, parameters) {
     // Create parameter rows with interval-specific columns
     parameters.parameters.forEach(function(param, index) {
         var row = document.createElement('tr');
-        row.className = 'parameter-row ' + getParameterRowBgColor(param.location, param.mode);
-        row.setAttribute('data-param', param.name);
+        row.className = getParameterRowBgColor(param.location, param.mode);
         
         var cellHtml = '<td>' + (index + 1) + '</td>' +
                       '<td>' + (param.location || 'Interval') + '</td>' +
@@ -2233,38 +2221,51 @@ function showParameterForm(calculationType, parameters) {
                       '<td>' + (param.description || param.label || '') + '</td>' +
                       '<td>' + (param.unit || '') + '</td>' +
                       '<td style="font-weight: bold;">' + param.name + '</td>' +
-                      '<td style="text-align: center;"><input type="checkbox" class="sync-checkbox" data-param="' + param.name + '" title="Sync values across intervals"></td>';
+                      '<td style="text-align: center;"><input type="checkbox" class="sync-checkbox" data-param="' + param.name + '"></td>';
         
         // Add input cells for each selected interval
         if (appState.selectedIntervals.length > 0) {
             appState.selectedIntervals.forEach(function(interval) {
-                cellHtml += '<td style="position: relative;">';
-                cellHtml += '<input type="' + (param.type === 'integer' ? 'number' : (param.type === 'select' ? 'text' : 'text')) + '" ' +
-                           'class="interval-input" ' +
-                           'name="' + param.name + '_' + interval + '" ' +
-                           'value="' + (param.default || '') + '" ' +
-                           'placeholder="' + (param.default || 'Enter value') + '" ' +
-                           (param.step ? 'step="' + param.step + '" ' : '') +
-                           (param.min !== undefined ? 'min="' + param.min + '" ' : '') +
-                           (param.max !== undefined ? 'max="' + param.max + '" ' : '') +
-                           'data-param="' + param.name + '" ' +
-                           'data-interval="' + interval + '">';
-                cellHtml += '<div class="parameter-value-indicator"></div>';
+                cellHtml += '<td>';
+                if (param.type === 'select') {
+                    cellHtml += '<select name="' + param.name + '_' + interval + '" class="interval-input" style="width: 100%; min-width: 100px;">';
+                    param.options.forEach(function(option) {
+                        var selected = option === param.default_value ? 'selected' : '';
+                        cellHtml += '<option value="' + option + '" ' + selected + '>' + option + '</option>';
+                    });
+                    cellHtml += '</select>';
+                } else if (param.type === 'number') {
+                    var step = '0.01';
+                    var min = param.min !== undefined ? 'min="' + param.min + '"' : '';
+                    var max = param.max !== undefined ? 'max="' + param.max + '"' : '';
+                    var defaultVal = param.default_value !== undefined ? param.default_value : '';
+                    cellHtml += '<input type="number" name="' + param.name + '_' + interval + '" value="' + defaultVal + '" step="' + step + '" ' + min + ' ' + max + ' class="interval-input" style="width: 100%; min-width: 100px;">';
+                } else {
+                    var defaultVal = param.default_value !== undefined ? param.default_value : '';
+                    cellHtml += '<input type="text" name="' + param.name + '_' + interval + '" value="' + defaultVal + '" class="interval-input" style="width: 100%; min-width: 100px;">';
+                }
                 cellHtml += '</td>';
             });
         } else {
-            // Single value column when no intervals selected
-            cellHtml += '<td style="position: relative;">';
-            cellHtml += '<input type="' + (param.type === 'integer' ? 'number' : (param.type === 'select' ? 'text' : 'text')) + '" ' +
-                       'class="interval-input" ' +
-                       'name="' + param.name + '" ' +
-                       'value="' + (param.default || '') + '" ' +
-                       'placeholder="' + (param.default || 'Enter value') + '" ' +
-                       (param.step ? 'step="' + param.step + '" ' : '') +
-                       (param.min !== undefined ? 'min="' + param.min + '" ' : '') +
-                       (param.max !== undefined ? 'max="' + param.max + '" ' : '') +
-                       'data-param="' + param.name + '">';
-            cellHtml += '<div class="parameter-value-indicator"></div>';
+            // If no intervals selected, show default input
+            cellHtml += '<td>';
+            if (param.type === 'select') {
+                cellHtml += '<select name="' + param.name + '" class="select-input">';
+                param.options.forEach(function(option) {
+                    var selected = option === param.default_value ? 'selected' : '';
+                    cellHtml += '<option value="' + option + '" ' + selected + '>' + option + '</option>';
+                });
+                cellHtml += '</select>';
+            } else if (param.type === 'number') {
+                var step = '0.01';
+                var min = param.min !== undefined ? 'min="' + param.min + '"' : '';
+                var max = param.max !== undefined ? 'max="' + param.max + '"' : '';
+                var defaultVal = param.default_value !== undefined ? param.default_value : '';
+                cellHtml += '<input type="number" name="' + param.name + '" value="' + defaultVal + '" step="' + step + '" ' + min + ' ' + max + ' class="select-input">';
+            } else {
+                var defaultVal = param.default_value !== undefined ? param.default_value : '';
+                cellHtml += '<input type="text" name="' + param.name + '" value="' + defaultVal + '" class="select-input">';
+            }
             cellHtml += '</td>';
         }
         
@@ -2272,241 +2273,20 @@ function showParameterForm(calculationType, parameters) {
         parameterRows.appendChild(row);
     });
     
-    // Setup bulk action event listeners
-    setupBulkActions();
+    // Add sync checkbox functionality
+    addSyncCheckboxListeners();
     
-    // Setup sync checkbox listeners
-    setupSyncCheckboxes();
-    
-    // Setup input change listeners for progress indication
-    setupParameterInputListeners();
-    
-    // Setup form progress
-    updateFormProgress();
-    
-    // Show the form with overlay
+    // Show the form
     parameterForm.classList.remove('hidden');
     
-    // Set current calculation type
+    // Store current calculation type
     appState.currentCalculationType = calculationType;
     
-    console.log('✅ Parameter form displayed for:', calculationType);
-    console.log('📊 Parameters loaded:', parameters.parameters.length);
-    console.log('🎯 Selected intervals:', appState.selectedIntervals.length);
+    console.log('Parameter form shown for:', calculationType, 'with', appState.selectedIntervals.length, 'intervals');
 }
 
 // Helper function to get row background color based on location and mode
 function getParameterRowBgColor(location, mode) {
-    switch (location) {
-        case 'Parameter':
-            return 'bg-orange-600';
-        case 'Log':
-            switch (mode) {
-                case 'Gamma_Ray':
-                    return 'bg-yellow-300';
-                case 'Resistivity':
-                    return 'bg-yellow-100';
-                case 'Density':
-                    return 'bg-cyan-400';
-                case 'Neutron':
-                    return 'bg-cyan-200';
-                default:
-                    return 'bg-white';
-            }
-        case 'Value':
-            return 'bg-yellow-600';
-        case 'Constant':
-            return 'bg-green-400';
-        default:
-            return 'bg-white';
-    }
-}
-
-// Setup bulk actions for parameter form
-function setupBulkActions() {
-    var fillAllBtn = document.getElementById('fillAllBtn');
-    var clearAllBtn = document.getElementById('clearAllBtn');
-    var resetBtn = document.getElementById('resetBtn');
-    
-    if (fillAllBtn) {
-        fillAllBtn.addEventListener('click', function() {
-            var firstInput = document.querySelector('.interval-input');
-            if (firstInput && firstInput.value) {
-                var allInputs = document.querySelectorAll('.interval-input');
-                allInputs.forEach(function(input) {
-                    if (input.dataset.param === firstInput.dataset.param) {
-                        input.value = firstInput.value;
-                        updateParameterIndicator(input);
-                    }
-                });
-                showSuccess('All intervals filled with first value');
-            }
-        });
-    }
-    
-    if (clearAllBtn) {
-        clearAllBtn.addEventListener('click', function() {
-            var inputs = document.querySelectorAll('.interval-input');
-            inputs.forEach(function(input) {
-                input.value = '';
-                updateParameterIndicator(input);
-            });
-            showSuccess('All parameter values cleared');
-        });
-    }
-    
-    if (resetBtn) {
-        resetBtn.addEventListener('click', function() {
-            var inputs = document.querySelectorAll('.interval-input');
-            inputs.forEach(function(input) {
-                input.value = input.placeholder;
-                updateParameterIndicator(input);
-            });
-            showSuccess('All parameters reset to defaults');
-        });
-    }
-}
-
-// Setup sync checkbox functionality
-function setupSyncCheckboxes() {
-    var checkboxes = document.querySelectorAll('.sync-checkbox');
-    
-    checkboxes.forEach(function(checkbox) {
-        checkbox.addEventListener('change', function() {
-            var paramName = this.dataset.param;
-            var isChecked = this.checked;
-            
-            if (isChecked) {
-                // Get first input value for this parameter
-                var firstInput = document.querySelector('[data-param="' + paramName + '"]');
-                if (firstInput && firstInput.value) {
-                    // Apply to all interval inputs for this parameter
-                    var allInputs = document.querySelectorAll('[data-param="' + paramName + '"]');
-                    allInputs.forEach(function(input) {
-                        if (input !== firstInput) {
-                            input.value = firstInput.value;
-                            updateParameterIndicator(input);
-                        }
-                    });
-                }
-                
-                // Setup real-time sync for this parameter
-                var allInputs = document.querySelectorAll('[data-param="' + paramName + '"]');
-                allInputs.forEach(function(input) {
-                    input.addEventListener('input', function() {
-                        if (checkbox.checked) {
-                            allInputs.forEach(function(syncInput) {
-                                if (syncInput !== input) {
-                                    syncInput.value = input.value;
-                                    updateParameterIndicator(syncInput);
-                                }
-                            });
-                        }
-                    });
-                });
-            }
-        });
-    });
-}
-
-// Setup parameter input listeners
-function setupParameterInputListeners() {
-    var inputs = document.querySelectorAll('.interval-input');
-    
-    inputs.forEach(function(input) {
-        input.addEventListener('input', function() {
-            updateParameterIndicator(this);
-            updateFormProgress();
-        });
-        
-        input.addEventListener('focus', function() {
-            showParameterTooltip(this);
-        });
-        
-        input.addEventListener('blur', function() {
-            hideParameterTooltip();
-        });
-    });
-}
-
-// Update parameter value indicator
-function updateParameterIndicator(input) {
-    var indicator = input.parentElement.querySelector('.parameter-value-indicator');
-    if (indicator) {
-        if (input.value && input.value !== input.placeholder) {
-            indicator.style.opacity = '1';
-            indicator.classList.add('changed');
-        } else {
-            indicator.style.opacity = '0';
-            indicator.classList.remove('changed');
-        }
-    }
-}
-
-// Update form progress
-function updateFormProgress() {
-    var allInputs = document.querySelectorAll('.interval-input');
-    var filledInputs = Array.from(allInputs).filter(function(input) {
-        return input.value && input.value.trim() !== '';
-    });
-    
-    var progress = document.getElementById('formProgress');
-    if (progress && allInputs.length > 0) {
-        var percentage = (filledInputs.length / allInputs.length) * 100;
-        progress.style.width = percentage + '%';
-        
-        if (percentage === 100) {
-            progress.classList.add('complete');
-        } else {
-            progress.classList.remove('complete');
-        }
-    }
-}
-
-// Show parameter tooltip
-function showParameterTooltip(input) {
-    var tooltip = document.getElementById('parameterTooltip');
-    if (tooltip && input.dataset.param) {
-        var rect = input.getBoundingClientRect();
-        var paramName = input.dataset.param;
-        var interval = input.dataset.interval;
-        
-        var message = 'Parameter: ' + paramName;
-        if (interval) {
-            message += ' | Interval: ' + interval;
-        }
-        
-        tooltip.textContent = message;
-        tooltip.style.left = (rect.left + window.scrollX) + 'px';
-        tooltip.style.top = (rect.bottom + window.scrollY + 5) + 'px';
-        tooltip.classList.add('show');
-    }
-}
-
-// Hide parameter tooltip
-function hideParameterTooltip() {
-    var tooltip = document.getElementById('parameterTooltip');
-    if (tooltip) {
-        tooltip.classList.remove('show');
-    }
-}
-
-// Close parameter form
-function closeParameterForm() {
-    var parameterForm = document.getElementById('parameterForm');
-    var overlay = document.getElementById('parameterFormOverlay');
-    
-    if (parameterForm) {
-        parameterForm.classList.add('hidden');
-    }
-    
-    if (overlay) {
-        overlay.classList.add('hidden');
-    }
-}
-
-// Complete the original helper function
-function getParameterRowBgColorOld(location, mode) {
     switch (location) {
         case 'Parameter':
             return 'bg-orange-600';
@@ -3596,21 +3376,19 @@ function setupEventListeners() {
         refreshBtn.addEventListener('click', loadWells);
     }
     
-    // Parameter form handlers - Enhanced
+    // Parameter form handlers
     var closeFormBtn = document.getElementById('closeFormBtn');
     if (closeFormBtn) {
-        closeFormBtn.addEventListener('click', closeParameterForm);
+        closeFormBtn.addEventListener('click', function() {
+            document.getElementById('parameterForm').classList.add('hidden');
+        });
     }
     
     var cancelParams = document.getElementById('cancelParams');
     if (cancelParams) {
-        cancelParams.addEventListener('click', closeParameterForm);
-    }
-    
-    // Parameter form overlay click to close
-    var parameterFormOverlay = document.getElementById('parameterFormOverlay');
-    if (parameterFormOverlay) {
-        parameterFormOverlay.addEventListener('click', closeParameterForm);
+        cancelParams.addEventListener('click', function() {
+            document.getElementById('parameterForm').classList.add('hidden');
+        });
     }
     
     // Add to setupEventListeners function
