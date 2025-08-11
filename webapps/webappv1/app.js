@@ -856,12 +856,19 @@ function updateBadges() {
     
     // Update status text with interval information
     var statusText = document.getElementById('statusText');
-    if (statusText && (appState.selectedWells.length > 0 || appState.selectedIntervals.length > 0)) {
+    if (statusText) {
         var wellInfo = appState.selectedWells.length > 0 ? 
             `${appState.selectedWells.length} well(s) selected` : 'No wells selected';
-        var intervalInfo = appState.selectedIntervals.length > 0 ? 
-            `, ${appState.selectedIntervals.length} interval(s) filtered` : ', all intervals shown';
+        var intervalInfo = '';
+        
+        if (appState.selectedIntervals.length > 0) {
+            intervalInfo = `, filtering by ${appState.selectedIntervals.length} interval(s): ${appState.selectedIntervals.join(', ')}`;
+        } else {
+            intervalInfo = ', showing all intervals';
+        }
+        
         statusText.textContent = wellInfo + intervalInfo;
+        console.log('📊 Status updated:', statusText.textContent);
     }
 }
 
@@ -1397,14 +1404,20 @@ function loadWellPlot(wellName) {
             var contextMsg = appState.currentStructure ? 
                 ' from ' + appState.currentStructure.structureName : '';
             var intervalMsg = '';
-            if (response.selected_intervals && response.selected_intervals.length > 0) {
+            
+            // Use frontend state for accurate interval display
+            if (appState.selectedIntervals && appState.selectedIntervals.length > 0) {
                 var dataReduction = '';
                 if (response.original_data_points && response.data_points !== response.original_data_points) {
                     dataReduction = ` (${response.data_points}/${response.original_data_points} points)`;
+                } else if (response.data_points) {
+                    dataReduction = ` (${response.data_points} points)`;
                 }
-                intervalMsg = ` | Filtered by intervals: ${response.selected_intervals.join(', ')}${dataReduction}`;
+                intervalMsg = ` | Filtered by intervals: ${appState.selectedIntervals.join(', ')}${dataReduction}`;
+                console.log('✅ Showing filtered interval message:', intervalMsg);
             } else {
                 intervalMsg = ' | Showing all intervals';
+                console.log('✅ Showing all intervals message');
             }
             
             showSuccess('Plot loaded for well: ' + wellName + contextMsg + intervalMsg);
@@ -1618,6 +1631,7 @@ function renderIntervalList(intervals) {
 
 function toggleInterval(intervalId) {
     console.log('🎯 Toggling interval:', intervalId);
+    console.log('🔍 Before toggle - selectedIntervals:', appState.selectedIntervals);
     
     var index = appState.selectedIntervals.indexOf(intervalId);
     if (index === -1) {
@@ -1628,7 +1642,8 @@ function toggleInterval(intervalId) {
         console.log('❌ Removed interval:', intervalId);
     }
     
-    console.log('🔄 Current selected intervals:', appState.selectedIntervals);
+    console.log('🔄 After toggle - selectedIntervals:', appState.selectedIntervals);
+    console.log('🔄 Length of selectedIntervals:', appState.selectedIntervals.length);
     
     updateIntervalSelection();
     updateBadges();
@@ -1897,7 +1912,9 @@ function refreshCurrentPlot() {
 
 // Generate plot based on current selection (wells and intervals)
 function generatePlot() {
-    console.log('Generating plot for selected wells and intervals');
+    console.log('🎯 Generating plot for selected wells and intervals');
+    console.log('🔍 Current state - Wells:', appState.selectedWells);
+    console.log('🔍 Current state - Intervals:', appState.selectedIntervals);
     
     if (appState.selectedWells.length === 0) {
         showError('Please select at least one well to generate plot');
@@ -1907,10 +1924,15 @@ function generatePlot() {
     // Use the primary selected well for plotting
     var primaryWell = appState.selectedWells[0];
     
-    // Load plot with current intervals
+    // Load plot with current intervals (including empty array for "all intervals")
+    console.log('🔄 Calling loadWellPlot with:', primaryWell, 'and intervals:', appState.selectedIntervals);
     loadWellPlot(primaryWell);
     
-    console.log('Plot generated for well:', primaryWell, 'with intervals:', appState.selectedIntervals);
+    // Update status to show what's being displayed
+    var intervalMsg = appState.selectedIntervals.length > 0 ? 
+        `filtered by ${appState.selectedIntervals.length} interval(s)` : 
+        'showing all intervals';
+    console.log(`✅ Plot generated for well: ${primaryWell}, ${intervalMsg}`);
 }
 
 function debugIntervals() {
