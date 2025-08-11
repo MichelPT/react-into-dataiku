@@ -1081,203 +1081,360 @@ body {
     transform: translate(-50%, -50%);
     background: var(--bg-white);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-md);
-    max-width: 95%;
-    width: 95%;
-    max-height: 85%;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+    max-width: 95vw;
+    width: 95vw;
+    max-height: 90vh;
     overflow: hidden;
     z-index: 1000;
+    backdrop-filter: blur(8px);
 }
 
 .form-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem;
+    padding: 1.5rem 2rem;
     border-bottom: 1px solid var(--border-color);
-    background: var(--bg-gray);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
 }
 
 .form-header h3 {
-    font-size: 1.125rem;
-    font-weight: 600;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .form-content {
-    padding: 1.5rem;
+    padding: 2rem;
     overflow-y: auto;
-    max-height: 60vh;
+    max-height: calc(90vh - 200px);
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 }
 
 .form-actions {
     display: flex;
     gap: 1rem;
     justify-content: flex-end;
-    margin-top: 1.5rem;
-    padding-top: 1rem;
+    margin-top: 2rem;
+    padding: 1.5rem 2rem;
     border-top: 1px solid var(--border-color);
+    background: var(--bg-white);
 }
 
-/* Table Styles */
+/* Wells and intervals info header - Enhanced */
+.wells-intervals-info {
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border: 2px solid #2196f3;
+    margin-bottom: 1.5rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    box-shadow: 0 2px 4px rgba(33, 150, 243, 0.1);
+}
+
+.wells-intervals-info p {
+    margin: 0.25rem 0;
+    font-weight: 600;
+    color: #1565c0;
+}
+
+.wells-intervals-info p:first-child {
+    font-size: 1rem;
+    color: #0d47a1;
+}
+
+/* Enhanced Table Styles */
 #parameterTable {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 0.875rem;
-    table-layout: auto; /* Changed to auto for dynamic columns */
+    table-layout: auto;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    background: white;
 }
 
 #parameterTable th,
 #parameterTable td {
-    padding: 0.75rem 0.5rem;
-    border: 1px solid var(--border-color);
+    padding: 1rem 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
     text-align: left;
     vertical-align: middle;
+    position: relative;
 }
 
-/* Base column widths */
+#parameterTable th {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    border-bottom: 2px solid #3730a3;
+}
+
+#parameterTable tbody tr {
+    transition: all 0.2s ease;
+}
+
+#parameterTable tbody tr:hover {
+    background-color: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+#parameterTable tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Column-specific styling */
 #parameterTable th:nth-child(1), /* # */
 #parameterTable td:nth-child(1) {
-    width: 40px;
+    width: 50px;
     text-align: center;
-    min-width: 40px;
+    min-width: 50px;
+    font-weight: 600;
+    color: #6366f1;
 }
 
 #parameterTable th:nth-child(2), /* Location */
 #parameterTable td:nth-child(2) {
-    width: 80px;
-    min-width: 80px;
+    width: 90px;
+    min-width: 90px;
+    font-weight: 500;
 }
 
 #parameterTable th:nth-child(3), /* Mode */
 #parameterTable td:nth-child(3) {
-    width: 80px;
-    min-width: 80px;
+    width: 90px;
+    min-width: 90px;
+    font-weight: 500;
 }
 
 #parameterTable th:nth-child(4), /* Comment */
 #parameterTable td:nth-child(4) {
-    width: 200px;
-    min-width: 200px;
+    width: 220px;
+    min-width: 220px;
     white-space: normal;
     word-wrap: break-word;
     max-width: 300px;
+    color: #64748b;
+    font-size: 0.8rem;
+    line-height: 1.4;
 }
 
 #parameterTable th:nth-child(5), /* Unit */
 #parameterTable td:nth-child(5) {
-    width: 60px;
-    min-width: 60px;
+    width: 70px;
+    min-width: 70px;
+    text-align: center;
+    font-weight: 500;
+    color: #059669;
 }
 
 #parameterTable th:nth-child(6), /* Name */
 #parameterTable td:nth-child(6) {
-    width: 100px;
-    min-width: 100px;
-    font-weight: 500;
+    width: 120px;
+    min-width: 120px;
+    font-weight: 600;
+    color: #1e293b;
 }
 
 #parameterTable th:nth-child(7), /* P (sync checkbox) */
 #parameterTable td:nth-child(7) {
-    width: 40px;
-    min-width: 40px;
+    width: 50px;
+    min-width: 50px;
     text-align: center;
 }
 
-/* Dynamic interval columns - start from column 8 */
+/* Dynamic interval columns - Enhanced styling */
 #parameterTable th:nth-child(n+8),
 #parameterTable td:nth-child(n+8) {
-    width: 120px;
-    min-width: 120px;
+    width: 140px;
+    min-width: 140px;
     text-align: center;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
 }
 
-/* Row background colors based on parameter location */
-.bg-orange-600 {
-    background-color: #ea580c !important;
+#parameterTable th:nth-child(n+8) {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
     color: white;
+    font-weight: 700;
+    position: relative;
+}
+
+#parameterTable th:nth-child(n+8)::before {
+    content: '📊';
+    margin-right: 0.5rem;
+}
+
+/* Enhanced Row background colors based on parameter location */
+.bg-orange-600 {
+    background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%) !important;
+    color: white;
+    font-weight: 500;
 }
 
 .bg-yellow-300 {
-    background-color: #fde047 !important;
-    color: black;
+    background: linear-gradient(135deg, #fde047 0%, #facc15 100%) !important;
+    color: #92400e;
+    font-weight: 500;
 }
 
 .bg-yellow-100 {
-    background-color: #fef3c7 !important;
-    color: black;
+    background: linear-gradient(135deg, #fef3c7 0%, #fef08a 100%) !important;
+    color: #92400e;
 }
 
 .bg-cyan-400 {
-    background-color: #22d3ee !important;
-    color: black;
+    background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%) !important;
+    color: #0c4a6e;
+    font-weight: 500;
 }
 
 .bg-cyan-200 {
-    background-color: #a5f3fc !important;
-    color: black;
+    background: linear-gradient(135deg, #a5f3fc 0%, #67e8f9 100%) !important;
+    color: #0c4a6e;
 }
 
 .bg-yellow-600 {
-    background-color: #ca8a04 !important;
+    background: linear-gradient(135deg, #ca8a04 0%, #a16207 100%) !important;
     color: white;
+    font-weight: 500;
 }
 
 .bg-green-400 {
-    background-color: #4ade80 !important;
-    color: black;
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%) !important;
+    color: #14532d;
+    font-weight: 500;
 }
 
 .bg-white {
-    background-color: white !important;
-    color: black;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+    color: #1e293b;
 }
 
-/* Input styling for interval-specific parameters */
+/* Enhanced Input styling for interval-specific parameters */
 .interval-input {
     width: 100%;
-    min-width: 100px;
-    padding: 4px 8px;
-    border: 1px solid var(--border-color);
-    border-radius: 3px;
+    min-width: 120px;
+    padding: 0.75rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
     font-size: 0.875rem;
     background: white;
-    color: black;
+    color: #1e293b;
+    transition: all 0.2s ease;
+    font-weight: 500;
 }
 
 .interval-input:disabled {
-    background-color: #f3f4f6;
-    color: #6b7280;
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    color: #9ca3af;
+    cursor: not-allowed;
 }
 
 .interval-input:focus {
     outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgb(59 130 246 / 0.1);
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+    transform: translateY(-1px);
+    background: #fefefe;
 }
 
-/* Sync checkbox styling */
+.interval-input:hover:not(:disabled) {
+    border-color: #a5b4fc;
+    background: #fefefe;
+}
+
+/* Enhanced Sync checkbox styling */
 .sync-checkbox {
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
-    border: 1px solid var(--border-color);
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid #6366f1;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
 }
 
-/* Wells and intervals info header */
-.wells-intervals-info {
-    padding: 10px;
-    background: #f0f8ff;
-    border: 1px solid #ddd;
-    margin-bottom: 15px;
-    border-radius: 4px;
-    font-size: 0.875rem;
+.sync-checkbox:checked {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border-color: #4f46e5;
 }
 
-.wells-intervals-info p {
-    margin: 0;
+.sync-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
     font-weight: bold;
-    color: var(--text-primary);
+    font-size: 12px;
+}
+
+.sync-checkbox:hover {
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+}
+
+/* Form Actions Buttons Enhancement */
+.form-actions .btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.form-actions .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.form-actions .btn:hover::before {
+    left: 100%;
+}
+
+.form-actions .btn-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border: none;
+    color: white;
+    box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.39);
+}
+
+.form-actions .btn-primary:hover {
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px 0 rgba(99, 102, 241, 0.5);
+}
+
+.form-actions .btn-secondary {
+    background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+    border: none;
+    color: white;
+}
+
+.form-actions .btn-secondary:hover {
+    background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
+    transform: translateY(-1px);
 }
 
 #parameterTable th:nth-child(3), /* Mode */
@@ -1296,6 +1453,455 @@ body {
 #parameterTable th:nth-child(5), /* Unit */
 #parameterTable td:nth-child(5) {
     width: 10%;
+}
+
+/* Responsive Design for Parameter Table */
+@media (max-width: 1400px) {
+    .parameter-form {
+        width: 98vw;
+        max-width: 98vw;
+    }
+    
+    #parameterTable th:nth-child(4), /* Comment */
+    #parameterTable td:nth-child(4) {
+        width: 180px;
+        min-width: 150px;
+        font-size: 0.75rem;
+    }
+    
+    #parameterTable th:nth-child(n+8),
+    #parameterTable td:nth-child(n+8) {
+        width: 120px;
+        min-width: 100px;
+    }
+    
+    .interval-input {
+        min-width: 100px;
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 1200px) {
+    #parameterTable {
+        font-size: 0.8rem;
+    }
+    
+    #parameterTable th,
+    #parameterTable td {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    #parameterTable th:nth-child(n+8),
+    #parameterTable td:nth-child(n+8) {
+        width: 100px;
+        min-width: 90px;
+    }
+    
+    .form-content {
+        padding: 1.5rem;
+    }
+}
+
+/* Loading State for Parameter Form */
+.parameter-form.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.parameter-form.loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+/* Interval Column Header Styling */
+.interval-header {
+    position: relative;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    font-weight: 700;
+    text-align: center;
+    padding: 1rem 0.75rem;
+    border-radius: 4px 4px 0 0;
+}
+
+.interval-header::before {
+    content: '🎯';
+    margin-right: 0.5rem;
+    font-size: 1.1em;
+}
+
+.interval-header::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid #d97706;
+}
+
+/* Parameter Row Hover Effects */
+#parameterTable tbody tr {
+    cursor: pointer;
+}
+
+#parameterTable tbody tr:hover {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+#parameterTable tbody tr:hover .interval-input {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgb(99 102 241 / 0.1);
+}
+
+/* Parameter Name with Icon */
+#parameterTable td:nth-child(6) {
+    position: relative;
+}
+
+#parameterTable td:nth-child(6)::before {
+    content: '⚙️';
+    margin-right: 0.5rem;
+    opacity: 0.7;
+}
+
+/* Unit Column with Special Styling */
+#parameterTable td:nth-child(5) {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border-left: 3px solid #22c55e;
+    font-weight: 600;
+}
+
+/* Location Column with Color Coding */
+#parameterTable td:nth-child(2) {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+/* Mode Column with Badge Style */
+#parameterTable td:nth-child(3) {
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+/* Animation for Form Appearance */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -40%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+}
+
+.parameter-form {
+    animation: slideInUp 0.3s ease-out;
+}
+
+/* Close Button Enhancement */
+.form-header .btn-close {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.form-header .btn-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: rotate(90deg) scale(1.1);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Success/Error States for Inputs */
+.interval-input.error {
+    border-color: #ef4444;
+    background: #fef2f2;
+}
+
+.interval-input.success {
+    border-color: #22c55e;
+    background: #f0fdf4;
+}
+
+.interval-input.error:focus {
+    box-shadow: 0 0 0 3px rgb(239 68 68 / 0.1);
+}
+
+.interval-input.success:focus {
+    box-shadow: 0 0 0 3px rgb(34 197 94 / 0.1);
+}
+
+/* Custom Scrollbar for Form Content */
+.form-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.form-content::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.form-content::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border-radius: 4px;
+}
+
+.form-content::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
+}
+
+/* Parameter Form Overlay */
+.parameter-form-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(8px);
+    z-index: 999;
+    opacity: 0;
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+/* Enhanced Table Accessibility */
+#parameterTable th[scope="col"] {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#parameterTable tr:focus-within {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    box-shadow: 0 0 0 2px #f59e0b;
+    outline: none;
+}
+
+/* Parameter Value Indicators */
+.parameter-value-indicator {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #10b981;
+    border: 2px solid white;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.interval-input:not(:placeholder-shown) + .parameter-value-indicator {
+    opacity: 1;
+}
+
+.parameter-value-indicator.changed {
+    background: #f59e0b;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+/* Form Progress Indicator */
+.form-progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+    border-radius: 0 0 2px 2px;
+    transition: width 0.3s ease;
+    z-index: 1;
+}
+
+.form-progress.complete {
+    width: 100%;
+}
+
+/* Tooltip for Parameter Information */
+.parameter-tooltip {
+    position: absolute;
+    background: rgba(15, 23, 42, 0.9);
+    color: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+.parameter-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 4px solid rgba(15, 23, 42, 0.9);
+}
+
+.parameter-tooltip.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Bulk Actions for Parameter Form */
+.bulk-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+}
+
+.bulk-action-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.bulk-action-btn.fill-all {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.bulk-action-btn.clear-all {
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+    color: white;
+}
+
+.bulk-action-btn.reset {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+}
+
+.bulk-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Parameter Validation States */
+.parameter-row.invalid {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-left: 4px solid #ef4444;
+}
+
+.parameter-row.valid {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border-left: 4px solid #22c55e;
+}
+
+.parameter-row.warning {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border-left: 4px solid #f59e0b;
+}
+
+/* Mobile Responsiveness for Parameter Form */
+@media (max-width: 768px) {
+    .parameter-form {
+        width: 100vw;
+        height: 100vh;
+        max-width: 100vw;
+        max-height: 100vh;
+        border-radius: 0;
+        top: 0;
+        left: 0;
+        transform: none;
+    }
+    
+    .form-header {
+        padding: 1rem;
+    }
+    
+    .form-content {
+        padding: 1rem;
+        max-height: calc(100vh - 160px);
+    }
+    
+    .form-actions {
+        padding: 1rem;
+    }
+    
+    #parameterTable {
+        font-size: 0.75rem;
+    }
+    
+    #parameterTable th,
+    #parameterTable td {
+        padding: 0.5rem 0.25rem;
+    }
+    
+    .interval-input {
+        padding: 0.5rem;
+        font-size: 0.75rem;
+        min-width: 80px;
+    }
+    
+    .bulk-actions {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        padding: 0.75rem;
+    }
+    
+    .bulk-action-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.7rem;
+    }
 }
 
 #parameterTable th:nth-child(6), /* Name */

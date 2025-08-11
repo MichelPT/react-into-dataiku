@@ -240,33 +240,63 @@
                     </div>
                 </div>
                 
+                <!-- Parameter Form Overlay -->
+                <div id="parameterFormOverlay" class="parameter-form-overlay hidden"></div>
+                
                 <div id="parameterForm" class="parameter-form hidden">
+                    <div class="form-progress" id="formProgress"></div>
                     <div class="form-header">
-                        <h3>Calculation Parameters</h3>
+                        <h3 id="formTitle">Calculation Parameters</h3>
                         <button id="closeFormBtn" class="btn-close">&times;</button>
                     </div>
                     <div class="form-content">
-                        <table id="parameterTable" class="parameter-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Location</th>
-                                    <th>Mode</th>
-                                    <th>Comment</th>
-                                    <th>Unit</th>
-                                    <th>Name</th>
-                                    <th>P</th>
-                                    <!-- Dynamic interval columns will be added here -->
-                                </tr>
-                            </thead>
-                            <tbody id="parameterRows"></tbody>
-                        </table>
-                        <div class="form-actions">
-                            <button id="submitParams" class="btn-primary">Run Calculation</button>
-                            <button id="cancelParams" class="btn-secondary">Cancel</button>
+                        <!-- Wells and Intervals Info -->
+                        <div id="wellsIntervalsInfo" class="wells-intervals-info hidden"></div>
+                        
+                        <!-- Bulk Actions -->
+                        <div class="bulk-actions">
+                            <button class="bulk-action-btn fill-all" id="fillAllBtn" title="Fill all intervals with same value">
+                                📝 Fill All
+                            </button>
+                            <button class="bulk-action-btn clear-all" id="clearAllBtn" title="Clear all parameter values">
+                                🗑️ Clear All
+                            </button>
+                            <button class="bulk-action-btn reset" id="resetBtn" title="Reset to default values">
+                                🔄 Reset
+                            </button>
+                        </div>
+                        
+                        <!-- Parameter Table -->
+                        <div class="parameters-table-container">
+                            <table id="parameterTable" class="parameter-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">#</th>
+                                        <th scope="col">Location</th>
+                                        <th scope="col">Mode</th>
+                                        <th scope="col">Comment</th>
+                                        <th scope="col">Unit</th>
+                                        <th scope="col">Name</th>
+                                        <th scope="col" title="Sync parameter across intervals">🔗</th>
+                                        <!-- Dynamic interval columns will be added here -->
+                                    </tr>
+                                </thead>
+                                <tbody id="parameterRows"></tbody>
+                            </table>
                         </div>
                     </div>
+                    <div class="form-actions">
+                        <button id="submitParams" class="btn btn-primary">
+                            🚀 Run Calculation
+                        </button>
+                        <button id="cancelParams" class="btn btn-secondary">
+                            ❌ Cancel
+                        </button>
+                    </div>
                 </div>
+                
+                <!-- Parameter Tooltip -->
+                <div id="parameterTooltip" class="parameter-tooltip"></div>
                 
                 <div id="loadingSpinner" class="loading-overlay hidden">
                     <div class="spinner-container">
