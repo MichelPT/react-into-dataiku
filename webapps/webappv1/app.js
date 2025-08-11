@@ -3047,6 +3047,9 @@ function autoLoadDefaultDataset() {
             
             updateBadges();
             
+            // Reload interpretation modules when new dataset is loaded
+            loadInterpretationModules();
+            
             var successMessage = selectedStructure 
                 ? 'Loaded ' + response.wells.length + ' wells from ' + selectedStructure.name + ' structure (' + response.dataset_name + ')'
                 : 'Loaded ' + response.wells.length + ' wells from ' + response.dataset_name + ' dataset';
@@ -3236,6 +3239,255 @@ function setupEventListeners() {
     window.addEventListener('unhandledrejection', function(event) {
         console.error('Unhandled promise rejection:', event.reason);
         showError('An unexpected error occurred: ' + event.reason);
+    });
+    
+    // Load interpretation modules when dashboard is initialized
+    loadInterpretationModules();
+}
+
+function loadInterpretationModules() {
+    console.log('Loading interpretation modules...');
+    
+    fetchJson('/get_interpretation_modules')
+        .then(function(response) {
+            if (response.status === 'success') {
+                console.log('Interpretation modules loaded:', response.modules);
+                renderInterpretationModules(response.modules);
+                updateModuleAvailability(response.modules);
+            } else {
+                throw new Error(response.message || 'Failed to load interpretation modules');
+            }
+        })
+        .catch(function(error) {
+            console.error('Error loading interpretation modules:', error);
+            showWarning('Could not load interpretation modules - using default modules');
+            loadDefaultInterpretationModules();
+        });
+}
+
+function renderInterpretationModules(modules) {
+    var interpretationSection = document.querySelector('.module-section h4');
+    if (!interpretationSection || interpretationSection.textContent !== 'Interpretation') {
+        console.warn('Interpretation section not found');
+        return;
+    }
+    
+    var buttonGroup = interpretationSection.nextElementSibling;
+    if (!buttonGroup || !buttonGroup.classList.contains('button-group')) {
+        console.warn('Button group not found');
+        return;
+    }
+    
+    // Clear existing buttons (except those we want to keep)
+    var existingButtons = buttonGroup.querySelectorAll('.module-btn, .dropdown-content');
+    existingButtons.forEach(function(btn) {
+        // Keep log-plot and other non-interpretation buttons if any
+        var moduleId = btn.getAttribute('data-module');
+        if (moduleId && !['log-plot', 'histogram'].includes(moduleId)) {
+            btn.remove();
+        }
+    });
+    
+    // Add new buttons based on backend data
+    Object.keys(modules).forEach(function(moduleId) {
+        var module = modules[moduleId];
+        
+        if (module.category === 'interpretation') {
+            if (module.sub_modules && module.sub_modules.length > 0) {
+                // Create dropdown button for modules with sub-modules
+                var dropdownBtn = document.createElement('button');
+                dropdownBtn.className = 'module-btn dropdown-btn';
+                dropdownBtn.setAttribute('data-module', moduleId);
+                
+                var available = module.sub_modules.some(function(sub) { 
+                    return sub.columns_available; 
+                });
+                
+                if (!available) {
+                    dropdownBtn.classList.add('disabled');
+                    dropdownBtn.title = 'Missing required columns: ' + 
+                        module.sub_modules.map(function(sub) {
+                            return sub.missing_columns ? sub.missing_columns.join(', ') : '';
+                        }).filter(Boolean).join('; ');
+                }
+                
+                dropdownBtn.innerHTML = 
+                    '<span>' + module.name.toUpperCase() + '</span>' +
+                    '<svg class="chevron-icon" viewBox="0 0 24 24" fill="currentColor">' +
+                        '<path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>' +
+                    '</svg>';
+                
+                buttonGroup.appendChild(dropdownBtn);
+                
+                // Create dropdown content
+                var dropdownContent = document.createElement('div');
+                dropdownContent.className = 'dropdown-content hidden';
+                dropdownContent.setAttribute('data-parent', moduleId);
+                
+                module.sub_modules.forEach(function(subModule) {
+                    var subBtn = document.createElement('button');
+                    subBtn.className = 'sub-module-btn';
+                    subBtn.setAttribute('data-module', subModule.id);
+                    subBtn.textContent = subModule.name.toUpperCase();
+                    
+                    if (!subModule.columns_available) {
+                        subBtn.classList.add('disabled');
+                        subBtn.title = 'Missing required columns: ' + 
+                            (subModule.missing_columns || []).join(', ');
+                    }
+                    
+                    dropdownContent.appendChild(subBtn);
+                });
+                
+                buttonGroup.appendChild(dropdownContent);
+                
+            } else {
+                // Create regular button for simple modules
+                var moduleBtn = document.createElement('button');
+                moduleBtn.className = 'module-btn';
+                moduleBtn.setAttribute('data-module', moduleId);
+                moduleBtn.textContent = module.name.toUpperCase();
+                
+                if (!module.columns_available) {
+                    moduleBtn.classList.add('disabled');
+                    moduleBtn.title = 'Missing required columns: ' + 
+                        (module.missing_columns || []).join(', ');
+                }
+                
+                buttonGroup.appendChild(moduleBtn);
+            }
+        }
+    });
+    
+    // Re-setup event listeners for new buttons
+    setupModuleEventListeners();
+}
+
+function updateModuleAvailability(modules) {
+    // Update button states based on column availability
+    Object.keys(modules).forEach(function(moduleId) {
+        var module = modules[moduleId];
+        var button = document.querySelector('[data-module="' + moduleId + '"]');
+        
+        if (button) {
+            if (module.columns_available === false) {
+                button.classList.add('disabled');
+                button.title = 'Missing columns: ' + (module.missing_columns || []).join(', ');
+            } else {
+                button.classList.remove('disabled');
+                button.title = module.description || '';
+            }
+        }
+        
+        // Update sub-modules if any
+        if (module.sub_modules) {
+            module.sub_modules.forEach(function(subModule) {
+                var subBtn = document.querySelector('[data-module="' + subModule.id + '"]');
+                if (subBtn) {
+                    if (subModule.columns_available === false) {
+                        subBtn.classList.add('disabled');
+                        subBtn.title = 'Missing columns: ' + (subModule.missing_columns || []).join(', ');
+                    } else {
+                        subBtn.classList.remove('disabled');
+                        subBtn.title = subModule.description || '';
+                    }
+                }
+            });
+        }
+    });
+}
+
+function loadDefaultInterpretationModules() {
+    // Fallback to default modules if backend fails
+    console.log('Loading default interpretation modules...');
+    // The modules are already in HTML, just disable them if needed
+    var moduleButtons = document.querySelectorAll('#rightSidebar .module-btn');
+    moduleButtons.forEach(function(btn) {
+        btn.classList.add('disabled');
+        btn.title = 'No dataset loaded - please select a structure first';
+    });
+}
+
+function setupModuleEventListeners() {
+    // Setup dropdown buttons
+    var dropdownButtons = document.querySelectorAll('.dropdown-btn');
+    dropdownButtons.forEach(function(button) {
+        // Remove existing listeners to prevent duplicates
+        var newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        
+        newButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            var moduleName = newButton.getAttribute('data-module');
+            var dropdownContent = document.querySelector('.dropdown-content[data-parent="' + moduleName + '"]');
+            
+            if (dropdownContent) {
+                // Close other dropdowns
+                document.querySelectorAll('.dropdown-content').forEach(function(content) {
+                    if (content !== dropdownContent) {
+                        content.classList.add('hidden');
+                    }
+                });
+                
+                document.querySelectorAll('.dropdown-btn').forEach(function(btn) {
+                    if (btn !== newButton) {
+                        btn.classList.remove('expanded');
+                    }
+                });
+                
+                // Toggle current dropdown
+                var isHidden = dropdownContent.classList.contains('hidden');
+                if (isHidden) {
+                    dropdownContent.classList.remove('hidden');
+                    newButton.classList.add('expanded');
+                } else {
+                    dropdownContent.classList.add('hidden');
+                    newButton.classList.remove('expanded');
+                }
+            }
+        });
+    });
+    
+    // Handle sub-module clicks
+    var subModuleButtons = document.querySelectorAll('.sub-module-btn');
+    subModuleButtons.forEach(function(button) {
+        // Remove existing listeners
+        var newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        
+        newButton.addEventListener('click', function() {
+            var moduleName = newButton.getAttribute('data-module');
+            if (moduleName && !newButton.classList.contains('disabled')) {
+                // Update active states
+                document.querySelectorAll('.sub-module-btn').forEach(function(btn) {
+                    btn.classList.remove('active');
+                });
+                newButton.classList.add('active');
+                
+                loadModule(moduleName);
+            }
+        });
+    });
+    
+    // Handle regular module buttons
+    var moduleButtons = document.querySelectorAll('.module-btn:not(.dropdown-btn)');
+    moduleButtons.forEach(function(button) {
+        // Remove existing listeners
+        var newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        
+        newButton.addEventListener('click', function() {
+            var moduleName = newButton.getAttribute('data-module');
+            if (moduleName && !newButton.classList.contains('disabled')) {
+                // Update button state
+                document.querySelectorAll('.module-btn:not(.dropdown-btn)').forEach(function(btn) {
+                    btn.classList.remove('active');
+                });
+                newButton.classList.add('active');
+                
+                loadModule(moduleName);
+            }
+        });
     });
 }
 

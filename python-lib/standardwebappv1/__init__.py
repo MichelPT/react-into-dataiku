@@ -2,6 +2,10 @@
 # You can add functionalities to this package and/or create new packages under "python-lib"
 
 # Import all services to make them available at package level
+from .services.histogram import plot_histogram
+from .services.crossplot import generate_crossplot
+from .services.autoplot import calculate_nphi_rhob_intersection
+from .services.splicing import splice_and_flag_logs
 from .services.vsh_calculation import calculate_vsh_from_gr
 from .services.porosity import calculate_porosity
 from .services.depth_matching import depth_matching

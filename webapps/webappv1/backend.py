@@ -19,6 +19,8 @@ import os
 # Import your services (assuming they exist)
 try:
     from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr
+    from standardwebappv1.services.histogram import plot_histogram
+    from standardwebappv1.services.crossplot import generate_crossplot
     from standardwebappv1.services.porosity import calculate_porosity
     from standardwebappv1.services.depth_matching import depth_matching
     from standardwebappv1.services.rgsa import process_all_wells_rgsa
@@ -1144,6 +1146,115 @@ def save_dataset():
         analysis = get_analysis_instance()
         result = analysis.save_results_to_new_dataset(dataset_name, dataset_data)
         return json.dumps(result)
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
+
+@app.route('/get_interpretation_modules')
+def get_interpretation_modules():
+    """Get list of available interpretation modules with their status"""
+    try:
+        analysis = get_analysis_instance()
+        
+        # Define interpretation modules with their requirements and status
+        modules = {
+            "vsh_calculation": {
+                "name": "VSH Calculation",
+                "description": "Volume of Shale calculation using Gamma Ray or Density-Neutron methods",
+                "sub_modules": [
+                    {
+                        "id": "vsh_gr", 
+                        "name": "VSH-GR",
+                        "description": "VSH from Gamma Ray",
+                        "required_columns": ["GR"],
+                        "output_columns": ["VSH_GR"]
+                    },
+                    {
+                        "id": "vsh_dn", 
+                        "name": "VSH-DN", 
+                        "description": "VSH from Density-Neutron",
+                        "required_columns": ["RHOB", "NPHI"],
+                        "output_columns": ["VSH_DN"]
+                    }
+                ],
+                "category": "interpretation",
+                "available": True
+            },
+            "porosity_calculation": {
+                "name": "Porosity Calculation",
+                "description": "Effective porosity calculation using Bateman/Konen method",
+                "required_columns": ["RHOB", "NPHI"],
+                "output_columns": ["PHIE", "PHID", "PHIN"],
+                "category": "interpretation",
+                "available": True
+            },
+            "sw_calculation": {
+                "name": "SW Calculation", 
+                "description": "Water Saturation calculation",
+                "sub_modules": [
+                    {
+                        "id": "sw_indonesia",
+                        "name": "SW Indonesia", 
+                        "description": "Indonesian water saturation equation",
+                        "required_columns": ["RT", "PHIE", "VSH"],
+                        "output_columns": ["SW", "RW", "RWA"]
+                    },
+                    {
+                        "id": "sw_simandoux",
+                        "name": "SW Simandoux",
+                        "description": "Simandoux water saturation equation", 
+                        "required_columns": ["RT", "PHIE", "VSH"],
+                        "output_columns": ["SW_SIM"]
+                    }
+                ],
+                "category": "interpretation", 
+                "available": True
+            },
+            "water_resistivity": {
+                "name": "Water Resistivity",
+                "description": "Formation water resistivity calculation",
+                "required_columns": ["RT", "PHIE"],
+                "output_columns": ["RWA", "RW"],
+                "category": "interpretation",
+                "available": True
+            }
+        }
+        
+        # Check column availability if dataset is loaded
+        if analysis.current_well_data is not None:
+            available_columns = set(analysis.current_well_data.columns)
+            
+            for module_id, module_info in modules.items():
+                # Check main module requirements
+                if "required_columns" in module_info:
+                    required = set(module_info["required_columns"])
+                    module_info["columns_available"] = required.issubset(available_columns)
+                    module_info["missing_columns"] = list(required - available_columns)
+                
+                # Check sub-modules requirements
+                if "sub_modules" in module_info:
+                    for sub_module in module_info["sub_modules"]:
+                        if "required_columns" in sub_module:
+                            required = set(sub_module["required_columns"])
+                            sub_module["columns_available"] = required.issubset(available_columns)
+                            sub_module["missing_columns"] = list(required - available_columns)
+        else:
+            # No dataset loaded - mark all as unavailable
+            for module_id, module_info in modules.items():
+                module_info["columns_available"] = False
+                module_info["missing_columns"] = module_info.get("required_columns", [])
+                
+                if "sub_modules" in module_info:
+                    for sub_module in module_info["sub_modules"]:
+                        sub_module["columns_available"] = False
+                        sub_module["missing_columns"] = sub_module.get("required_columns", [])
+        
+        return json.dumps({
+            "status": "success",
+            "modules": modules,
+            "dataset_loaded": analysis.current_dataset is not None,
+            "current_dataset": analysis.current_dataset
+        })
+        
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
 
