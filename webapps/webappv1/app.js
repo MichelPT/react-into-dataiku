@@ -877,6 +877,18 @@ function setupAnalysisTools() {
     });
 }
 
+// Fetch with timeout helper to prevent hanging requests
+function fetchWithTimeout(url, options, timeout) {
+    timeout = timeout || 30000; // Default 30 seconds
+    
+    return Promise.race([
+        fetch(url, options),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout)
+        )
+    ]);
+}
+
 // Improved fetchJson with Dataiku backend URL support, better error handling, and fallback
 function fetchJson(endpoint, options) {
     options = options || {};
@@ -1173,6 +1185,61 @@ function testBackendConnection() {
             showWarning('Backend not available - using mock data for testing');
             return false;
         });
+}
+
+function testVshCalculationEndpoint() {
+    console.log('🧪 Testing VSH calculation endpoint...');
+    setIsLoading(true);
+    
+    var testPayload = {
+        method: 'vsh_gr',
+        parameters: {
+            gr_ma: 30,
+            gr_sh: 120,
+            opt_gr: 'LINEAR',
+            gr_log: 'GR'
+        },
+        selected_wells: appState.selectedWells.length > 0 ? appState.selectedWells : ['WELL-001'],
+        selected_intervals: appState.selectedIntervals.length > 0 ? appState.selectedIntervals : []
+    };
+    
+    console.log('🧪 Sending test VSH payload:', testPayload);
+    
+    // Use Dataiku helper when available to build the correct backend URL
+    var useDataiku = (typeof window !== 'undefined') && window.dataiku && typeof window.dataiku.getWebAppBackendUrl === 'function';
+    var url = useDataiku ? window.dataiku.getWebAppBackendUrl('/vsh_calculation') : '/vsh_calculation';
+    
+    fetchWithTimeout(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(testPayload)
+    }, 30000)
+    .then(response => {
+        console.log('🧪 VSH Test Response status:', response.status);
+        console.log('🧪 VSH Test Response headers:', response.headers);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text(); // Get as text first to debug
+    })
+    .then(text => {
+        console.log('🧪 VSH Test Response text:', text);
+        try {
+            var data = JSON.parse(text);
+            console.log('🧪 VSH Test Response data:', data);
+            setIsLoading(false);
+            showSuccess('VSH endpoint test completed. Check console for details.');
+        } catch (e) {
+            console.error('🧪 Failed to parse response as JSON:', e);
+            setIsLoading(false);
+            showError('VSH endpoint returned non-JSON response. Check console.');
+        }
+    })
+    .catch(error => {
+        console.error('🧪 VSH endpoint test failed:', error);
+        setIsLoading(false);
+        showError('VSH endpoint test failed: ' + error.message);
+    });
 }
 
 // UI Management Functions
@@ -2308,8 +2375,6 @@ function submitCalculationParameters() {
     console.log('🚀 Running calculation with params:', params);
     console.log('Calculation type:', appState.currentCalculationType);
     
-    setIsLoading(true);
-    
     // Real calculation execution for specific modules
     var calculationType = appState.currentCalculationType;
     
@@ -2328,6 +2393,7 @@ function submitCalculationParameters() {
         handleWaterResistivityCalculation(params);
     } else {
         // Mock calculation execution for other modules
+        setIsLoading(true);
         setTimeout(function() {
             try {
                 var successMessages = {
@@ -2360,6 +2426,9 @@ function submitCalculationParameters() {
 
 // Specific calculation handler functions for real backend integration
 function handleVshGRCalculation(params) {
+    console.log('🚀 Starting VSH-GR calculation with params:', params);
+    setIsLoading(true);
+    
     var payload = {
         method: 'vsh_gr',
         parameters: {
@@ -2372,13 +2441,26 @@ function handleVshGRCalculation(params) {
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/vsh_calculation', {
+    console.log('🚀 Sending VSH-GR payload:', payload);
+    
+    // Use Dataiku helper when available to build the correct backend URL
+    var useDataiku = (typeof window !== 'undefined') && window.dataiku && typeof window.dataiku.getWebAppBackendUrl === 'function';
+    var url = useDataiku ? window.dataiku.getWebAppBackendUrl('/vsh_calculation') : '/vsh_calculation';
+    
+    fetchWithTimeout(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
+    }, 30000)
+    .then(response => {
+        console.log('🚀 VSH-GR Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
     })
-    .then(response => response.json())
     .then(data => {
+        console.log('🚀 VSH-GR Response data:', data);
         setIsLoading(false);
         if (data.status === 'success') {
             showSuccess('VSH-GR calculation completed successfully!');
@@ -2395,6 +2477,7 @@ function handleVshGRCalculation(params) {
         }
     })
     .catch(error => {
+        console.error('🚀 VSH-GR Calculation error:', error);
         setIsLoading(false);
         showError('Error: ' + error.message);
         console.error('VSH-GR Calculation error:', error);
@@ -2402,6 +2485,9 @@ function handleVshGRCalculation(params) {
 }
 
 function handleVshDNCalculation(params) {
+    console.log('🚀 Starting VSH-DN calculation with params:', params);
+    setIsLoading(true);
+    
     var payload = {
         method: 'vsh_dn',
         parameters: {
@@ -2418,13 +2504,26 @@ function handleVshDNCalculation(params) {
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/vsh_calculation', {
+    console.log('🚀 Sending VSH-DN payload:', payload);
+    
+    // Use Dataiku helper when available to build the correct backend URL
+    var useDataiku = (typeof window !== 'undefined') && window.dataiku && typeof window.dataiku.getWebAppBackendUrl === 'function';
+    var url = useDataiku ? window.dataiku.getWebAppBackendUrl('/vsh_calculation') : '/vsh_calculation';
+    
+    fetchWithTimeout(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
+    }, 30000)
+    .then(response => {
+        console.log('🚀 VSH-DN Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
     })
-    .then(response => response.json())
     .then(data => {
+        console.log('🚀 VSH-DN Response data:', data);
         setIsLoading(false);
         if (data.status === 'success') {
             showSuccess('VSH-DN calculation completed successfully!');
@@ -2441,6 +2540,7 @@ function handleVshDNCalculation(params) {
         }
     })
     .catch(error => {
+        console.error('🚀 VSH-DN Calculation error:', error);
         setIsLoading(false);
         showError('Error: ' + error.message);
         console.error('VSH-DN Calculation error:', error);
