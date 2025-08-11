@@ -18,7 +18,7 @@ import os
 
 # Import your services (assuming they exist)
 try:
-    from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr, calculate_vsh_gr_with_params
+    from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr
     from standardwebappv1.services.porosity import calculate_porosity
     from standardwebappv1.services.depth_matching import depth_matching
     from standardwebappv1.services.rgsa import process_all_wells_rgsa
@@ -550,25 +550,21 @@ class WellLogAnalysis:
             return {"status": "error", "message": f"Error running calculation: {str(e)}"}
     
     def _run_vsh_calculation(self, df, params):
-        """Run VSH calculation using proper service function"""
+        """Run VSH calculation"""
         try:
-            method = params.get('method', 'vsh_gr')
+            gr_ma = float(params.get('GR_MA', 30))
+            gr_sh = float(params.get('GR_SH', 120))
+            input_log = params.get('input_log', 'GR')
+            output_log = params.get('output_log', 'VSH_GR')
             
-            if method == 'vsh_gr':
-                # VSH from Gamma Ray
-                result_df = calculate_vsh_gr_with_params(df, params)
-                print("VSH-GR calculation completed using service function")
-                
-            elif method == 'vsh_dn':
-                # VSH from Density-Neutron
-                result_df = calculate_vsh_dn(df, params)
-                print("VSH-DN calculation completed using service function")
-                
-            else:
-                raise ValueError(f"Unknown VSH method: {method}")
+            if input_log not in df.columns:
+                raise ValueError(f"Input log {input_log} not found in dataset")
             
-            return result_df
+            # Simple VSH calculation
+            df[output_log] = (df[input_log] - gr_ma) / (gr_sh - gr_ma)
+            df[output_log] = df[output_log].clip(0, 1)
             
+            return df
         except Exception as e:
             raise Exception(f"VSH calculation error: {str(e)}")
     
@@ -638,41 +634,11 @@ class WellLogAnalysis:
             m = float(params.get('m', 2.0))
             n = float(params.get('n', 2.0))
             
-            # Check for required columns with better error messages
-            missing_columns = []
-            available_columns = list(df.columns)
+            if 'RT' not in df.columns or 'PHIE' not in df.columns:
+                raise ValueError("RT and PHIE columns required for SW calculation")
             
-            # Check for resistivity column (flexible naming)
-            rt_column = None
-            for col_name in ['RT', 'RES', 'RESISTIVITY']:
-                if col_name in available_columns:
-                    rt_column = col_name
-                    break
-            if rt_column is None:
-                missing_columns.append('RT/RES/RESISTIVITY (Resistivity log)')
-            
-            # Check for effective porosity column
-            phie_column = None
-            for col_name in ['PHIE', 'PHIE_DEN', 'EFFECTIVE_POROSITY']:
-                if col_name in available_columns:
-                    phie_column = col_name
-                    break
-            if phie_column is None:
-                missing_columns.append('PHIE (Effective Porosity)')
-            
-            if missing_columns:
-                suggestions = []
-                if 'PHIE (Effective Porosity)' in missing_columns:
-                    suggestions.append("Run Porosity Calculation module first to calculate PHIE")
-                if 'RT/RES/RESISTIVITY (Resistivity log)' in missing_columns:
-                    suggestions.append("Ensure your dataset contains resistivity log data")
-                
-                available_cols_info = f"Available columns: {', '.join(available_columns)}"
-                suggestion_text = f" | Suggestions: {'; '.join(suggestions)}" if suggestions else ""
-                raise ValueError(f"Missing required columns: {', '.join(missing_columns)}{suggestion_text} | {available_cols_info}")
-            
-            # Archie's equation using detected columns
-            df['SW'] = ((a * rw) / (df[rt_column] * df[phie_column] ** m)) ** (1/n)
+            # Archie's equation
+            df['SW'] = ((a * rw) / (df['RT'] * df['PHIE'] ** m)) ** (1/n)
             df['SW'] = df['SW'].clip(0, 1)
             
             return df
