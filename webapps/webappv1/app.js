@@ -2544,25 +2544,6 @@ function handleWaterResistivityCalculation(params) {
 
 // Module Management Functions
 function loadModule(moduleName) {
-    // Check if we have module info and validate requirements
-    var moduleButton = document.querySelector('[data-module="' + moduleName + '"]');
-    var moduleInfo = null;
-    
-    if (moduleButton && moduleButton.hasAttribute('data-module-info')) {
-        try {
-            moduleInfo = JSON.parse(moduleButton.getAttribute('data-module-info'));
-        } catch (e) {
-            console.warn('Could not parse module info for ' + moduleName);
-        }
-    }
-    
-    // Enhanced validation with module info
-    if (moduleInfo && !moduleInfo.columns_available && moduleInfo.missing_columns && moduleInfo.missing_columns.length > 0) {
-        showWarning('Module "' + moduleName + '" cannot run because missing required columns: ' + moduleInfo.missing_columns.join(', ') + '. Please ensure your dataset contains these columns.');
-        hideLoading();
-        return;
-    }
-    
     if (appState.selectedWells.length === 0) {
         showError('Please select at least one well');
         return;
@@ -2571,12 +2552,6 @@ function loadModule(moduleName) {
     appState.currentModule = moduleName;
     showLoading();
     var wellName = appState.selectedWells[0];
-    
-    // Log module activity for debugging
-    console.log('Loading module:', moduleName, 'for well:', wellName);
-    if (moduleInfo) {
-        console.log('Module info:', moduleInfo);
-    }
     
     switch (moduleName) {
         case 'log-plot':
@@ -2617,22 +2592,6 @@ function loadModule(moduleName) {
             break;
         case 'histogram':
             handleHistogram();
-            break;
-        case 'crossplot-nphi-rhob':
-        case 'crossplot-gr-nphi':
-            handleCrossplot(moduleName);
-            break;
-        case 'trim-data':
-            handleTrimData();
-            break;
-        case 'depth-matching':
-            handleDepthMatching();
-            break;
-        case 'fill-missing':
-            handleFillMissing();
-            break;
-        case 'smoothing':
-            handleSmoothing();
             break;
         case 'water-resistivity-calculation':
             handleWaterResistivityCalculation();
@@ -2898,11 +2857,6 @@ function handleHistogram() {
 function createCalculationPlot(calculationType) {
     var wellName = appState.selectedWells.length > 0 ? appState.selectedWells[0] : null;
     
-    if (!wellName) {
-        showError('No well selected for plot');
-        return;
-    }
-    
     var requestData = {
         calculation_type: calculationType,
         well_name: wellName
@@ -2920,129 +2874,12 @@ function createCalculationPlot(calculationType) {
     .then(function(response) {
         if (response.status === 'success' && response.figure) {
             createPlot(response.figure);
-            return response;
         } else {
-            throw new Error(response.message || 'Failed to create calculation plot');
-        }
-    });
-}
-
-// Data Preparation Module Handlers
-function handleCrossplot(moduleType) {
-    var wellName = appState.selectedWells[0];
-    var plotConfig = {
-        calculation_type: moduleType.replace('-', '_'),
-        well_name: wellName
-    };
-    
-    // Add structure context if available
-    if (appState.currentStructure) {
-        plotConfig.structure_context = appState.currentStructure;
-    }
-    
-    fetchJson('/get_plot_for_calculation', {
-        method: 'POST',
-        body: JSON.stringify(plotConfig)
-    })
-    .then(function(response) {
-        if (response.status === 'success' && response.figure) {
-            createPlot(response.figure);
-            showSuccess(moduleType.toUpperCase() + ' plot created for ' + wellName);
-        } else {
-            throw new Error(response.message || 'Failed to create crossplot');
-        }
-    })
-    .catch(function(error) {
-        showError('Error creating crossplot: ' + error.message);
-    })
-    .finally(function() {
-        hideLoading();
-    });
-}
-
-function handleTrimData() {
-    showInfo('Trim Data module: Select depth range to trim data for selected wells');
-    
-    // For now, show a simple parameter form or placeholder
-    var params = [
-        { name: 'top_depth', label: 'Top Depth (ft)', value: '0', type: 'number' },
-        { name: 'bottom_depth', label: 'Bottom Depth (ft)', value: '10000', type: 'number' }
-    ];
-    
-    showParameterForm('trim-data', { parameters: params });
-    hideLoading();
-}
-
-function handleDepthMatching() {
-    showInfo('Depth Matching module: Align log data between wells based on markers');
-    
-    var params = [
-        { name: 'reference_well', label: 'Reference Well', value: appState.selectedWells[0] || '', type: 'select', options: appState.selectedWells },
-        { name: 'matching_method', label: 'Matching Method', value: 'marker_based', type: 'select', options: ['marker_based', 'correlation_based'] }
-    ];
-    
-    showParameterForm('depth-matching', { parameters: params });
-    hideLoading();
-}
-
-function handleFillMissing() {
-    showInfo('Fill Missing module: Interpolate missing values in log data');
-    
-    var params = [
-        { name: 'interpolation_method', label: 'Interpolation Method', value: 'linear', type: 'select', options: ['linear', 'cubic', 'nearest'] },
-        { name: 'max_gap', label: 'Maximum Gap to Fill (ft)', value: '10', type: 'number' }
-    ];
-    
-    showParameterForm('fill-missing', { parameters: params });
-    hideLoading();
-}
-
-function handleSmoothing() {
-    showInfo('Smoothing module: Apply smoothing filters to reduce noise in log data');
-    
-    var params = [
-        { name: 'smoothing_method', label: 'Smoothing Method', value: 'moving_average', type: 'select', options: ['moving_average', 'gaussian', 'savgol'] },
-        { name: 'window_size', label: 'Window Size', value: '5', type: 'number' },
-        { name: 'log_curves', label: 'Log Curves to Smooth', value: 'GR,RT,NPHI,RHOB', type: 'text' }
-    ];
-    
-    showParameterForm('smoothing', { parameters: params });
-    hideLoading();
-}
-
-function createCalculationPlot(calculationType) {
-    var wellName = appState.selectedWells.length > 0 ? appState.selectedWells[0] : null;
-    
-    if (!wellName) {
-        showError('No well selected for plot');
-        return;
-    }
-    
-    var requestData = {
-        calculation_type: calculationType,
-        well_name: wellName
-    };
-    
-    // Add structure context if available
-    if (appState.currentStructure) {
-        requestData.structure_context = appState.currentStructure;
-    }
-    
-    return fetchJson('/get_plot_for_calculation', {
-        method: 'POST',
-        body: JSON.stringify(requestData)
-    })
-    .then(function(response) {
-        if (response.status === 'success' && response.figure) {
-            createPlot(response.figure);
-            return response;
-        } else {
-            throw new Error(response.message || 'Failed to create calculation plot');
+            console.error('Failed to create calculation plot:', response.message);
         }
     })
     .catch(function(error) {
         console.error('Error creating calculation plot:', error);
-        throw error;
     });
 }
 
@@ -3209,9 +3046,6 @@ function autoLoadDefaultDataset() {
             }
             
             updateBadges();
-            
-            // Reload modules info when dataset changes
-            loadModulesData();
             
             var successMessage = selectedStructure 
                 ? 'Loaded ' + response.wells.length + ' wells from ' + selectedStructure.name + ' structure (' + response.dataset_name + ')'
@@ -3402,76 +3236,6 @@ function setupEventListeners() {
     window.addEventListener('unhandledrejection', function(event) {
         console.error('Unhandled promise rejection:', event.reason);
         showError('An unexpected error occurred: ' + event.reason);
-    });
-    
-    // Load modules data when dashboard is initialized
-    loadModulesData();
-}
-
-function loadModulesData() {
-    console.log('Loading modules data...');
-    
-    // Load interpretation modules
-    fetchJson('/get_interpretation_modules')
-        .then(function(response) {
-            if (response.status === 'success') {
-                console.log('Interpretation modules loaded:', response.modules);
-                updateModuleInfo('interpretation', response.modules);
-            } else {
-                console.warn('Could not load interpretation modules:', response.message);
-            }
-        })
-        .catch(function(error) {
-            console.warn('Error loading interpretation modules:', error.message);
-        });
-    
-    // Load data preparation modules  
-    fetchJson('/get_data_preparation_modules')
-        .then(function(response) {
-            if (response.status === 'success') {
-                console.log('Data preparation modules loaded:', response.modules);
-                updateModuleInfo('data_preparation', response.modules);
-            } else {
-                console.warn('Could not load data preparation modules:', response.message);
-            }
-        })
-        .catch(function(error) {
-            console.warn('Error loading data preparation modules:', error.message);
-        });
-}
-
-function updateModuleInfo(category, modules) {
-    // Update module button tooltips and info without disabling them
-    Object.keys(modules).forEach(function(moduleId) {
-        var module = modules[moduleId];
-        var button = document.querySelector('[data-module="' + moduleId + '"]');
-        
-        if (button) {
-            // Add module info as tooltip without disabling
-            var tooltip = module.description || '';
-            if (!module.columns_available && module.missing_columns && module.missing_columns.length > 0) {
-                tooltip += ' (Note: Missing columns: ' + module.missing_columns.join(', ') + ')';
-            }
-            button.title = tooltip;
-            
-            // Store module info for later use
-            button.setAttribute('data-module-info', JSON.stringify(module));
-        }
-        
-        // Handle sub-modules if any
-        if (module.sub_modules) {
-            module.sub_modules.forEach(function(subModule) {
-                var subBtn = document.querySelector('[data-module="' + subModule.id + '"]');
-                if (subBtn) {
-                    var subTooltip = subModule.description || '';
-                    if (!subModule.columns_available && subModule.missing_columns && subModule.missing_columns.length > 0) {
-                        subTooltip += ' (Note: Missing columns: ' + subModule.missing_columns.join(', ') + ')';
-                    }
-                    subBtn.title = subTooltip;
-                    subBtn.setAttribute('data-module-info', JSON.stringify(subModule));
-                }
-            });
-        }
     });
 }
 
