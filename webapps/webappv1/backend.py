@@ -1238,15 +1238,116 @@ def get_interpretation_modules():
                             sub_module["columns_available"] = required.issubset(available_columns)
                             sub_module["missing_columns"] = list(required - available_columns)
         else:
-            # No dataset loaded - mark all as unavailable
+            # No dataset loaded - mark all as available but with warning
             for module_id, module_info in modules.items():
-                module_info["columns_available"] = False
-                module_info["missing_columns"] = module_info.get("required_columns", [])
+                module_info["columns_available"] = True  # Don't disable when no dataset
+                module_info["missing_columns"] = []
                 
                 if "sub_modules" in module_info:
                     for sub_module in module_info["sub_modules"]:
-                        sub_module["columns_available"] = False
-                        sub_module["missing_columns"] = sub_module.get("required_columns", [])
+                        sub_module["columns_available"] = True
+                        sub_module["missing_columns"] = []
+        
+        return json.dumps({
+            "status": "success",
+            "modules": modules,
+            "dataset_loaded": analysis.current_dataset is not None,
+            "current_dataset": analysis.current_dataset
+        })
+        
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
+
+@app.route('/get_data_preparation_modules')
+def get_data_preparation_modules():
+    """Get list of available data preparation modules with their status"""
+    try:
+        analysis = get_analysis_instance()
+        
+        # Define data preparation modules
+        modules = {
+            "log_plot": {
+                "name": "Log Plot",
+                "description": "Display well log data in plot format",
+                "required_columns": ["DEPTH"],
+                "category": "data_preparation",
+                "available": True
+            },
+            "histogram": {
+                "name": "Histogram",
+                "description": "Statistical distribution analysis of log values",
+                "required_columns": [],
+                "category": "data_preparation",
+                "available": True
+            },
+            "crossplot_nphi_rhob": {
+                "name": "Crossplot NPHI-RHOB",
+                "description": "Neutron-Density crossplot analysis",
+                "required_columns": ["NPHI", "RHOB"],
+                "category": "data_preparation",
+                "available": True
+            },
+            "crossplot_gr_nphi": {
+                "name": "Crossplot GR-NPHI",
+                "description": "Gamma Ray-Neutron crossplot analysis", 
+                "required_columns": ["GR", "NPHI"],
+                "category": "data_preparation",
+                "available": True
+            },
+            "trim_data": {
+                "name": "Trim Data",
+                "description": "Remove data outside specified depth range",
+                "required_columns": ["DEPTH"],
+                "category": "data_preparation",
+                "available": True
+            },
+            "depth_matching": {
+                "name": "Depth Matching",
+                "description": "Align log data between wells",
+                "required_columns": ["DEPTH"],
+                "category": "data_preparation",
+                "available": True
+            },
+            "fill_missing": {
+                "name": "Fill Missing",
+                "description": "Interpolate missing log values",
+                "required_columns": [],
+                "category": "data_preparation",
+                "available": True
+            },
+            "smoothing": {
+                "name": "Smoothing",
+                "description": "Apply smoothing filter to log data",
+                "required_columns": [],
+                "category": "data_preparation",
+                "available": True
+            },
+            "normalization": {
+                "name": "Normalization",
+                "description": "Normalize log values between wells",
+                "required_columns": [],
+                "category": "data_preparation",
+                "available": True
+            }
+        }
+        
+        # Check column availability if dataset is loaded
+        if analysis.current_well_data is not None:
+            available_columns = set(analysis.current_well_data.columns)
+            
+            for module_id, module_info in modules.items():
+                if module_info["required_columns"]:
+                    required = set(module_info["required_columns"])
+                    module_info["columns_available"] = required.issubset(available_columns)
+                    module_info["missing_columns"] = list(required - available_columns)
+                else:
+                    module_info["columns_available"] = True
+                    module_info["missing_columns"] = []
+        else:
+            # No dataset loaded - mark all as available
+            for module_id, module_info in modules.items():
+                module_info["columns_available"] = True
+                module_info["missing_columns"] = []
         
         return json.dumps({
             "status": "success",

@@ -2544,6 +2544,25 @@ function handleWaterResistivityCalculation(params) {
 
 // Module Management Functions
 function loadModule(moduleName) {
+    // Check if we have module info and validate requirements
+    var moduleButton = document.querySelector('[data-module="' + moduleName + '"]');
+    var moduleInfo = null;
+    
+    if (moduleButton && moduleButton.hasAttribute('data-module-info')) {
+        try {
+            moduleInfo = JSON.parse(moduleButton.getAttribute('data-module-info'));
+        } catch (e) {
+            console.warn('Could not parse module info for ' + moduleName);
+        }
+    }
+    
+    // Enhanced validation with module info
+    if (moduleInfo && !moduleInfo.columns_available && moduleInfo.missing_columns && moduleInfo.missing_columns.length > 0) {
+        showWarning('Module "' + moduleName + '" cannot run because missing required columns: ' + moduleInfo.missing_columns.join(', ') + '. Please ensure your dataset contains these columns.');
+        hideLoading();
+        return;
+    }
+    
     if (appState.selectedWells.length === 0) {
         showError('Please select at least one well');
         return;
@@ -2552,6 +2571,12 @@ function loadModule(moduleName) {
     appState.currentModule = moduleName;
     showLoading();
     var wellName = appState.selectedWells[0];
+    
+    // Log module activity for debugging
+    console.log('Loading module:', moduleName, 'for well:', wellName);
+    if (moduleInfo) {
+        console.log('Module info:', moduleInfo);
+    }
     
     switch (moduleName) {
         case 'log-plot':
@@ -2592,6 +2617,22 @@ function loadModule(moduleName) {
             break;
         case 'histogram':
             handleHistogram();
+            break;
+        case 'crossplot-nphi-rhob':
+        case 'crossplot-gr-nphi':
+            handleCrossplot(moduleName);
+            break;
+        case 'trim-data':
+            handleTrimData();
+            break;
+        case 'depth-matching':
+            handleDepthMatching();
+            break;
+        case 'fill-missing':
+            handleFillMissing();
+            break;
+        case 'smoothing':
+            handleSmoothing();
             break;
         case 'water-resistivity-calculation':
             handleWaterResistivityCalculation();
@@ -2857,6 +2898,11 @@ function handleHistogram() {
 function createCalculationPlot(calculationType) {
     var wellName = appState.selectedWells.length > 0 ? appState.selectedWells[0] : null;
     
+    if (!wellName) {
+        showError('No well selected for plot');
+        return;
+    }
+    
     var requestData = {
         calculation_type: calculationType,
         well_name: wellName
@@ -2874,12 +2920,129 @@ function createCalculationPlot(calculationType) {
     .then(function(response) {
         if (response.status === 'success' && response.figure) {
             createPlot(response.figure);
+            return response;
         } else {
-            console.error('Failed to create calculation plot:', response.message);
+            throw new Error(response.message || 'Failed to create calculation plot');
+        }
+    });
+}
+
+// Data Preparation Module Handlers
+function handleCrossplot(moduleType) {
+    var wellName = appState.selectedWells[0];
+    var plotConfig = {
+        calculation_type: moduleType.replace('-', '_'),
+        well_name: wellName
+    };
+    
+    // Add structure context if available
+    if (appState.currentStructure) {
+        plotConfig.structure_context = appState.currentStructure;
+    }
+    
+    fetchJson('/get_plot_for_calculation', {
+        method: 'POST',
+        body: JSON.stringify(plotConfig)
+    })
+    .then(function(response) {
+        if (response.status === 'success' && response.figure) {
+            createPlot(response.figure);
+            showSuccess(moduleType.toUpperCase() + ' plot created for ' + wellName);
+        } else {
+            throw new Error(response.message || 'Failed to create crossplot');
+        }
+    })
+    .catch(function(error) {
+        showError('Error creating crossplot: ' + error.message);
+    })
+    .finally(function() {
+        hideLoading();
+    });
+}
+
+function handleTrimData() {
+    showInfo('Trim Data module: Select depth range to trim data for selected wells');
+    
+    // For now, show a simple parameter form or placeholder
+    var params = [
+        { name: 'top_depth', label: 'Top Depth (ft)', value: '0', type: 'number' },
+        { name: 'bottom_depth', label: 'Bottom Depth (ft)', value: '10000', type: 'number' }
+    ];
+    
+    showParameterForm('trim-data', { parameters: params });
+    hideLoading();
+}
+
+function handleDepthMatching() {
+    showInfo('Depth Matching module: Align log data between wells based on markers');
+    
+    var params = [
+        { name: 'reference_well', label: 'Reference Well', value: appState.selectedWells[0] || '', type: 'select', options: appState.selectedWells },
+        { name: 'matching_method', label: 'Matching Method', value: 'marker_based', type: 'select', options: ['marker_based', 'correlation_based'] }
+    ];
+    
+    showParameterForm('depth-matching', { parameters: params });
+    hideLoading();
+}
+
+function handleFillMissing() {
+    showInfo('Fill Missing module: Interpolate missing values in log data');
+    
+    var params = [
+        { name: 'interpolation_method', label: 'Interpolation Method', value: 'linear', type: 'select', options: ['linear', 'cubic', 'nearest'] },
+        { name: 'max_gap', label: 'Maximum Gap to Fill (ft)', value: '10', type: 'number' }
+    ];
+    
+    showParameterForm('fill-missing', { parameters: params });
+    hideLoading();
+}
+
+function handleSmoothing() {
+    showInfo('Smoothing module: Apply smoothing filters to reduce noise in log data');
+    
+    var params = [
+        { name: 'smoothing_method', label: 'Smoothing Method', value: 'moving_average', type: 'select', options: ['moving_average', 'gaussian', 'savgol'] },
+        { name: 'window_size', label: 'Window Size', value: '5', type: 'number' },
+        { name: 'log_curves', label: 'Log Curves to Smooth', value: 'GR,RT,NPHI,RHOB', type: 'text' }
+    ];
+    
+    showParameterForm('smoothing', { parameters: params });
+    hideLoading();
+}
+
+function createCalculationPlot(calculationType) {
+    var wellName = appState.selectedWells.length > 0 ? appState.selectedWells[0] : null;
+    
+    if (!wellName) {
+        showError('No well selected for plot');
+        return;
+    }
+    
+    var requestData = {
+        calculation_type: calculationType,
+        well_name: wellName
+    };
+    
+    // Add structure context if available
+    if (appState.currentStructure) {
+        requestData.structure_context = appState.currentStructure;
+    }
+    
+    return fetchJson('/get_plot_for_calculation', {
+        method: 'POST',
+        body: JSON.stringify(requestData)
+    })
+    .then(function(response) {
+        if (response.status === 'success' && response.figure) {
+            createPlot(response.figure);
+            return response;
+        } else {
+            throw new Error(response.message || 'Failed to create calculation plot');
         }
     })
     .catch(function(error) {
         console.error('Error creating calculation plot:', error);
+        throw error;
     });
 }
 
@@ -3047,8 +3210,8 @@ function autoLoadDefaultDataset() {
             
             updateBadges();
             
-            // Reload interpretation modules when new dataset is loaded
-            loadInterpretationModules();
+            // Reload modules info when dataset changes
+            loadModulesData();
             
             var successMessage = selectedStructure 
                 ? 'Loaded ' + response.wells.length + ' wells from ' + selectedStructure.name + ' structure (' + response.dataset_name + ')'
@@ -3241,253 +3404,74 @@ function setupEventListeners() {
         showError('An unexpected error occurred: ' + event.reason);
     });
     
-    // Load interpretation modules when dashboard is initialized
-    loadInterpretationModules();
+    // Load modules data when dashboard is initialized
+    loadModulesData();
 }
 
-function loadInterpretationModules() {
-    console.log('Loading interpretation modules...');
+function loadModulesData() {
+    console.log('Loading modules data...');
     
+    // Load interpretation modules
     fetchJson('/get_interpretation_modules')
         .then(function(response) {
             if (response.status === 'success') {
                 console.log('Interpretation modules loaded:', response.modules);
-                renderInterpretationModules(response.modules);
-                updateModuleAvailability(response.modules);
+                updateModuleInfo('interpretation', response.modules);
             } else {
-                throw new Error(response.message || 'Failed to load interpretation modules');
+                console.warn('Could not load interpretation modules:', response.message);
             }
         })
         .catch(function(error) {
-            console.error('Error loading interpretation modules:', error);
-            showWarning('Could not load interpretation modules - using default modules');
-            loadDefaultInterpretationModules();
+            console.warn('Error loading interpretation modules:', error.message);
+        });
+    
+    // Load data preparation modules  
+    fetchJson('/get_data_preparation_modules')
+        .then(function(response) {
+            if (response.status === 'success') {
+                console.log('Data preparation modules loaded:', response.modules);
+                updateModuleInfo('data_preparation', response.modules);
+            } else {
+                console.warn('Could not load data preparation modules:', response.message);
+            }
+        })
+        .catch(function(error) {
+            console.warn('Error loading data preparation modules:', error.message);
         });
 }
 
-function renderInterpretationModules(modules) {
-    var interpretationSection = document.querySelector('.module-section h4');
-    if (!interpretationSection || interpretationSection.textContent !== 'Interpretation') {
-        console.warn('Interpretation section not found');
-        return;
-    }
-    
-    var buttonGroup = interpretationSection.nextElementSibling;
-    if (!buttonGroup || !buttonGroup.classList.contains('button-group')) {
-        console.warn('Button group not found');
-        return;
-    }
-    
-    // Clear existing buttons (except those we want to keep)
-    var existingButtons = buttonGroup.querySelectorAll('.module-btn, .dropdown-content');
-    existingButtons.forEach(function(btn) {
-        // Keep log-plot and other non-interpretation buttons if any
-        var moduleId = btn.getAttribute('data-module');
-        if (moduleId && !['log-plot', 'histogram'].includes(moduleId)) {
-            btn.remove();
-        }
-    });
-    
-    // Add new buttons based on backend data
-    Object.keys(modules).forEach(function(moduleId) {
-        var module = modules[moduleId];
-        
-        if (module.category === 'interpretation') {
-            if (module.sub_modules && module.sub_modules.length > 0) {
-                // Create dropdown button for modules with sub-modules
-                var dropdownBtn = document.createElement('button');
-                dropdownBtn.className = 'module-btn dropdown-btn';
-                dropdownBtn.setAttribute('data-module', moduleId);
-                
-                var available = module.sub_modules.some(function(sub) { 
-                    return sub.columns_available; 
-                });
-                
-                if (!available) {
-                    dropdownBtn.classList.add('disabled');
-                    dropdownBtn.title = 'Missing required columns: ' + 
-                        module.sub_modules.map(function(sub) {
-                            return sub.missing_columns ? sub.missing_columns.join(', ') : '';
-                        }).filter(Boolean).join('; ');
-                }
-                
-                dropdownBtn.innerHTML = 
-                    '<span>' + module.name.toUpperCase() + '</span>' +
-                    '<svg class="chevron-icon" viewBox="0 0 24 24" fill="currentColor">' +
-                        '<path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>' +
-                    '</svg>';
-                
-                buttonGroup.appendChild(dropdownBtn);
-                
-                // Create dropdown content
-                var dropdownContent = document.createElement('div');
-                dropdownContent.className = 'dropdown-content hidden';
-                dropdownContent.setAttribute('data-parent', moduleId);
-                
-                module.sub_modules.forEach(function(subModule) {
-                    var subBtn = document.createElement('button');
-                    subBtn.className = 'sub-module-btn';
-                    subBtn.setAttribute('data-module', subModule.id);
-                    subBtn.textContent = subModule.name.toUpperCase();
-                    
-                    if (!subModule.columns_available) {
-                        subBtn.classList.add('disabled');
-                        subBtn.title = 'Missing required columns: ' + 
-                            (subModule.missing_columns || []).join(', ');
-                    }
-                    
-                    dropdownContent.appendChild(subBtn);
-                });
-                
-                buttonGroup.appendChild(dropdownContent);
-                
-            } else {
-                // Create regular button for simple modules
-                var moduleBtn = document.createElement('button');
-                moduleBtn.className = 'module-btn';
-                moduleBtn.setAttribute('data-module', moduleId);
-                moduleBtn.textContent = module.name.toUpperCase();
-                
-                if (!module.columns_available) {
-                    moduleBtn.classList.add('disabled');
-                    moduleBtn.title = 'Missing required columns: ' + 
-                        (module.missing_columns || []).join(', ');
-                }
-                
-                buttonGroup.appendChild(moduleBtn);
-            }
-        }
-    });
-    
-    // Re-setup event listeners for new buttons
-    setupModuleEventListeners();
-}
-
-function updateModuleAvailability(modules) {
-    // Update button states based on column availability
+function updateModuleInfo(category, modules) {
+    // Update module button tooltips and info without disabling them
     Object.keys(modules).forEach(function(moduleId) {
         var module = modules[moduleId];
         var button = document.querySelector('[data-module="' + moduleId + '"]');
         
         if (button) {
-            if (module.columns_available === false) {
-                button.classList.add('disabled');
-                button.title = 'Missing columns: ' + (module.missing_columns || []).join(', ');
-            } else {
-                button.classList.remove('disabled');
-                button.title = module.description || '';
+            // Add module info as tooltip without disabling
+            var tooltip = module.description || '';
+            if (!module.columns_available && module.missing_columns && module.missing_columns.length > 0) {
+                tooltip += ' (Note: Missing columns: ' + module.missing_columns.join(', ') + ')';
             }
+            button.title = tooltip;
+            
+            // Store module info for later use
+            button.setAttribute('data-module-info', JSON.stringify(module));
         }
         
-        // Update sub-modules if any
+        // Handle sub-modules if any
         if (module.sub_modules) {
             module.sub_modules.forEach(function(subModule) {
                 var subBtn = document.querySelector('[data-module="' + subModule.id + '"]');
                 if (subBtn) {
-                    if (subModule.columns_available === false) {
-                        subBtn.classList.add('disabled');
-                        subBtn.title = 'Missing columns: ' + (subModule.missing_columns || []).join(', ');
-                    } else {
-                        subBtn.classList.remove('disabled');
-                        subBtn.title = subModule.description || '';
+                    var subTooltip = subModule.description || '';
+                    if (!subModule.columns_available && subModule.missing_columns && subModule.missing_columns.length > 0) {
+                        subTooltip += ' (Note: Missing columns: ' + subModule.missing_columns.join(', ') + ')';
                     }
+                    subBtn.title = subTooltip;
+                    subBtn.setAttribute('data-module-info', JSON.stringify(subModule));
                 }
             });
         }
-    });
-}
-
-function loadDefaultInterpretationModules() {
-    // Fallback to default modules if backend fails
-    console.log('Loading default interpretation modules...');
-    // The modules are already in HTML, just disable them if needed
-    var moduleButtons = document.querySelectorAll('#rightSidebar .module-btn');
-    moduleButtons.forEach(function(btn) {
-        btn.classList.add('disabled');
-        btn.title = 'No dataset loaded - please select a structure first';
-    });
-}
-
-function setupModuleEventListeners() {
-    // Setup dropdown buttons
-    var dropdownButtons = document.querySelectorAll('.dropdown-btn');
-    dropdownButtons.forEach(function(button) {
-        // Remove existing listeners to prevent duplicates
-        var newButton = button.cloneNode(true);
-        button.parentNode.replaceChild(newButton, button);
-        
-        newButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            var moduleName = newButton.getAttribute('data-module');
-            var dropdownContent = document.querySelector('.dropdown-content[data-parent="' + moduleName + '"]');
-            
-            if (dropdownContent) {
-                // Close other dropdowns
-                document.querySelectorAll('.dropdown-content').forEach(function(content) {
-                    if (content !== dropdownContent) {
-                        content.classList.add('hidden');
-                    }
-                });
-                
-                document.querySelectorAll('.dropdown-btn').forEach(function(btn) {
-                    if (btn !== newButton) {
-                        btn.classList.remove('expanded');
-                    }
-                });
-                
-                // Toggle current dropdown
-                var isHidden = dropdownContent.classList.contains('hidden');
-                if (isHidden) {
-                    dropdownContent.classList.remove('hidden');
-                    newButton.classList.add('expanded');
-                } else {
-                    dropdownContent.classList.add('hidden');
-                    newButton.classList.remove('expanded');
-                }
-            }
-        });
-    });
-    
-    // Handle sub-module clicks
-    var subModuleButtons = document.querySelectorAll('.sub-module-btn');
-    subModuleButtons.forEach(function(button) {
-        // Remove existing listeners
-        var newButton = button.cloneNode(true);
-        button.parentNode.replaceChild(newButton, button);
-        
-        newButton.addEventListener('click', function() {
-            var moduleName = newButton.getAttribute('data-module');
-            if (moduleName && !newButton.classList.contains('disabled')) {
-                // Update active states
-                document.querySelectorAll('.sub-module-btn').forEach(function(btn) {
-                    btn.classList.remove('active');
-                });
-                newButton.classList.add('active');
-                
-                loadModule(moduleName);
-            }
-        });
-    });
-    
-    // Handle regular module buttons
-    var moduleButtons = document.querySelectorAll('.module-btn:not(.dropdown-btn)');
-    moduleButtons.forEach(function(button) {
-        // Remove existing listeners
-        var newButton = button.cloneNode(true);
-        button.parentNode.replaceChild(newButton, button);
-        
-        newButton.addEventListener('click', function() {
-            var moduleName = newButton.getAttribute('data-module');
-            if (moduleName && !newButton.classList.contains('disabled')) {
-                // Update button state
-                document.querySelectorAll('.module-btn:not(.dropdown-btn)').forEach(function(btn) {
-                    btn.classList.remove('active');
-                });
-                newButton.classList.add('active');
-                
-                loadModule(moduleName);
-            }
-        });
     });
 }
 
