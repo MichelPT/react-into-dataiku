@@ -19,8 +19,6 @@ import os
 # Import your services (assuming they exist)
 try:
     from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr
-    from standardwebappv1.services.histogram import plot_histogram
-    from standardwebappv1.services.crossplot import generate_crossplot
     from standardwebappv1.services.porosity import calculate_porosity
     from standardwebappv1.services.depth_matching import depth_matching
     from standardwebappv1.services.rgsa import process_all_wells_rgsa
