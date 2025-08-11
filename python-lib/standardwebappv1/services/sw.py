@@ -21,18 +21,55 @@ def calculate_sw(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     PHIE = 'PHIE'
     RT = 'RT'
 
-    # Verify required columns exist
-    required_cols = ['GR', 'RT', 'PHIE', 'VSH']
-    if not all(col in df_processed.columns for col in required_cols):
+    # Verify required columns exist with better error handling
+    missing_columns = []
+    available_columns = list(df_processed.columns)
+    
+    # Check for essential columns
+    essential_columns = ['GR', 'VSH']
+    for col in essential_columns:
+        if col not in available_columns:
+            missing_columns.append(col)
+    
+    # Check for resistivity column (flexible naming)
+    rt_column = None
+    for col_name in ['RT', 'RES', 'RESISTIVITY']:
+        if col_name in available_columns:
+            rt_column = col_name
+            break
+    if rt_column is None:
+        missing_columns.append('RT/RES/RESISTIVITY')
+    
+    # Check for effective porosity column
+    phie_column = None
+    for col_name in ['PHIE', 'EFFECTIVE_POROSITY', 'PHIE_DEN']:
+        if col_name in available_columns:
+            phie_column = col_name
+            break
+    if phie_column is None:
+        missing_columns.append('PHIE')
+    
+    if missing_columns:
+        suggestions = []
+        if 'VSH' in missing_columns:
+            suggestions.append("Run VSH Calculation module first")
+        if 'PHIE' in missing_columns:
+            suggestions.append("Run Porosity Calculation module first")
+        if 'RT/RES/RESISTIVITY' in missing_columns:
+            suggestions.append("Ensure your dataset contains resistivity log data")
+        
+        available_cols_info = f"\nAvailable columns: {', '.join(available_columns)}"
+        suggestion_text = f"\n\nSuggestions:\n- " + "\n- ".join(suggestions) if suggestions else ""
+        
         raise ValueError(
-            "Required input columns (GR, RT, PHIE, VSH) not complete. Run previous modules first.")
+            f"Required columns missing: {', '.join(missing_columns)}{suggestion_text}{available_cols_info}")
 
     print("Calculating RW at formation temperature...")
     df_processed["RW_TEMP"] = RWS * (RWT + 21.5) / (FTEMP + 21.5)
 
     print("Calculating Water Saturation (SW Indonesia)...")
     v = df_processed[VSH] ** 2
-    ff = A / df_processed[PHIE] ** M
+    ff = A / df_processed[phie_column] ** M
 
     # Avoid division by zero
     ff_times_rw_temp = ff * df_processed["RW_TEMP"]
@@ -45,8 +82,8 @@ def calculate_sw(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     denom = f1 + f2 + f3
     denom[denom == 0] = np.nan
 
-    df_processed[SW] = (1 / (df_processed[RT] * denom)) ** (1 / N)
-    df_processed.loc[df_processed[PHIE] < 0.005, SW] = 1.0
+    df_processed[SW] = (1 / (df_processed[rt_column] * denom)) ** (1 / N)
+    df_processed.loc[df_processed[phie_column] < 0.005, SW] = 1.0
     df_processed[SW] = df_processed[SW].clip(lower=0, upper=1)
 
     return df_processed

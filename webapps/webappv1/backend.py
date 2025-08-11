@@ -634,14 +634,83 @@ class WellLogAnalysis:
             m = float(params.get('m', 2.0))
             n = float(params.get('n', 2.0))
             
-            if 'RT' not in df.columns or 'PHIE' not in df.columns:
-                raise ValueError("RT and PHIE columns required for SW calculation")
+            # Check for required columns with better error messages
+            missing_columns = []
             
-            # Archie's equation
-            df['SW'] = ((a * rw) / (df['RT'] * df['PHIE'] ** m)) ** (1/n)
-            df['SW'] = df['SW'].clip(0, 1)
+            # Check for resistivity column (RT or similar)
+            rt_column = None
+            if 'RT' in df.columns:
+                rt_column = 'RT'
+            elif 'RES' in df.columns:
+                rt_column = 'RES'
+            elif 'RESISTIVITY' in df.columns:
+                rt_column = 'RESISTIVITY'
+            else:
+                missing_columns.append('RT (Resistivity)')
+            
+            # Check for effective porosity column
+            phie_column = None
+            if 'PHIE' in df.columns:
+                phie_column = 'PHIE'
+            elif 'EFFECTIVE_POROSITY' in df.columns:
+                phie_column = 'EFFECTIVE_POROSITY'
+            else:
+                missing_columns.append('PHIE (Effective Porosity)')
+            
+            # Check for VSH if using Simandoux equation
+            calc_method = params.get('method', 'archie').lower()
+            if calc_method == 'simandoux' and 'VSH' not in df.columns:
+                missing_columns.append('VSH (Volume of Shale)')
+            
+            if missing_columns:
+                suggestions = []
+                if 'PHIE (Effective Porosity)' in missing_columns:
+                    suggestions.append("Run Porosity Calculation module first to calculate PHIE")
+                if 'VSH (Volume of Shale)' in missing_columns:
+                    suggestions.append("Run VSH Calculation module first to calculate VSH")
+                if 'RT (Resistivity)' in missing_columns:
+                    suggestions.append("Ensure your dataset contains resistivity log data (RT, RES, or RESISTIVITY column)")
+                
+                suggestion_text = "\n\nSuggestions:\n- " + "\n- ".join(suggestions) if suggestions else ""
+                raise ValueError(f"Missing required columns: {', '.join(missing_columns)}{suggestion_text}")
+            
+            # Choose calculation method
+            if calc_method == 'simandoux':
+                # Simandoux equation for shaly sands
+                rt_sh = float(params.get('rt_sh', 2.2))  # Shale resistivity
+                
+                # Calculate using Simandoux equation
+                vsh = df['VSH']
+                phie = df[phie_column]
+                rt = df[rt_column]
+                
+                # Avoid division by zero
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    # Simandoux equation: 1/RT = VSH/RT_SH + PHIE^m * SW^n / (a * RW)
+                    # Rearranging: SW = ((1/RT - VSH/RT_SH) * a * RW / PHIE^m)^(1/n)
+                    term1 = 1/rt
+                    term2 = vsh/rt_sh
+                    numerator = (term1 - term2) * a * rw
+                    denominator = phie ** m
+                    
+                    sw_raw = np.where(denominator > 0, (numerator / denominator) ** (1/n), 1.0)
+                    df['SW'] = np.clip(sw_raw, 0, 1)
+                    
+            else:
+                # Archie's equation (default)
+                phie = df[phie_column]
+                rt = df[rt_column]
+                
+                # Archie's equation: SW = ((a * RW) / (RT * PHIE^m))^(1/n)
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    sw_raw = ((a * rw) / (rt * phie ** m)) ** (1/n)
+                    df['SW'] = np.clip(sw_raw, 0, 1)
+            
+            # Set SW = 1 for very low porosity zones
+            df.loc[df[phie_column] < 0.005, 'SW'] = 1.0
             
             return df
+            
         except Exception as e:
             raise Exception(f"SW calculation error: {str(e)}")
     
