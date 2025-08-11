@@ -3,7 +3,7 @@
 import os
 import pandas as pd
 from flask import Flask, request, jsonify
-from services.dns_dnsv_plot import plot_dns_dnsv # Assuming your plot function is here
+from .dns_dnsv_plot import plot_dns_dnsv # Assuming your plot function is here
 
 # --- Configuration ---
 app = Flask(__name__)

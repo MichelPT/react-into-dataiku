@@ -2,68 +2,56 @@ import pandas as pd
 import numpy as np
 
 
-def calculate_vsh_from_gr(df: pd.DataFrame, gr_log: str, gr_ma: float, gr_sh: float, output_col: str = 'VSH_GR') -> pd.DataFrame:
+def calculate_vsh_from_gr(df: pd.DataFrame, parameters: dict) -> pd.DataFrame:
     """
-    Menghitung VSH dari Gamma Ray menggunakan metode linear.
+    Calculate VSH from Gamma Ray using linear method.
 
     Args:
-        df (pd.DataFrame): DataFrame input yang berisi data log.
-        gr_log (str): Nama kolom Gamma Ray yang akan digunakan.
-        gr_ma (float): Nilai GR matriks (zona bersih).
-        gr_sh (float): Nilai GR shale.
-        output_col (str): Nama kolom baru untuk menyimpan hasil VSH.
+        df (pd.DataFrame): Input DataFrame containing log data.
+        parameters (dict): Dictionary containing:
+            - gr_log: Name of Gamma Ray column
+            - gr_ma: Clean GR value (matrix)
+            - gr_sh: Shale GR value
+            - opt_gr: Method (LINEAR)
 
     Returns:
-        pd.DataFrame: DataFrame asli dengan tambahan kolom VSH.
+        pd.DataFrame: Original DataFrame with added VSH_GR column.
     """
-    df_processed = df.copy()
-    
-    # Check for gamma ray column with flexible naming
-    available_columns = list(df_processed.columns)
-    gr_column = None
-    
-    for col_name in [gr_log, 'GR', 'GAMMA_RAY', 'CGR', 'GRD']:
-        if col_name in available_columns:
-            gr_column = col_name
-            break
-    
-    if gr_column is None:
-        available_gr_cols = [col for col in available_columns if 'GR' in col.upper()]
-        if available_gr_cols:
-            gr_column = available_gr_cols[0]
-            print(f"Using available GR column: {gr_column}")
-        else:
-            print(f"Warning: No gamma ray column found. Available columns: {', '.join(available_columns)}")
-            df_processed[output_col] = np.nan
-            return df_processed
+    gr_log = parameters.get('gr_log', 'GR')
+    gr_ma = float(parameters.get('gr_ma', 30))
+    gr_sh = float(parameters.get('gr_sh', 120))
+    output_col = 'VSH_GR'
 
-    print(f"Calculating VSH-GR using {gr_column} with GR_MA={gr_ma}, GR_SH={gr_sh}")
-    
-    # Calculate VSH using linear method
-    # V_gr = (GR - GR_ma) / (GR_sh - GR_ma)
-    v_gr = (df_processed[gr_column] - gr_ma) / (gr_sh - gr_ma)
+    # Check if required column exists
+    if gr_log not in df.columns:
+        print(f"Warning: Column '{gr_log}' not found. Skipping VSH calculation.")
+        df[output_col] = np.nan
+        return df
+
+    # Copy to avoid SettingWithCopyWarning
+    df_processed = df.copy()
+
+    # Calculate VSH using linear formula: VSH = (GR - GR_clean) / (GR_shale - GR_clean)
+    v_gr = (df_processed[gr_log] - gr_ma) / (gr_sh - gr_ma)
 
     # Clip values between 0 and 1
     df_processed[output_col] = v_gr.clip(0, 1)
 
-    valid_count = (~df_processed[output_col].isna()).sum()
-    print(f"VSH-GR calculation completed. Valid values: {valid_count}/{len(df_processed)}")
-    
     return df_processed
 
 
-def calculate_vsh_gr_with_params(df: pd.DataFrame, params: dict) -> pd.DataFrame:
+def calculate_vsh_from_gr_legacy(df: pd.DataFrame, gr_log: str, gr_ma: float, gr_sh: float, output_col: str) -> pd.DataFrame:
     """
-    Wrapper function to calculate VSH from GR using parameter dict from frontend.
-    This matches the frontend parameter structure.
+    Legacy function for backwards compatibility.
+    Calculate VSH from Gamma Ray using linear method.
     """
-    # Extract parameters with exact names from frontend
-    gr_ma = float(params.get('gr_ma', 30))
-    gr_sh = float(params.get('gr_sh', 120))
-    gr_log = params.get('gr_log', 'GR')
-    opt_gr = params.get('opt_gr', 'LINEAR')  # Currently only LINEAR supported
-    output_col = 'VSH_GR'
-    
-    print(f"VSH-GR Parameters: GR_MA={gr_ma}, GR_SH={gr_sh}, Method={opt_gr}, Input={gr_log}")
-    
-    return calculate_vsh_from_gr(df, gr_log, gr_ma, gr_sh, output_col)
+    parameters = {
+        'gr_log': gr_log,
+        'gr_ma': gr_ma,
+        'gr_sh': gr_sh
+    }
+    result = calculate_vsh_from_gr(df, parameters)
+    if output_col != 'VSH_GR':
+        result[output_col] = result['VSH_GR']
+        result.drop('VSH_GR', axis=1, inplace=True)
+    return result
