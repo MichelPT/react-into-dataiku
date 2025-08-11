@@ -841,6 +841,9 @@ function updateBadges() {
     
     if (intervalsBadge) {
         intervalsBadge.textContent = appState.selectedIntervals.length + '/' + appState.availableIntervals.length;
+        // Change badge color based on whether intervals are selected
+        intervalsBadge.style.backgroundColor = appState.selectedIntervals.length > 0 ? '#3b82f6' : '#6b7280';
+        intervalsBadge.style.color = 'white';
     }
     
     if (selectedWellsCount) {
@@ -849,6 +852,16 @@ function updateBadges() {
     
     if (selectedIntervalsCount) {
         selectedIntervalsCount.textContent = appState.selectedIntervals.length;
+    }
+    
+    // Update status text with interval information
+    var statusText = document.getElementById('statusText');
+    if (statusText && (appState.selectedWells.length > 0 || appState.selectedIntervals.length > 0)) {
+        var wellInfo = appState.selectedWells.length > 0 ? 
+            `${appState.selectedWells.length} well(s) selected` : 'No wells selected';
+        var intervalInfo = appState.selectedIntervals.length > 0 ? 
+            `, ${appState.selectedIntervals.length} interval(s) filtered` : ', all intervals shown';
+        statusText.textContent = wellInfo + intervalInfo;
     }
 }
 
@@ -1331,6 +1344,7 @@ function toggleWell(wellId) {
 // Enhanced plot loading dengan structure context dan intervals
 function loadWellPlot(wellName) {
     console.log('🚀 Loading plot for well:', wellName);
+    console.log('🎯 Selected intervals for plotting:', appState.selectedIntervals);
     setIsLoading(true);
     setError(null);
     
@@ -1349,15 +1363,17 @@ function loadWellPlot(wellName) {
             wells: appState.currentStructure.wells,
             columns: appState.currentStructure.columns
         };
-        console.log('🚀 Adding structure context:', requestData.structure_context);
+        console.log('🏗️ Adding structure context:', requestData.structure_context);
     }
+    
+    console.log('📤 Sending request data:', requestData);
     
     fetchJson('/get_well_plot', {
         method: 'POST',
         body: JSON.stringify(requestData)
     })
     .then(function(response) {
-        console.log('🚀 Plot response received:', response);
+        console.log('� Plot response received:', response);
         if (response.status === 'success' && response.figure) {
             // Handle different response formats
             var plotObject;
@@ -1377,13 +1393,31 @@ function loadWellPlot(wellName) {
             
             var contextMsg = appState.currentStructure ? 
                 ' from ' + appState.currentStructure.structureName : '';
-            showSuccess('Plot loaded for well: ' + wellName + contextMsg);
+            var intervalMsg = '';
+            if (response.selected_intervals && response.selected_intervals.length > 0) {
+                var dataReduction = '';
+                if (response.original_data_points && response.data_points !== response.original_data_points) {
+                    dataReduction = ` (${response.data_points}/${response.original_data_points} points)`;
+                }
+                intervalMsg = ` | Filtered by intervals: ${response.selected_intervals.join(', ')}${dataReduction}`;
+            } else {
+                intervalMsg = ' | Showing all intervals';
+            }
+            
+            showSuccess('Plot loaded for well: ' + wellName + contextMsg + intervalMsg);
+            console.log('✅ Plot created successfully');
+            console.log('🎯 Requested intervals:', response.selected_intervals);
+            console.log('📊 Final intervals in plot:', response.final_intervals);
+            console.log('📊 Data points in plot:', response.data_points);
+            if (response.original_data_points !== response.data_points) {
+                console.log('🔽 Data reduced from', response.original_data_points, 'to', response.data_points, 'points due to interval filtering');
+            }
         } else {
             throw new Error(response.message || 'Failed to load plot');
         }
     })
     .catch(function(error) {
-        console.error('🚀 Error loading well plot:', error);
+        console.error('❌ Error loading well plot:', error);
         setError(error.message);
         showError('Error loading well plot: ' + error.message);
     })
@@ -1580,22 +1614,30 @@ function renderIntervalList(intervals) {
 }
 
 function toggleInterval(intervalId) {
-    console.log('Toggling interval:', intervalId);
+    console.log('🎯 Toggling interval:', intervalId);
     
     var index = appState.selectedIntervals.indexOf(intervalId);
     if (index === -1) {
         appState.selectedIntervals.push(intervalId);
+        console.log('✅ Added interval:', intervalId);
     } else {
         appState.selectedIntervals.splice(index, 1);
+        console.log('❌ Removed interval:', intervalId);
     }
+    
+    console.log('🔄 Current selected intervals:', appState.selectedIntervals);
     
     updateIntervalSelection();
     updateBadges();
     
     // Regenerate plot when intervals change (if wells are selected)
     if (appState.selectedWells.length > 0) {
-        console.log('Regenerating plot with new interval selection');
+        console.log('🔄 Regenerating plot with new interval selection');
+        console.log('🔄 Selected wells:', appState.selectedWells);
+        console.log('🔄 Selected intervals:', appState.selectedIntervals);
         generatePlot();
+    } else {
+        console.log('⚠️ No wells selected, skipping plot regeneration');
     }
 }
 

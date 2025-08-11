@@ -288,14 +288,27 @@ class WellLogAnalysis:
             
             # Filter by intervals if specified
             if selected_intervals and len(selected_intervals) > 0 and 'MARKER' in well_data.columns:
-                print(f"Filtering data by selected intervals: {selected_intervals}")
+                print(f"🎯 Filtering data by selected intervals: {selected_intervals}")
                 original_count = len(well_data)
+                available_intervals_before = well_data['MARKER'].unique().tolist()
+                print(f"📊 Available intervals in data: {available_intervals_before}")
+                
                 well_data = well_data[well_data['MARKER'].isin(selected_intervals)]
-                print(f"After interval filtering: {len(well_data)} rows (was {original_count})")
+                filtered_count = len(well_data)
+                print(f"✅ After interval filtering: {filtered_count} rows (was {original_count})")
                 
                 if well_data.empty:
                     available_intervals = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]['MARKER'].unique().tolist()
+                    print(f"❌ No data found for intervals {selected_intervals}. Available intervals: {available_intervals}")
                     return {"status": "error", "message": f"No data found for well {well_name} in selected intervals {selected_intervals}. Available intervals: {available_intervals}"}
+                else:
+                    filtered_intervals = well_data['MARKER'].unique().tolist()
+                    print(f"🎯 Successfully filtered to intervals: {filtered_intervals}")
+            else:
+                if selected_intervals and len(selected_intervals) > 0:
+                    print(f"⚠️ Intervals specified ({selected_intervals}) but MARKER column not found in data")
+                print("📊 Using all data (no interval filtering)")
+                original_count = len(well_data)
             
             # Check if we have essential columns
             required_cols = ['DEPTH']
@@ -320,13 +333,22 @@ class WellLogAnalysis:
                 current_title = fig.layout.title.text if fig.layout.title else f"Well Log - {well_name}"
                 interval_info = f" (Intervals: {', '.join(selected_intervals)})"
                 fig.update_layout(title=current_title + interval_info)
+                print(f"📊 Updated plot title with interval info: {current_title + interval_info}")
+            
+            # Get final filtered interval information
+            final_intervals = []
+            if 'MARKER' in well_data_normalized.columns:
+                final_intervals = well_data_normalized['MARKER'].unique().tolist()
+                print(f"🎯 Final intervals in plot data: {final_intervals}")
             
             return {
                 "status": "success",
                 "figure": fig.to_dict(),
                 "well_name": well_name,
                 "selected_intervals": selected_intervals or [],
-                "data_points": len(well_data_normalized)
+                "final_intervals": final_intervals,
+                "data_points": len(well_data_normalized),
+                "original_data_points": original_count if 'original_count' in locals() else len(well_data_normalized)
             }
         except Exception as e:
             print(f"Error creating log plot: {str(e)}")
