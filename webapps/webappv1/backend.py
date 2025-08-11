@@ -521,36 +521,55 @@ class WellLogAnalysis:
         except Exception as e:
             return {"status": "error", "message": f"Error saving dataset: {str(e)}"}
     
+    def _process_interval_specific_params(self, params, selected_intervals):
+        """Process interval-specific parameters into a unified format"""
+        if not selected_intervals or not isinstance(params, dict):
+            return params
+        
+        # If params contains interval-specific data
+        if 'intervals' in params:
+            interval_params = params['intervals']
+            # For now, use the first interval's parameters as default
+            # This can be enhanced to handle multi-interval calculations
+            first_interval = selected_intervals[0] if selected_intervals else None
+            if first_interval and first_interval in interval_params:
+                return interval_params[first_interval]
+        
+        return params
+    
     def run_calculation(self, calculation_type, params, output_dataset_name=None):
         """Run calculation with parameters on current dataset"""
         try:
             if self.current_well_data is None:
                 return {"status": "error", "message": "No dataset selected"}
             
+            # Process interval-specific parameters
+            processed_params = self._process_interval_specific_params(params, self.selected_intervals)
+            
             # Make a copy of current data
             df = self.current_well_data.copy()
             
             # Run calculation based on type
             if calculation_type == "vsh":
-                result_df = self._run_vsh_calculation(df, params)
+                result_df = self._run_vsh_calculation(df, processed_params)
             elif calculation_type == "porosity":
-                result_df = self._run_porosity_calculation(df, params)
+                result_df = self._run_porosity_calculation(df, processed_params)
             elif calculation_type == "gsa":
-                result_df = self._run_gsa_calculation(df, params)
+                result_df = self._run_gsa_calculation(df, processed_params)
             elif calculation_type == "rgbe_rpbe":
-                result_df = self._run_rgbe_rpbe_calculation(df, params)
+                result_df = self._run_rgbe_rpbe_calculation(df, processed_params)
             elif calculation_type == "rt_r0":
-                result_df = self._run_rt_r0_calculation(df, params)
+                result_df = self._run_rt_r0_calculation(df, processed_params)
             elif calculation_type == "swgrad":
-                result_df = self._run_swgrad_calculation(df, params)
+                result_df = self._run_swgrad_calculation(df, processed_params)
             elif calculation_type == "dns_dnsv":
-                result_df = self._run_dns_dnsv_calculation(df, params)
+                result_df = self._run_dns_dnsv_calculation(df, processed_params)
             elif calculation_type == "sw":
-                result_df = self._run_sw_calculation(df, params)
+                result_df = self._run_sw_calculation(df, processed_params)
             elif calculation_type == "rwa":
-                result_df = self._run_rwa_calculation(df, params)
+                result_df = self._run_rwa_calculation(df, processed_params)
             elif calculation_type == "normalization":
-                result_df = self._run_interval_normalization(df, params)
+                result_df = self._run_interval_normalization(df, processed_params)
             else:
                 return {"status": "error", "message": f"Unknown calculation type: {calculation_type}"}
             
@@ -1090,7 +1109,14 @@ def run_calculation_endpoint():
         calculation_type = data.get('calculation_type')
         params = data.get('params', {})
         output_dataset = data.get('output_dataset')
+        selected_intervals = data.get('selected_intervals', [])
+        
         analysis = get_analysis_instance()
+        
+        # Update selected intervals if provided
+        if selected_intervals:
+            analysis.selected_intervals = selected_intervals
+        
         result = analysis.run_calculation(calculation_type, params, output_dataset)
         return json.dumps(result)
     except Exception as e:

@@ -1124,7 +1124,7 @@ body {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.875rem;
-    table-layout: fixed; /* Fixed layout for consistent column widths */
+    table-layout: auto; /* Changed to auto for dynamic columns */
 }
 
 #parameterTable th,
@@ -1132,21 +1132,152 @@ body {
     padding: 0.75rem 0.5rem;
     border: 1px solid var(--border-color);
     text-align: left;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    vertical-align: middle;
 }
 
-/* Specific column widths */
+/* Base column widths */
 #parameterTable th:nth-child(1), /* # */
 #parameterTable td:nth-child(1) {
-    width: 8%;
+    width: 40px;
     text-align: center;
+    min-width: 40px;
 }
 
 #parameterTable th:nth-child(2), /* Location */
 #parameterTable td:nth-child(2) {
-    width: 15%;
+    width: 80px;
+    min-width: 80px;
+}
+
+#parameterTable th:nth-child(3), /* Mode */
+#parameterTable td:nth-child(3) {
+    width: 80px;
+    min-width: 80px;
+}
+
+#parameterTable th:nth-child(4), /* Comment */
+#parameterTable td:nth-child(4) {
+    width: 200px;
+    min-width: 200px;
+    white-space: normal;
+    word-wrap: break-word;
+    max-width: 300px;
+}
+
+#parameterTable th:nth-child(5), /* Unit */
+#parameterTable td:nth-child(5) {
+    width: 60px;
+    min-width: 60px;
+}
+
+#parameterTable th:nth-child(6), /* Name */
+#parameterTable td:nth-child(6) {
+    width: 100px;
+    min-width: 100px;
+    font-weight: 500;
+}
+
+#parameterTable th:nth-child(7), /* P (sync checkbox) */
+#parameterTable td:nth-child(7) {
+    width: 40px;
+    min-width: 40px;
+    text-align: center;
+}
+
+/* Dynamic interval columns - start from column 8 */
+#parameterTable th:nth-child(n+8),
+#parameterTable td:nth-child(n+8) {
+    width: 120px;
+    min-width: 120px;
+    text-align: center;
+}
+
+/* Row background colors based on parameter location */
+.bg-orange-600 {
+    background-color: #ea580c !important;
+    color: white;
+}
+
+.bg-yellow-300 {
+    background-color: #fde047 !important;
+    color: black;
+}
+
+.bg-yellow-100 {
+    background-color: #fef3c7 !important;
+    color: black;
+}
+
+.bg-cyan-400 {
+    background-color: #22d3ee !important;
+    color: black;
+}
+
+.bg-cyan-200 {
+    background-color: #a5f3fc !important;
+    color: black;
+}
+
+.bg-yellow-600 {
+    background-color: #ca8a04 !important;
+    color: white;
+}
+
+.bg-green-400 {
+    background-color: #4ade80 !important;
+    color: black;
+}
+
+.bg-white {
+    background-color: white !important;
+    color: black;
+}
+
+/* Input styling for interval-specific parameters */
+.interval-input {
+    width: 100%;
+    min-width: 100px;
+    padding: 4px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    font-size: 0.875rem;
+    background: white;
+    color: black;
+}
+
+.interval-input:disabled {
+    background-color: #f3f4f6;
+    color: #6b7280;
+}
+
+.interval-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgb(59 130 246 / 0.1);
+}
+
+/* Sync checkbox styling */
+.sync-checkbox {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid var(--border-color);
+}
+
+/* Wells and intervals info header */
+.wells-intervals-info {
+    padding: 10px;
+    background: #f0f8ff;
+    border: 1px solid #ddd;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.wells-intervals-info p {
+    margin: 0;
+    font-weight: bold;
+    color: var(--text-primary);
 }
 
 #parameterTable th:nth-child(3), /* Mode */

@@ -2069,65 +2069,73 @@ function getCalculationParameters(calculationType) {
         'vsh-gr': {
             title: 'Volume of Shale from Gamma Ray (VSH-GR) Parameters',
             parameters: [
-                { name: 'gr_log', label: 'Gamma Ray Log', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
-                { name: 'opt_gr', label: 'VSH GR Method', type: 'select', options: ['LINEAR'], default_value: 'LINEAR', required: true },
-                { name: 'gr_ma', label: 'Clean GR Value (API)', type: 'number', default_value: 30, required: true },
-                { name: 'gr_sh', label: 'Shale GR Value (API)', type: 'number', default_value: 120, required: true }
+                { name: 'OPT_GR', location: 'Interval', mode: 'In_Out', description: 'Option for VSH from gamma ray', unit: 'ALPHA*8', type: 'select', options: ['LINEAR'], default_value: 'LINEAR', required: true },
+                { name: 'GR_MA', location: 'Interval', mode: 'In_Out', description: 'Gamma ray matrix (clean)', unit: 'GAPI', type: 'number', default_value: 30, required: true },
+                { name: 'GR_SH', location: 'Interval', mode: 'In_Out', description: 'Gamma ray shale', unit: 'GAPI', type: 'number', default_value: 120, required: true },
+                { name: 'GR', location: 'Log', mode: 'Input', description: 'Gamma ray log', unit: 'GAPI', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
+                { name: 'VSH_GR', location: 'Log', mode: 'Output', description: 'VSH from gamma ray', unit: 'V/V', type: 'text', default_value: 'VSH_GR', required: true }
             ]
         },
         'vsh-dn': {
             title: 'Volume of Shale from Density-Neutron (VSH-DN) Parameters', 
             parameters: [
-                { name: 'rhob_log', label: 'Density Log', type: 'select', options: ['RHOB', 'RHOZ'], default_value: 'RHOB', required: true },
-                { name: 'nphi_log', label: 'Neutron Porosity Log', type: 'select', options: ['NPHI', 'TNPH'], default_value: 'NPHI', required: true },
-                { name: 'rhob_ma', label: 'Matrix Density (g/cc)', type: 'number', default_value: 2.65, required: true },
-                { name: 'rhob_sh', label: 'Shale Density (g/cc)', type: 'number', default_value: 2.61, required: true },
-                { name: 'rhob_fl', label: 'Fluid Density (g/cc)', type: 'number', default_value: 0.85, required: true },
-                { name: 'nphi_ma', label: 'Matrix Neutron (v/v)', type: 'number', default_value: -0.02, required: true },
-                { name: 'nphi_sh', label: 'Shale Neutron (v/v)', type: 'number', default_value: 0.398, required: true },
-                { name: 'nphi_fl', label: 'Fluid Neutron (v/v)', type: 'number', default_value: 0.85, required: true }
+                { name: 'RHOB_MA', location: 'Interval', mode: 'In_Out', description: 'Matrix density', unit: 'G/C3', type: 'number', default_value: 2.65, required: true },
+                { name: 'RHOB_SH', location: 'Interval', mode: 'In_Out', description: 'Shale density', unit: 'G/C3', type: 'number', default_value: 2.61, required: true },
+                { name: 'RHOB_FL', location: 'Interval', mode: 'In_Out', description: 'Fluid density', unit: 'G/C3', type: 'number', default_value: 0.85, required: true },
+                { name: 'NPHI_MA', location: 'Interval', mode: 'In_Out', description: 'Matrix neutron porosity', unit: 'V/V', type: 'number', default_value: -0.02, required: true },
+                { name: 'NPHI_SH', location: 'Interval', mode: 'In_Out', description: 'Shale neutron porosity', unit: 'V/V', type: 'number', default_value: 0.398, required: true },
+                { name: 'NPHI_FL', location: 'Interval', mode: 'In_Out', description: 'Fluid neutron porosity', unit: 'V/V', type: 'number', default_value: 0.85, required: true },
+                { name: 'RHOB', location: 'Log', mode: 'Input', description: 'Density log', unit: 'G/C3', type: 'select', options: ['RHOB', 'RHOZ'], default_value: 'RHOB', required: true },
+                { name: 'NPHI', location: 'Log', mode: 'Input', description: 'Neutron porosity log', unit: 'V/V', type: 'select', options: ['NPHI', 'TNPH'], default_value: 'NPHI', required: true },
+                { name: 'VSH', location: 'Log', mode: 'Output', description: 'VSH from density-neutron', unit: 'V/V', type: 'text', default_value: 'VSH_DN', required: true }
             ]
         },
         'porosity': {
             title: 'Porosity from Density-Neutron (Bateman/Konen Method) Parameters',
             parameters: [
-                { name: 'rhob_fl', label: 'Fluid Density (g/cc)', type: 'number', default_value: 1.00, required: true },
-                { name: 'rhob_sh', label: 'Shale Density (g/cc)', type: 'number', default_value: 2.45, required: true },
-                { name: 'rhob_dsh', label: 'Dry Shale Density (g/cc)', type: 'number', default_value: 2.60, required: true },
-                { name: 'nphi_sh', label: 'Shale Neutron Porosity (v/v)', type: 'number', default_value: 0.35, required: true },
-                { name: 'phie_max', label: 'Maximum PHIE (v/v)', type: 'number', default_value: 0.3, required: true },
-                { name: 'rhob_ma_base', label: 'Matrix Density (g/cc)', type: 'number', default_value: 2.65, required: true },
-                { name: 'rhob_w', label: 'Water Density (g/cc)', type: 'number', default_value: 1.00, required: true },
-                { name: 'rhob_max', label: 'Max Density (g/cc)', type: 'number', default_value: 4.00, required: true }
+                { name: 'RHOB_FL', location: 'Interval', mode: 'In_Out', description: 'Fluid Density', unit: 'G/C3', type: 'number', default_value: 1.00, required: true },
+                { name: 'RHOB_SH', location: 'Interval', mode: 'In_Out', description: 'Shale Density', unit: 'G/C3', type: 'number', default_value: 2.45, required: true },
+                { name: 'RHOB_DSH', location: 'Interval', mode: 'In_Out', description: 'Dry Shale Density', unit: 'G/C3', type: 'number', default_value: 2.60, required: true },
+                { name: 'NPHI_SH', location: 'Interval', mode: 'In_Out', description: 'Shale Neutron Porosity', unit: 'V/V', type: 'number', default_value: 0.35, required: true },
+                { name: 'PHIE_MAX', location: 'Interval', mode: 'In_Out', description: 'Maximum PHIE', unit: 'V/V', type: 'number', default_value: 0.3, required: true },
+                { name: 'RHOB_MA_BASE', location: 'Interval', mode: 'In_Out', description: 'Matrix Density', unit: 'G/C3', type: 'number', default_value: 2.65, required: true },
+                { name: 'RHOB_W', location: 'Interval', mode: 'In_Out', description: 'Water Density', unit: 'G/C3', type: 'number', default_value: 1.00, required: true },
+                { name: 'RHOB_MAX', location: 'Interval', mode: 'In_Out', description: 'Max Density', unit: 'G/C3', type: 'number', default_value: 4.00, required: true }
             ]
         },
         'sw-indonesia': {
             title: 'Water Saturation Indonesia Method Parameters',
             parameters: [
-                { name: 'rt_log', label: 'Resistivity Log', type: 'select', options: ['RT', 'ILD', 'RD'], default_value: 'RT', required: true },
-                { name: 'phie_log', label: 'Effective Porosity Log', type: 'select', options: ['PHIE', 'PHID'], default_value: 'PHIE', required: true },
-                { name: 'vsh_log', label: 'Volume of Shale Log', type: 'select', options: ['VSH', 'VSH_GR'], default_value: 'VSH', required: true },
-                { name: 'ftemp_log', label: 'Formation Temperature Log', type: 'select', options: ['FTEMP', 'TEMP'], default_value: 'FTEMP', required: true },
-                { name: 'a', label: 'Tortuosity Factor (a)', type: 'number', default_value: 1.0, required: true },
-                { name: 'm', label: 'Cementation Exponent (m)', type: 'number', default_value: 2.0, required: true },
-                { name: 'n', label: 'Saturation Exponent (n)', type: 'number', default_value: 2.0, required: true },
-                { name: 'rws', label: 'Resistivity of Formation Water (ohm-m)', type: 'number', default_value: 0.529, required: true },
-                { name: 'rwt', label: 'Temperature of RWS (°F)', type: 'number', default_value: 227, required: true },
-                { name: 'rt_sh', label: 'Shale Resistivity (ohm-m)', type: 'number', default_value: 2.2, required: true }
+                { name: 'RW', location: 'Interval', mode: 'In_Out', description: 'Formation water resistivity', unit: 'OHMM', type: 'number', default_value: 0.05, required: true },
+                { name: 'A', location: 'Interval', mode: 'In_Out', description: 'Tortuosity constant', unit: '', type: 'number', default_value: 1.0, required: true },
+                { name: 'M', location: 'Interval', mode: 'In_Out', description: 'Cementation Factor', unit: '', type: 'number', default_value: 2.0, required: true },
+                { name: 'N', location: 'Interval', mode: 'In_Out', description: 'Saturation Exponent', unit: '', type: 'number', default_value: 2.0, required: true },
+                { name: 'RT_SH', location: 'Interval', mode: 'In_Out', description: 'Shale resistivity', unit: 'OHMM', type: 'number', default_value: 2.2, required: true },
+                { name: 'RT', location: 'Log', mode: 'Input', description: 'Resistivity Log', unit: 'OHMM', type: 'select', options: ['RT', 'ILD', 'RD'], default_value: 'RT', required: true },
+                { name: 'PHIE', location: 'Log', mode: 'Input', description: 'Effective Porosity Log', unit: 'V/V', type: 'select', options: ['PHIE', 'PHID'], default_value: 'PHIE', required: true },
+                { name: 'VSH', location: 'Log', mode: 'Input', description: 'Volume of Shale Log', unit: 'V/V', type: 'select', options: ['VSH', 'VSH_GR'], default_value: 'VSH', required: true },
+                { name: 'FTEMP', location: 'Log', mode: 'Input', description: 'Formation Temperature Log', unit: 'DEGF', type: 'select', options: ['FTEMP', 'TEMP'], default_value: 'FTEMP', required: true }
             ]
         },
         'sw-simandoux': {
-            title: 'Water Saturation Simandoux Method Parameters', 
+            title: 'Water Saturation Simandoux Method Parameters',
             parameters: [
-                { name: 'method', label: 'Calculation Method', type: 'select', options: ['simandoux'], default_value: 'simandoux', required: true }
+                { name: 'RW', location: 'Interval', mode: 'In_Out', description: 'Formation water resistivity', unit: 'OHMM', type: 'number', default_value: 0.05, required: true },
+                { name: 'A', location: 'Interval', mode: 'In_Out', description: 'Tortuosity constant', unit: '', type: 'number', default_value: 1.0, required: true },
+                { name: 'M', location: 'Interval', mode: 'In_Out', description: 'Cementation Factor', unit: '', type: 'number', default_value: 2.0, required: true },
+                { name: 'N', location: 'Interval', mode: 'In_Out', description: 'Saturation Exponent', unit: '', type: 'number', default_value: 2.0, required: true },
+                { name: 'RT_SH', location: 'Interval', mode: 'In_Out', description: 'Shale resistivity', unit: 'OHMM', type: 'number', default_value: 2.2, required: true },
+                { name: 'RT', location: 'Log', mode: 'Input', description: 'Resistivity Log', unit: 'OHMM', type: 'select', options: ['RT', 'ILD', 'RD'], default_value: 'RT', required: true },
+                { name: 'PHIE', location: 'Log', mode: 'Input', description: 'Effective Porosity Log', unit: 'V/V', type: 'select', options: ['PHIE', 'PHID'], default_value: 'PHIE', required: true },
+                { name: 'VSH', location: 'Log', mode: 'Input', description: 'Volume of Shale Log', unit: 'V/V', type: 'select', options: ['VSH', 'VSH_GR'], default_value: 'VSH', required: true }
             ]
         },
         'water-resistivity': {
-            title: 'Water Resistivity Parameters',
+            title: 'Water Resistivity Input Parameters',
             parameters: [
-                { name: 'a', label: 'Tortuosity Factor (a)', type: 'number', default_value: 1.0, required: true },
-                { name: 'm', label: 'Cementation Exponent (m)', type: 'number', default_value: 2.0, required: true },
-                { name: 'rt_sh', label: 'Shale Resistivity (ohm-m)', type: 'number', default_value: 2.2, required: true }
+                { name: 'A', location: 'Interval', mode: 'In_Out', description: 'Tortuosity constant', unit: '', type: 'number', default_value: 1.0, required: true },
+                { name: 'M', location: 'Interval', mode: 'In_Out', description: 'Cementation Factor', unit: '', type: 'number', default_value: 2.0, required: true },
+                { name: 'RT_SH', location: 'Interval', mode: 'In_Out', description: 'Shale resistivity', unit: 'OHMM', type: 'number', default_value: 2.2, required: true }
             ]
         }
     };
@@ -2166,41 +2174,107 @@ function showParameterForm(calculationType, parameters) {
         formTitle.textContent = parameters.title || (calculationType.toUpperCase() + ' Parameters');
     }
     
-    // Create parameter rows
+    // Add wells and intervals info header
+    var infoHeader = document.querySelector('#parameterForm .wells-intervals-info');
+    if (!infoHeader) {
+        infoHeader = document.createElement('div');
+        infoHeader.className = 'wells-intervals-info';
+        infoHeader.style.cssText = 'padding: 10px; background: #f0f8ff; border: 1px solid #ddd; margin-bottom: 15px; border-radius: 4px;';
+        var formHeader = document.querySelector('#parameterForm .form-header');
+        if (formHeader) {
+            formHeader.appendChild(infoHeader);
+        }
+    }
+    infoHeader.innerHTML = '<p style="margin: 0; font-weight: bold;">Wells: ' + 
+        (appState.selectedWells.length > 0 ? appState.selectedWells.join(', ') : 'None selected') + 
+        ' | Intervals: ' + appState.selectedIntervals.length + ' selected</p>';
+    
+    // Create table header with dynamic interval columns
+    var tableHeader = document.querySelector('#parameterForm .parameter-table thead');
+    if (tableHeader) {
+        var headerHtml = '<tr>' +
+            '<th>#</th>' +
+            '<th>Location</th>' +
+            '<th>Mode</th>' +
+            '<th>Comment</th>' +
+            '<th>Unit</th>' +
+            '<th>Name</th>' +
+            '<th>P</th>';
+        
+        // Add header for each selected interval
+        appState.selectedIntervals.forEach(function(interval) {
+            headerHtml += '<th>' + interval + '</th>';
+        });
+        
+        headerHtml += '</tr>';
+        tableHeader.innerHTML = headerHtml;
+    }
+    
+    // Create parameter rows with interval-specific columns
     parameters.parameters.forEach(function(param, index) {
         var row = document.createElement('tr');
+        row.className = getParameterRowBgColor(param.location, param.mode);
         
         var cellHtml = '<td>' + (index + 1) + '</td>' +
-                      '<td>' + param.label + '</td>' +
-                      '<td>';
+                      '<td>' + (param.location || 'Interval') + '</td>' +
+                      '<td>' + (param.mode || 'In_Out') + '</td>' +
+                      '<td>' + (param.description || param.label || '') + '</td>' +
+                      '<td>' + (param.unit || '') + '</td>' +
+                      '<td style="font-weight: bold;">' + param.name + '</td>' +
+                      '<td style="text-align: center;"><input type="checkbox" class="sync-checkbox" data-param="' + param.name + '"></td>';
         
-        if (param.type === 'select') {
-            cellHtml += '<select name="' + param.name + '" class="select-input">';
-            param.options.forEach(function(option) {
-                var selected = option === param.default_value ? 'selected' : '';
-                cellHtml += '<option value="' + option + '" ' + selected + '>' + option + '</option>';
+        // Add input cells for each selected interval
+        if (appState.selectedIntervals.length > 0) {
+            appState.selectedIntervals.forEach(function(interval) {
+                cellHtml += '<td>';
+                if (param.type === 'select') {
+                    cellHtml += '<select name="' + param.name + '_' + interval + '" class="interval-input" style="width: 100%; min-width: 100px;">';
+                    param.options.forEach(function(option) {
+                        var selected = option === param.default_value ? 'selected' : '';
+                        cellHtml += '<option value="' + option + '" ' + selected + '>' + option + '</option>';
+                    });
+                    cellHtml += '</select>';
+                } else if (param.type === 'number') {
+                    var step = '0.01';
+                    var min = param.min !== undefined ? 'min="' + param.min + '"' : '';
+                    var max = param.max !== undefined ? 'max="' + param.max + '"' : '';
+                    var defaultVal = param.default_value !== undefined ? param.default_value : '';
+                    cellHtml += '<input type="number" name="' + param.name + '_' + interval + '" value="' + defaultVal + '" step="' + step + '" ' + min + ' ' + max + ' class="interval-input" style="width: 100%; min-width: 100px;">';
+                } else {
+                    var defaultVal = param.default_value !== undefined ? param.default_value : '';
+                    cellHtml += '<input type="text" name="' + param.name + '_' + interval + '" value="' + defaultVal + '" class="interval-input" style="width: 100%; min-width: 100px;">';
+                }
+                cellHtml += '</td>';
             });
-            cellHtml += '</select>';
-        } else if (param.type === 'number') {
-            var step = '0.01';
-            var min = param.min !== undefined ? 'min="' + param.min + '"' : '';
-            var max = param.max !== undefined ? 'max="' + param.max + '"' : '';
-            var defaultVal = param.default_value !== undefined ? param.default_value : '';
-            cellHtml += '<input type="number" name="' + param.name + '" value="' + defaultVal + '" step="' + step + '" ' + min + ' ' + max + ' class="select-input">';
         } else {
-            var defaultVal = param.default_value !== undefined ? param.default_value : '';
-            cellHtml += '<input type="text" name="' + param.name + '" value="' + defaultVal + '" class="select-input">';
+            // If no intervals selected, show default input
+            cellHtml += '<td>';
+            if (param.type === 'select') {
+                cellHtml += '<select name="' + param.name + '" class="select-input">';
+                param.options.forEach(function(option) {
+                    var selected = option === param.default_value ? 'selected' : '';
+                    cellHtml += '<option value="' + option + '" ' + selected + '>' + option + '</option>';
+                });
+                cellHtml += '</select>';
+            } else if (param.type === 'number') {
+                var step = '0.01';
+                var min = param.min !== undefined ? 'min="' + param.min + '"' : '';
+                var max = param.max !== undefined ? 'max="' + param.max + '"' : '';
+                var defaultVal = param.default_value !== undefined ? param.default_value : '';
+                cellHtml += '<input type="number" name="' + param.name + '" value="' + defaultVal + '" step="' + step + '" ' + min + ' ' + max + ' class="select-input">';
+            } else {
+                var defaultVal = param.default_value !== undefined ? param.default_value : '';
+                cellHtml += '<input type="text" name="' + param.name + '" value="' + defaultVal + '" class="select-input">';
+            }
+            cellHtml += '</td>';
         }
-        
-        cellHtml += '</td>' +
-                   '<td>' + (param.description || '') + '</td>' +
-                   '<td>' + (param.unit || '') + '</td>' +
-                   '<td>' + param.name + '</td>' +
-                   '<td><input type="checkbox" ' + (param.required ? 'checked' : '') + '></td>';
         
         row.innerHTML = cellHtml;
         parameterRows.appendChild(row);
     });
+    
+    // Add sync checkbox functionality
+    addSyncCheckboxListeners();
     
     // Show the form
     parameterForm.classList.remove('hidden');
@@ -2208,7 +2282,54 @@ function showParameterForm(calculationType, parameters) {
     // Store current calculation type
     appState.currentCalculationType = calculationType;
     
-    console.log('Parameter form shown for:', calculationType);
+    console.log('Parameter form shown for:', calculationType, 'with', appState.selectedIntervals.length, 'intervals');
+}
+
+// Helper function to get row background color based on location and mode
+function getParameterRowBgColor(location, mode) {
+    switch (location) {
+        case 'Parameter':
+            return 'bg-orange-600';
+        case 'Constant':
+            return mode === 'Input' ? 'bg-yellow-300' : 'bg-yellow-100';
+        case 'Log':
+            return mode === 'Input' ? 'bg-cyan-400' : 'bg-cyan-200';
+        case 'Output':
+            return 'bg-yellow-600';
+        case 'Interval':
+            return 'bg-green-400';
+        default:
+            return 'bg-white';
+    }
+}
+
+// Add sync checkbox functionality for interval parameters
+function addSyncCheckboxListeners() {
+    var syncCheckboxes = document.querySelectorAll('.sync-checkbox');
+    syncCheckboxes.forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            var paramName = this.getAttribute('data-param');
+            var isSync = this.checked;
+            var intervalInputs = document.querySelectorAll('input[name^="' + paramName + '_"], select[name^="' + paramName + '_"]');
+            
+            if (isSync && intervalInputs.length > 1) {
+                // Sync all interval inputs for this parameter to the first one's value
+                var firstValue = intervalInputs[0].value;
+                intervalInputs.forEach(function(input) {
+                    input.value = firstValue;
+                    input.addEventListener('input', function() {
+                        if (isSync) {
+                            intervalInputs.forEach(function(otherInput) {
+                                if (otherInput !== input) {
+                                    otherInput.value = input.value;
+                                }
+                            });
+                        }
+                    });
+                });
+            }
+        });
+    });
 }
 
 // Submit calculation parameters
@@ -2216,25 +2337,51 @@ function submitCalculationParameters() {
     var parameterForm = document.getElementById('parameterForm');
     
     var params = {};
+    var intervalParams = {};
     var inputs = parameterForm.querySelectorAll('input, select');
     
     inputs.forEach(function(input) {
-        if (input.name && input.type !== 'checkbox') {
+        if (input.name && input.type !== 'checkbox' && !input.classList.contains('sync-checkbox')) {
             var value = input.value;
             if (input.type === 'number') {
                 value = input.step === '1' ? parseInt(value) : parseFloat(value);
             }
-            params[input.name] = value;
+            
+            // Check if this is an interval-specific parameter (contains '_')
+            if (input.name.includes('_') && appState.selectedIntervals.length > 0) {
+                var parts = input.name.split('_');
+                var paramName = parts[0];
+                var interval = parts.slice(1).join('_'); // Handle intervals with underscores in name
+                
+                if (!intervalParams[interval]) {
+                    intervalParams[interval] = {};
+                }
+                intervalParams[interval][paramName] = value;
+            } else {
+                // Regular parameter (not interval-specific)
+                params[input.name] = value;
+            }
         }
     });
     
-    // Add intervals for normalization
-    if (appState.currentCalculationType === 'normalization') {
-        params.intervals = appState.selectedIntervals;
+    // If we have interval-specific parameters, use them; otherwise use regular params
+    var finalParams;
+    if (Object.keys(intervalParams).length > 0) {
+        // Format for backend processing with intervals structure
+        finalParams = {
+            intervals: intervalParams,
+            // Also include first interval's values as fallback
+            ...Object.values(intervalParams)[0] || {}
+        };
+    } else {
+        finalParams = params;
     }
     
-    console.log('🚀 Running calculation with params:', params);
+    console.log('🚀 Running calculation with params:', finalParams);
+    console.log('📊 Interval-specific params:', intervalParams);
     console.log('Calculation type:', appState.currentCalculationType);
+    console.log('Selected wells:', appState.selectedWells);
+    console.log('Selected intervals:', appState.selectedIntervals);
     
     setIsLoading(true);
     
@@ -2243,21 +2390,32 @@ function submitCalculationParameters() {
     
     // Handle specific calculations
     if (calculationType === 'vsh-gr') {
-        handleVshGRCalculation(params);
+        handleVshGRCalculation(finalParams);
     } else if (calculationType === 'vsh-dn') {
-        handleVshDNCalculation(params);
+        handleVshDNCalculation(finalParams);
     } else if (calculationType === 'porosity-calculation') {
-        handlePorosityCalculation(params);
+        handlePorosityCalculation(finalParams);
     } else if (calculationType === 'sw-indonesia') {
-        handleSWIndonesiaCalculation(params);
+        handleSWIndonesiaCalculation(finalParams);
     } else if (calculationType === 'sw-simandoux') {
-        handleSWSimandouxCalculation(params);
+        handleSWSimandouxCalculation(finalParams);
     } else if (calculationType === 'water-resistivity') {
-        handleWaterResistivityCalculation(params);
+        handleWaterResistivityCalculation(finalParams);
     } else {
-        // Mock calculation execution for other modules
-        setTimeout(function() {
-            try {
+        // For other calculations, use the generic calculation endpoint
+        var payload = {
+            calculation_type: calculationType,
+            params: finalParams,
+            selected_intervals: appState.selectedIntervals,
+            selected_wells: appState.selectedWells
+        };
+        
+        fetchJson('/run_calculation_endpoint', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        })
+        .then(function(response) {
+            if (response.status === 'success') {
                 var successMessages = {
                     'gsa': 'Gamma Ray Shale Analysis completed successfully',
                     'rgsa': 'Resistivity-Gamma Ray Shale Analysis completed successfully', 
@@ -2270,34 +2428,45 @@ function submitCalculationParameters() {
                 };
                 
                 var message = successMessages[calculationType] || (calculationType.toUpperCase() + ' calculation completed successfully');
-                
                 showSuccess(message);
                 parameterForm.classList.add('hidden');
                 
-                // Generate mock calculation plot to show results
-                generateMockCalculationPlot(calculationType);
-                
-            } catch (error) {
-                showError('Calculation error: ' + error.message);
+                // Generate calculation plot to show results
+                createCalculationPlot(calculationType);
+            } else {
+                throw new Error(response.message || 'Calculation failed');
             }
-            
+        })
+        .catch(function(error) {
+            showError('Calculation error: ' + error.message);
+        })
+        .finally(function() {
             setIsLoading(false);
-        }, 1500); // Simulate 1.5 second calculation time
+        });
     }
 }
 
 // Specific calculation handler functions for real backend integration
 function handleVshGRCalculation(params) {
+    // Extract parameters from interval-specific format if available
+    var finalParams = params;
+    if (params.intervals && Object.keys(params.intervals).length > 0) {
+        // Use first interval's parameters as default
+        var firstInterval = Object.keys(params.intervals)[0];
+        finalParams = params.intervals[firstInterval];
+    }
+    
     var payload = {
         method: 'vsh_gr',
         parameters: {
-            gr_ma: parseFloat(params.gr_ma) || 30,
-            gr_sh: parseFloat(params.gr_sh) || 120,
-            opt_gr: params.opt_gr || 'LINEAR',
-            gr_log: params.gr_log || 'GR'
+            gr_ma: parseFloat(finalParams.gr_ma) || 30,
+            gr_sh: parseFloat(finalParams.gr_sh) || 120,
+            opt_gr: finalParams.opt_gr || 'LINEAR',
+            gr_log: finalParams.gr_log || 'GR'
         },
         selected_wells: appState.selectedWells,
-        selected_intervals: appState.selectedIntervals
+        selected_intervals: appState.selectedIntervals,
+        interval_specific_params: params.intervals || null
     };
     
     fetch('/vsh_calculation', {
@@ -2746,7 +2915,8 @@ function handleVshDnCalculation() {
     
     var requestData = {
         calculation_type: 'vsh',
-        params: defaultParams
+        params: defaultParams,
+        selected_intervals: appState.selectedIntervals
     };
     
     // Add structure context if available
@@ -2785,7 +2955,8 @@ function handleSwSimandouxCalculation() {
     
     var requestData = {
         calculation_type: 'sw',
-        params: defaultParams
+        params: defaultParams,
+        selected_intervals: appState.selectedIntervals
     };
     
     // Add structure context if available
