@@ -1305,7 +1305,7 @@ function renderWellList(wells) {
 }
 
 function toggleWell(wellId) {
-    console.log('Toggling well:', wellId);
+    console.log('🎯 Toggling well:', wellId);
     
     var index = appState.selectedWells.indexOf(wellId);
     if (index === -1) {
@@ -1326,6 +1326,9 @@ function toggleWell(wellId) {
     updateWellSelection();
     updateIntervalsForSelectedWells();
     updateBadges();
+    
+    // Update parameter form columns in realtime if form is open
+    updateParameterFormColumns();
 }
 
 // Enhanced plot loading dengan structure context dan intervals
@@ -1445,6 +1448,59 @@ function setIsLoading(loading) {
         showLoading();
     } else {
         hideLoading();
+    }
+}
+
+// Update parameter form columns when selection changes
+function updateParameterFormColumns() {
+    var parameterForm = document.getElementById('parameterForm');
+    if (!parameterForm || parameterForm.classList.contains('hidden')) {
+        return; // No active parameter form to update
+    }
+    
+    // Get current calculation type and parameters
+    var calculationType = appState.currentCalculationType;
+    if (!calculationType) return;
+    
+    console.log('🔄 Updating parameter form columns for:', calculationType);
+    console.log('📊 Current intervals:', appState.selectedIntervals);
+    console.log('🏗️ Current wells:', appState.selectedWells);
+    
+    // Get parameter definitions for current calculation
+    getCalculationParameters(calculationType)
+        .then(function(parameters) {
+            // Re-render the parameter form with updated columns
+            showParameterForm(calculationType, parameters, true); // true = update mode
+        })
+        .catch(function(error) {
+            console.error('Error updating parameter form:', error);
+        });
+}
+
+// Update header display to show current selection status
+function updateHeaderDisplay() {
+    // Update intervals count display
+    var intervalsCount = document.getElementById('selectedIntervalsCount');
+    if (intervalsCount) {
+        intervalsCount.textContent = appState.selectedIntervals.length;
+    }
+    
+    // Update wells count display
+    var wellsCount = document.getElementById('selectedWellsCount');
+    if (wellsCount) {
+        wellsCount.textContent = appState.selectedWells.length;
+    }
+    
+    // Update header text with real-time status
+    var headerStatus = document.querySelector('.header-selection-status');
+    if (headerStatus) {
+        var statusText = '';
+        if (appState.selectedWells.length > 0 || appState.selectedIntervals.length > 0) {
+            statusText = `Wells: ${appState.selectedWells.length} | Intervals: ${appState.selectedIntervals.length}`;
+        } else {
+            statusText = 'No selection made';
+        }
+        headerStatus.textContent = statusText;
     }
 }
 
@@ -1580,7 +1636,7 @@ function renderIntervalList(intervals) {
 }
 
 function toggleInterval(intervalId) {
-    console.log('Toggling interval:', intervalId);
+    console.log('🎯 Toggling interval:', intervalId);
     
     var index = appState.selectedIntervals.indexOf(intervalId);
     if (index === -1) {
@@ -1591,6 +1647,9 @@ function toggleInterval(intervalId) {
     
     updateIntervalSelection();
     updateBadges();
+    
+    // Update parameter form columns in realtime if form is open
+    updateParameterFormColumns();
     
     // Regenerate plot when intervals change (if wells are selected)
     if (appState.selectedWells.length > 0) {
@@ -2069,10 +2128,11 @@ function getCalculationParameters(calculationType) {
         'vsh-gr': {
             title: 'Volume of Shale from Gamma Ray (VSH-GR) Parameters',
             parameters: [
-                { name: 'OPT_GR', location: 'Interval', mode: 'In_Out', description: 'Option for VSH from gamma ray', unit: 'ALPHA*8', type: 'select', options: ['LINEAR'], default_value: 'LINEAR', required: true },
+                { name: 'OPT_GR', location: 'Interval', mode: 'In_Out', description: 'Option for VSH from gamma ray', unit: 'ALPHA*8', type: 'text', default_value: '', required: false },
                 { name: 'GR_MA', location: 'Interval', mode: 'In_Out', description: 'Gamma ray matrix (clean)', unit: 'GAPI', type: 'number', default_value: 30, required: true },
                 { name: 'GR_SH', location: 'Interval', mode: 'In_Out', description: 'Gamma ray shale', unit: 'GAPI', type: 'number', default_value: 120, required: true },
-                { name: 'GR', location: 'Log', mode: 'Input', description: 'Gamma ray log', unit: 'GAPI', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
+                // { name: 'OPT_COAL', location: 'Interval', mode: 'In_Out', description: 'Option to allow coal logic', unit: 'LOGICAL', type: 'text', default_value: '', required: false },
+                { name: 'GR', location: 'Log', mode: 'Input', description: 'Gamma ray log', unit: 'GAPI', type: 'select', options: ['GR', 'CGR', 'SGR'], default_value: 'GR', required: true },
                 { name: 'VSH_GR', location: 'Log', mode: 'Output', description: 'VSH from gamma ray', unit: 'V/V', type: 'text', default_value: 'VSH_GR', required: true }
             ]
         },
@@ -2156,13 +2216,31 @@ function getCalculationParameters(calculationType) {
 }
 
 // Show parameter form for calculations
-function showParameterForm(calculationType, parameters) {
+function showParameterForm(calculationType, parameters, isUpdate = false) {
     var parameterForm = document.getElementById('parameterForm');
     var parameterRows = document.getElementById('parameterRows');
     
     if (!parameterForm || !parameterRows) {
         showError('Parameter form not found in DOM');
         return;
+    }
+    
+    // Store current calculation type for updates
+    appState.currentCalculationType = calculationType;
+    
+    console.log(`${isUpdate ? '🔄 Updating' : '📝 Showing'} parameter form for:`, calculationType);
+    console.log('📊 Selected intervals:', appState.selectedIntervals);
+    console.log('🏗️ Selected wells:', appState.selectedWells);
+    
+    // Preserve existing values if in update mode
+    var existingValues = {};
+    if (isUpdate) {
+        var existingInputs = parameterForm.querySelectorAll('input, select');
+        existingInputs.forEach(function(input) {
+            if (input.name && input.value) {
+                existingValues[input.name] = input.value;
+            }
+        });
     }
     
     // Clear existing parameters
