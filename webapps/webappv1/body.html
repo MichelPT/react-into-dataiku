@@ -165,46 +165,33 @@
                         <div id="intervalList" class="list-container scrollable-list"></div>
                     </div>
 
-                    <!-- Plot Configuration -->
+                    <!-- Plot Type Configuration -->
                     <div class="sidebar-section">
                         <div class="section-header">
                             <div class="section-title">
                                 <div class="section-icon">
                                     <svg class="chart-icon" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M22,21H2V3H4V19H6V17H10V19H12V16H16V19H18V17H22V21Z"/>
+                                        <path d="M3 3v18h18v-2H5V3H3zm2 14h2v-4H5v4zm4 0h2V9H9v8zm4 0h2v-6h-2v6zm4 0h2V7h-2v10z"/>
                                     </svg>
                                 </div>
-                                <h3>Plot Configuration</h3>
+                                <h3>Plot Type</h3>
                             </div>
                         </div>
                         <div class="plot-config">
-                            <label>Layout Type</label>
                             <select id="plotTypeSelect" class="select-input">
-                                <option value="default">Layout Default</option>
-                                <option value="normalization">Layout Normalisasi</option>
-                                <option value="smoothing">Layout Smoothing</option>
-                                <option value="vsh">Layout VSH</option>
-                                <option value="porosity">Layout Porosity</option>
-                                <option value="sw">Layout SW</option>
-                                <option value="rwa">Layout RWA</option>
-                                <option value="gsa">Layout GSA</option>
+                                <option value="default">Default Plot</option>
+                                <option value="normalization">Normalization</option>
+                                <option value="smoothing">Smoothing</option>
+                                <option value="vsh">VSH Calculation</option>
+                                <option value="porosity">Porosity</option>
+                                <option value="sw">Water Saturation</option>
+                                <option value="rwa">Water Resistivity</option>
+                                <option value="gsa">GSA Analysis</option>
+                                <option value="rpbe-rgbe">RPBE-RGBE</option>
+                                <option value="swgrad">SW Gradient</option>
+                                <option value="dns-dnsv">DNS-DNSV</option>
+                                <option value="rt-ro">RT-R0</option>
                             </select>
-                            
-                            <div class="analysis-tools">
-                                <label>Analysis Tools</label>
-                                <button class="tool-btn" data-tool="histogram">
-                                    <svg class="tool-icon" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M22,21H2V3H4V19H6V17H10V19H12V16H16V19H18V17H22V21Z"/>
-                                    </svg>
-                                    Histogram
-                                </button>
-                                <button class="tool-btn" data-tool="crossplot">
-                                    <svg class="tool-icon" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z"/>
-                                    </svg>
-                                    Crossplot
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -276,12 +263,81 @@
                 </div>
             </main>
 
+            <!-- Trim Data Modal -->
+            <div id="trimDataModal" class="modal-overlay hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Trim Data</h3>
+                        <button id="closeTrimDataModal" class="btn-close">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="trim-data-form">
+                            <div class="form-section">
+                                <h4>Data Selection</h4>
+                                <div class="selection-info">
+                                    <p id="trimDataWellsInfo"><strong>Wells:</strong> <span>None selected</span></p>
+                                    <p id="trimDataIntervalsInfo"><strong>Intervals:</strong> <span>0 selected</span></p>
+                                </div>
+                            </div>
+                            
+                            <div class="form-section">
+                                <h4>Trim Parameters</h4>
+                                <div class="parameter-grid">
+                                    <div class="parameter-item">
+                                        <label for="trimStartDepth">Start Depth:</label>
+                                        <input type="number" id="trimStartDepth" class="form-input" placeholder="Enter start depth" step="0.1">
+                                    </div>
+                                    <div class="parameter-item">
+                                        <label for="trimEndDepth">End Depth:</label>
+                                        <input type="number" id="trimEndDepth" class="form-input" placeholder="Enter end depth" step="0.1">
+                                    </div>
+                                    <div class="parameter-item">
+                                        <label for="trimMethod">Trim Method:</label>
+                                        <select id="trimMethod" class="form-input">
+                                            <option value="depth_range">Depth Range</option>
+                                            <option value="interval_based">Interval Based</option>
+                                            <option value="quality_filter">Quality Filter</option>
+                                        </select>
+                                    </div>
+                                    <div class="parameter-item">
+                                        <label for="trimOutputSuffix">Output Suffix:</label>
+                                        <input type="text" id="trimOutputSuffix" class="form-input" value="_TRIM" placeholder="Output file suffix">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-section">
+                                <h4>Advanced Options</h4>
+                                <div class="checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="trimPreserveBadHoles" checked>
+                                        <span>Preserve bad hole sections</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="trimInterpolateGaps">
+                                        <span>Interpolate small gaps</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="trimValidateDepths" checked>
+                                        <span>Validate depth consistency</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="cancelTrimData" class="btn-secondary">Cancel</button>
+                        <button id="runTrimData" class="btn-primary">Run Trim Data</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Right Sidebar - Module Configuration -->
             <aside id="rightSidebar" class="right-sidebar">
                 <div class="sidebar-header">
                     <div class="header-icon">
                         <svg class="settings-icon" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11.03L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11.03C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+                            <path d="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,5V19H5V5H19Z"/>
                         </svg>
                     </div>
                     <div class="header-text">
@@ -291,24 +347,24 @@
                 </div>
                 
                 <div class="sidebar-content">
+                    <!-- Data Preparation Modules -->
                     <div class="module-section">
                         <h4>Data Preparation</h4>
                         <div class="button-group">
-                            <button class="module-btn" data-module="log-plot">LOG PLOT</button>
-                            <button class="module-btn" data-module="histogram">HISTOGRAM</button>
-                            <button class="module-btn" data-module="crossplot-nphi-rhob">CROSSPLOT-NPHI-RHOB</button>
-                            <button class="module-btn" data-module="crossplot-gr-nphi">CROSSPLOT-GR-NPHI</button>
+                            <button class="module-btn" data-module="normalization">NORMALIZATION</button>
+                            <button class="module-btn" data-module="smoothing">SMOOTHING</button>
                             <button class="module-btn" data-module="trim-data">TRIM DATA</button>
                             <button class="module-btn" data-module="depth-matching">DEPTH MATCHING</button>
-                            <button class="module-btn" data-module="fill-missing">FILL MISSING</button>
-                            <button class="module-btn" data-module="smoothing">SMOOTHING</button>
-                            <button class="module-btn" data-module="normalization">NORMALIZATION</button>
+                            <button class="module-btn" data-module="histogram">HISTOGRAM</button>
+                            <button class="module-btn" data-module="crossplot">CROSSPLOT</button>
                         </div>
                     </div>
                     
+                    <!-- Interpretation Modules -->
                     <div class="module-section">
                         <h4>Interpretation</h4>
                         <div class="button-group">
+                            <!-- VSH Calculation -->
                             <button class="module-btn dropdown-btn" data-module="vsh-calculation">
                                 <span>VSH CALCULATION</span>
                                 <svg class="chevron-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -320,8 +376,10 @@
                                 <button class="sub-module-btn" data-module="vsh-dn">VSH-DN</button>
                             </div>
                             
+                            <!-- Porosity -->
                             <button class="module-btn" data-module="porosity-calculation">POROSITY CALCULATION</button>
                             
+                            <!-- SW Calculation -->
                             <button class="module-btn dropdown-btn" data-module="sw-calculation">
                                 <span>SW CALCULATION</span>
                                 <svg class="chevron-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -333,29 +391,33 @@
                                 <button class="sub-module-btn" data-module="sw-simandoux">SW SIMANDOUX</button>
                             </div>
                             
+                            <!-- Water Resistivity -->
                             <button class="module-btn" data-module="water-resistivity-calculation">WATER RESISTIVITY</button>
                         </div>
                     </div>
                     
+                    <!-- Gas Oil Water Scanner (GOWS) -->
                     <div class="module-section">
-                        <h4>Gas Oil Water Scanner (GOWS)</h4>
+                        <h4>Gas Oil Water Scanner</h4>
                         <div class="button-group">
-                            <button class="module-btn dropdown-btn" data-module="rgsa-ngsa-dgsa">
-                                <span>RGSA</span>
+                            <!-- RGSA Group -->
+                            <button class="module-btn dropdown-btn" data-module="rgsa-analysis">
+                                <span>RGSA ANALYSIS</span>
                                 <svg class="chevron-icon" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
                                 </svg>
                             </button>
-                            <div class="dropdown-content hidden" data-parent="rgsa-ngsa-dgsa">
+                            <div class="dropdown-content hidden" data-parent="rgsa-analysis">
                                 <button class="sub-module-btn" data-module="rgsa">RGSA</button>
                                 <button class="sub-module-btn" data-module="dgsa">DGSA</button>
                                 <button class="sub-module-btn" data-module="ngsa">NGSA</button>
                             </div>
                             
+                            <!-- Other GOWS modules -->
                             <button class="module-btn" data-module="rgbe-rpbe">RGBE-RPBE</button>
                             <button class="module-btn" data-module="swgrad">SWGRAD</button>
                             <button class="module-btn" data-module="dns-dnsv">DNS-DNSV</button>
-                            <button class="module-btn" data-module="rt-ro">RT-RO</button>
+                            <button class="module-btn" data-module="rt-ro">RT-R0</button>
                         </div>
                     </div>
                 </div>

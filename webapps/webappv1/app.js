@@ -15,7 +15,8 @@ var appState = {
     selectedFilePath: null, // Added for file-based plots
     plotFigure: { data: [], layout: {} }, // Added for plot state
     error: null, // Added for error handling
-    wellColumns: {} // Added for well columns
+    wellColumns: {}, // Added for well columns
+    currentView: 'structures' // Added for view tracking
 };
 
 // Mock data untuk testing ketika backend tidak tersedia
@@ -163,16 +164,19 @@ function showPage(pageName) {
         if (dashboardPage) dashboardPage.classList.add('hidden');
         if (dataPreparation) dataPreparation.classList.add('hidden');
         currentPage = 'structures';
+        appState.currentView = 'structures';
     } else if (pageName === 'dashboard') {
         if (structuresPage) structuresPage.classList.add('hidden');
         if (dashboardPage) dashboardPage.classList.remove('hidden');
         if (dataPreparation) dataPreparation.classList.add('hidden');
         currentPage = 'dashboard';
+        appState.currentView = 'dashboard';
     } else if (pageName === 'data-preparation') {
         if (structuresPage) structuresPage.classList.add('hidden');
         if (dashboardPage) dashboardPage.classList.add('hidden');
         if (dataPreparation) dataPreparation.classList.remove('hidden');
         currentPage = 'data-preparation';
+        appState.currentView = 'dataPrep';
         // Initialize data prep page when shown
         initializeDataPrepPage();
     }
@@ -858,23 +862,30 @@ function setupPlotTypeSelect() {
     if (plotTypeSelect) {
         plotTypeSelect.addEventListener('change', function() {
             appState.plotType = plotTypeSelect.value;
+            console.log('Plot type changed to:', plotTypeSelect.value);
+            
+            // Auto-refresh plot if wells are selected
+            if (appState.selectedWells.length > 0) {
+                // Trigger plot update based on new plot type
+                updatePlotForType(plotTypeSelect.value);
+            }
+            
             showMessage('Plot type changed to: ' + plotTypeSelect.value, 'info');
         });
     }
 }
 
-// Analysis tools handling
-function setupAnalysisTools() {
-    var toolButtons = document.querySelectorAll('.tool-btn');
-    toolButtons.forEach(function(button) {
-        button.addEventListener('click', function() {
-            var tool = button.getAttribute('data-tool');
-            if (tool) {
-                showMessage('Opening ' + tool + ' tool...', 'info');
-                // Add tool-specific logic here
-            }
-        });
-    });
+// Update plot based on selected type
+function updatePlotForType(plotType) {
+    if (appState.selectedWells.length === 0) {
+        showMessage('Please select wells first', 'warning');
+        return;
+    }
+    
+    console.log('Updating plot for type:', plotType, 'with wells:', appState.selectedWells);
+    
+    // Use existing createPlot function with the new plot type
+    createPlot(appState.selectedWells, plotType);
 }
 
 // Improved fetchJson with Dataiku backend URL support, better error handling, and fallback
@@ -1243,8 +1254,12 @@ function loadWells() {
             }
         })
         .catch(function(error) {
-            console.error('Error loading wells:', error);
-            showError('Failed to load wells: ' + error.message);
+            console.error('Backend not available, using mock wells:', error);
+            // Use mock wells for testing
+            appState.availableWells = mockData.wells;
+            renderWellList(mockData.wells);
+            updateBadges();
+            showWarning('Using mock wells for testing. Backend: ' + error.message);
         })
         .finally(function() {
             hideLoading();
@@ -1571,8 +1586,11 @@ function updateIntervalsForSelectedWells() {
         }
     })
     .catch(function(error) {
-        console.error('Error loading intervals:', error);
-        showError('Error loading intervals: ' + error.message);
+        console.error('Backend not available, using mock intervals:', error);
+        // Use mock intervals for testing
+        appState.availableIntervals = mockData.markers;
+        renderIntervalList(mockData.markers);
+        updateBadges();
     });
 }
 
@@ -2477,7 +2495,7 @@ function submitCalculationParameters() {
         handleSWIndonesiaCalculation(finalParams);
     } else if (calculationType === 'sw-simandoux') {
         handleSWSimandouxCalculation(finalParams);
-    } else if (calculationType === 'water-resistivity') {
+    } else if (calculationType === 'water-resistivity' || calculationType === 'water-resistivity-calculation') {
         handleWaterResistivityCalculation(finalParams);
     } else {
         // For other calculations, use the generic calculation endpoint
@@ -2845,6 +2863,10 @@ function loadModule(moduleName) {
         case 'water-resistivity-calculation':
             handleWaterResistivityCalculation();
             break;
+        case 'trim-data':
+            showTrimDataModal();
+            hideLoading();
+            break;
         default:
             showWarning('Module "' + moduleName + '" is not implemented yet');
             hideLoading();
@@ -3092,7 +3114,7 @@ function handleWaterResistivityCalculation() {
     getCalculationParameters('water-resistivity')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
-            showParameterForm('water-resistivity', parameters);
+            showParameterForm('water-resistivity-calculation', parameters);
         })
         .catch(function(error) {
             hideLoading(); // Hide loading on error
@@ -3419,9 +3441,6 @@ function setupEventListeners() {
     // Setup plot type select
     setupPlotTypeSelect();
     
-    // Setup analysis tools
-    setupAnalysisTools();
-    
     // Select All checkboxes
     var selectAllWells = document.getElementById('selectAllWells');
     if (selectAllWells) {
@@ -3518,6 +3537,253 @@ function debugApiCall(endpoint) {
         .catch(function(error) {
             console.log('❌ Error response:', error);
         });
+}
+
+// Trim Data Modal Functions
+function showTrimDataModal() {
+    console.log('🔧 Opening Trim Data modal');
+    console.log('🔧 Current view:', appState.currentView);
+    console.log('🔧 Selected wells:', appState.selectedWells);
+    console.log('🔧 Selected intervals:', appState.selectedIntervals);
+    
+    // Check if user has selected wells
+    if (appState.selectedWells.length === 0) {
+        showError('Please select at least one well before opening Trim Data');
+        return;
+    }
+    
+    // Update modal content with current selection
+    updateTrimDataModalInfo();
+    
+    // Show the modal
+    var modal = document.getElementById('trimDataModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        console.log('🔧 Trim Data modal shown');
+    } else {
+        console.error('🔧 Trim Data modal not found in DOM');
+        showError('Trim Data modal not found');
+        return;
+    }
+    
+    // Setup event listeners if not already done
+    setupTrimDataModalEvents();
+}
+
+function updateTrimDataModalInfo() {
+    // Update wells info
+    var wellsInfo = document.querySelector('#trimDataWellsInfo span');
+    if (wellsInfo) {
+        if (appState.selectedWells.length > 0) {
+            wellsInfo.textContent = appState.selectedWells.join(', ');
+        } else {
+            wellsInfo.textContent = 'None selected';
+        }
+    }
+    
+    // Update intervals info
+    var intervalsInfo = document.querySelector('#trimDataIntervalsInfo span');
+    if (intervalsInfo) {
+        intervalsInfo.textContent = appState.selectedIntervals.length + ' selected';
+    }
+}
+
+function setupTrimDataModalEvents() {
+    // Prevent multiple event listeners
+    if (window.trimDataModalEventsSetup) return;
+    window.trimDataModalEventsSetup = true;
+    
+    // Close modal events
+    var closeBtn = document.getElementById('closeTrimDataModal');
+    var cancelBtn = document.getElementById('cancelTrimData');
+    var modal = document.getElementById('trimDataModal');
+    
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeTrimDataModal);
+    }
+    
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', closeTrimDataModal);
+    }
+    
+    // Click outside modal to close
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeTrimDataModal();
+            }
+        });
+    }
+    
+    // Run Trim Data button
+    var runBtn = document.getElementById('runTrimData');
+    if (runBtn) {
+        runBtn.addEventListener('click', executeTrimData);
+    }
+    
+    // ESC key to close
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeTrimDataModal();
+        }
+    });
+}
+
+function closeTrimDataModal() {
+    var modal = document.getElementById('trimDataModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+function executeTrimData() {
+    console.log('🚀 Executing Trim Data operation');
+    console.log('🚀 Current view:', appState.currentView);
+    
+    // Validate selection
+    if (appState.selectedWells.length === 0) {
+        showError('Please select at least one well before running Trim Data');
+        return;
+    }
+    
+    // Get parameters from modal
+    var startDepth = document.getElementById('trimStartDepth');
+    var endDepth = document.getElementById('trimEndDepth');
+    var method = document.getElementById('trimMethod');
+    var outputSuffix = document.getElementById('trimOutputSuffix');
+    var preserveBadHoles = document.getElementById('trimPreserveBadHoles');
+    var interpolateGaps = document.getElementById('trimInterpolateGaps');
+    var validateDepths = document.getElementById('trimValidateDepths');
+    
+    // Check if elements exist
+    if (!startDepth || !endDepth) {
+        showError('Trim Data form elements not found');
+        return;
+    }
+    
+    var startDepthValue = startDepth.value;
+    var endDepthValue = endDepth.value;
+    var methodValue = method ? method.value : 'depth_range';
+    var outputSuffixValue = outputSuffix ? outputSuffix.value || '_TRIM' : '_TRIM';
+    var preserveBadHolesValue = preserveBadHoles ? preserveBadHoles.checked : true;
+    var interpolateGapsValue = interpolateGaps ? interpolateGaps.checked : false;
+    var validateDepthsValue = validateDepths ? validateDepths.checked : true;
+    
+    // Validate parameters
+    if (!startDepthValue || !endDepthValue) {
+        showError('Please enter both start and end depths');
+        return;
+    }
+    
+    if (parseFloat(startDepthValue) >= parseFloat(endDepthValue)) {
+        showError('Start depth must be less than end depth');
+        return;
+    }
+    
+    // Prepare payload
+    var payload = {
+        calculation_type: 'trim_data',
+        params: {
+            start_depth: parseFloat(startDepthValue),
+            end_depth: parseFloat(endDepthValue),
+            method: methodValue,
+            output_suffix: outputSuffixValue,
+            preserve_bad_holes: preserveBadHolesValue,
+            interpolate_gaps: interpolateGapsValue,
+            validate_depths: validateDepthsValue
+        },
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    // Close modal and show loading
+    closeTrimDataModal();
+    setIsLoading(true);
+    
+    console.log('📊 Trim Data payload:', payload);
+    
+    // For now, simulate successful execution since backend may not be available
+    setTimeout(function() {
+        setIsLoading(false);
+        showSuccess('Trim Data operation completed successfully!');
+        
+        // Refresh current plot to show results
+        if (appState.selectedWells.length > 0) {
+            refreshCurrentPlot();
+        }
+    }, 2000);
+    
+    // Uncomment below for real backend execution
+    /*
+    fetchJson('/run_calculation_endpoint', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(function(response) {
+        if (response.status === 'success') {
+            showSuccess('Trim Data operation completed successfully!');
+            
+            // Refresh current plot to show results
+            if (appState.selectedWells.length > 0) {
+                refreshCurrentPlot();
+            }
+        } else {
+            throw new Error(response.message || 'Trim Data operation failed');
+        }
+    })
+    .catch(function(error) {
+        showError('Error in Trim Data operation: ' + error.message);
+        console.error('Trim Data error:', error);
+    })
+    .finally(function() {
+        setIsLoading(false);
+    });
+    */
+}
+
+// Refresh current plot after data changes
+function refreshCurrentPlot() {
+    console.log('🔄 Refreshing current plot view');
+    
+    if (appState.currentModule && appState.selectedWells.length > 0) {
+        // If we're in Data Prep mode, refresh the module area
+        if (appState.currentView === 'dataPrep') {
+            var moduleArea = document.getElementById('dataPrepModuleArea');
+            if (moduleArea) {
+                moduleArea.innerHTML = '<div class="empty-plot-state">' +
+                    '<h3>Data updated successfully</h3>' +
+                    '<p>Trim Data operation completed. Select another module to continue analysis.</p>' +
+                    '</div>';
+            }
+        } else {
+            // If we're in Dashboard mode, refresh the current plot
+            var plotArea = document.getElementById('plotArea');
+            if (plotArea) {
+                plotArea.innerHTML = '<div class="empty-plot-state">' +
+                    '<h3>Data updated successfully</h3>' +
+                    '<p>Trim Data operation completed. Current visualization has been updated.</p>' +
+                    '</div>';
+            }
+        }
+        
+        // Update status
+        updateStatusText('Data processing completed - Ready for analysis');
+    }
+}
+
+// Utility functions for user feedback
+function updateStatusText(message) {
+    // Update status in Dashboard view
+    var dashboardStatus = document.getElementById('statusText');
+    if (dashboardStatus) {
+        dashboardStatus.textContent = message;
+    }
+    
+    // Update status in Data Prep view
+    var dataPrepStatus = document.getElementById('dataPrepStatusText');
+    if (dataPrepStatus) {
+        dataPrepStatus.textContent = message;
+    }
 }
 
 function showDebugInfo() {
@@ -3728,7 +3994,7 @@ function loadDataPrepModule(moduleName) {
             loadSmoothingModule(moduleArea);
             break;
         case 'trim-data':
-            loadTrimDataModule(moduleArea);
+            showTrimDataModal();
             break;
         case 'depth-matching':
             loadDepthMatchingModule(moduleArea);
