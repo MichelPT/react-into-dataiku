@@ -143,7 +143,7 @@
                         <div id="wellList" class="list-container scrollable-list"></div>
                     </div>
                     
-                    <!-- Intervals Section -->
+                    <!-- Intervals Section with Tabs -->
                     <div class="sidebar-section">
                         <div class="section-header">
                             <div class="section-title">
@@ -155,17 +155,49 @@
                                 <h3>Intervals</h3>
                                 <span class="badge" id="intervalsBadge">0/0</span>
                             </div>
+                            <div class="tabs">
+                                <button id="tabMarkers" class="tab-btn active" type="button">Markers</button>
+                                <button id="tabZones" class="tab-btn" type="button">Zones</button>
+                            </div>
+                        </div>
+                        <!-- Markers controls -->
+                        <div class="checkbox-controls" id="markersSelectAll">
+                            <label>
+                                <input type="checkbox" id="selectAllMarkers">
+                                Select all
+                            </label>
+                        </div>
+                        <!-- Zones controls -->
+                        <div class="checkbox-controls hidden" id="zonesSelectAll">
+                            <label>
+                                <input type="checkbox" id="selectAllZones">
+                                Select all
+                            </label>
+                        </div>
+                        <!-- Lists -->
+                        <div id="markersList" class="list-container scrollable-list"></div>
+                        <div id="zonesList" class="list-container scrollable-list hidden"></div>
+                    </div>
+
+                    <!-- Custom Curves (conditional) -->
+                    <div id="customCurvesSection" class="sidebar-section hidden">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <div class="section-icon">⚙️</div>
+                                <h3>Custom Curves</h3>
+                                <span class="badge" id="customCurvesBadge">0/0</span>
+                            </div>
                             <div class="checkbox-controls">
                                 <label>
-                                    <input type="checkbox" id="selectAllIntervals">
+                                    <input type="checkbox" id="selectAllCustomCurves">
                                     Select all
                                 </label>
                             </div>
                         </div>
-                        <div id="intervalList" class="list-container scrollable-list"></div>
+                        <div id="customCurvesLoading" class="loading-state hidden">Loading curves...</div>
+                        <div id="customCurvesList" class="list-container scrollable-list"></div>
                     </div>
-
-                    <!-- Plot Type Configuration -->
+                    <!-- Combined Plot & Analysis Section -->
                     <div class="sidebar-section">
                         <div class="section-header">
                             <div class="section-title">
@@ -174,10 +206,15 @@
                                         <path d="M3 3v18h18v-2H5V3H3zm2 14h2v-4H5v4zm4 0h2V9H9v8zm4 0h2v-6h-2v6zm4 0h2V7h-2v10z"/>
                                     </svg>
                                 </div>
-                                <h3>Plot Type</h3>
+                                <h3>Plot &amp; Analysis</h3>
                             </div>
                         </div>
                         <div class="plot-config">
+                            <select id="plotLayoutSelect" class="select-input">
+                                <option value="default">Layout Default</option>
+                                <option value="custom">Layout Custom</option>
+                                <option value="vsh">Layout VSH</option>
+                            </select>
                             <select id="plotTypeSelect" class="select-input">
                                 <option value="default">Default Plot</option>
                                 <option value="normalization">Normalization</option>
@@ -192,6 +229,16 @@
                                 <option value="dns-dnsv">DNS-DNSV</option>
                                 <option value="rt-ro">RT-R0</option>
                             </select>
+                            <label for="crossplotSelect" class="visually-hidden">Crossplot</label>
+                            <select id="crossplotSelect" class="select-input">
+                                <option value="">Crossplot…</option>
+                                <option value="rt_rhob">RT vs RHOB</option>
+                                <option value="nphi_rhob">NPHI vs RHOB</option>
+                                <option value="rt_gr">RT vs GR</option>
+                            </select>
+                            <div class="button-group" style="margin-top: 8px;">
+                                <button id="histogramLink" class="module-btn" type="button">Histogram</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -205,6 +252,12 @@
                         <span>Selected Intervals:</span>
                         <span class="badge" id="selectedIntervalsCount">0</span>
                     </div>
+                    <div class="summary-action" style="margin-top: 10px;">
+                        <button id="generatePlotBtn" class="btn-primary" type="button">
+                            <span class="spinner hidden" id="generateSpinner"></span>
+                            <span id="generateBtnText">Generate Plot</span>
+                        </button>
+                    </div>
                 </div>
             </aside>
 
@@ -215,8 +268,8 @@
                     <div class="status-bar">
                         <span id="statusText">Ready</span>
                         <button id="refreshBtn" class="btn-secondary">Refresh Data</button>
-                        <button id="debugBtn" class="btn-secondary" onclick="showDebugInfo()">Debug</button>
-                        <button id="testConnectionBtn" class="btn-secondary" onclick="testBackendConnection()">Test Connection</button>
+                        <button id="debugBtn" class="btn-secondary">Debug</button>
+                        <button id="testConnectionBtn" class="btn-secondary">Test Connection</button>
                     </div>
                 </div>
                 

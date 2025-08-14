@@ -2,6 +2,7 @@
 var appState = {
     selectedWells: [],
     selectedIntervals: [],
+    selectedZones: [],
     savedSets: [],
     currentModule: null,
     plotData: null,
@@ -10,61 +11,23 @@ var appState = {
     currentDataset: null,
     availableWells: [],
     availableIntervals: [],
+    availableZones: [],
     plotType: 'default',
+    plotLayout: 'default',
     currentStructure: null,
     selectedFilePath: null, // Added for file-based plots
     plotFigure: { data: [], layout: {} }, // Added for plot state
     error: null, // Added for error handling
     wellColumns: {}, // Added for well columns
-    currentView: 'structures' // Added for view tracking
+    currentView: 'structures', // Added for view tracking
+    customCurves: [],
+    selectedCustomCurves: [],
+    isGenerating: false,
+    intervalsTab: 'markers' // 'markers' | 'zones'
 };
+// Note: Removed legacy mockData; the app now relies solely on real backend data.
 
-// Mock data untuk testing ketika backend tidak tersedia
-var mockData = {
-    wells: ['WELL-001', 'WELL-002', 'WELL-003', 'WELL-004', 'WELL-005'],
-    markers: ['MARKER-A', 'MARKER-B', 'MARKER-C', 'MARKER-D'],
-    plotData: {
-        data: [
-            {
-                x: [50, 60, 70, 80, 90, 100, 110, 120],
-                y: [3000, 3010, 3020, 3030, 3040, 3050, 3060, 3070],
-                type: 'scatter',
-                mode: 'lines',
-                name: 'Gamma Ray',
-                line: { color: 'green', width: 2 }
-            },
-            {
-                x: [1, 2, 5, 10, 20, 50, 100, 200],
-                y: [3000, 3010, 3020, 3030, 3040, 3050, 3060, 3070],
-                type: 'scatter',
-                mode: 'lines',
-                name: 'Resistivity',
-                line: { color: 'red', width: 2 },
-                xaxis: 'x2'
-            }
-        ],
-        layout: {
-            title: 'Mock Well Log Plot',
-            height: 600,
-            xaxis: {
-                title: 'Gamma Ray (API)',
-                domain: [0, 0.45]
-            },
-            xaxis2: {
-                title: 'Resistivity (ohm.m)',
-                domain: [0.55, 1],
-                type: 'log'
-            },
-            yaxis: {
-                title: 'Depth (ft)',
-                autorange: 'reversed'
-            },
-            showlegend: true
-        }
-    }
-};
-
-// Structures Mock Data - Restored original rich mock for structures UI
+// Structures manifest - embedded sample for UI fallback when no index.json is available
 var structuresData = {
     fields: [
         {
@@ -188,8 +151,8 @@ function initializeStructuresPage() {
     loadStructuresFromFolder()
         .then(function(loaded) {
             if (!loaded) {
-                // Fallback to bundled mock data
-                console.warn('Using embedded structuresData mock');
+                // Fallback to embedded manifest
+                console.warn('Using embedded structures manifest');
             }
             renderFieldsList();
             showEmptyStructuresState();
@@ -269,41 +232,7 @@ function renderFieldsList() {
     });
 }
 
-function handleFieldSelect(fieldName) {
-    console.log('Field selected:', fieldName);
-    
-    // Update UI state
-    structuresState.selectedField = fieldName;
-    structuresState.selectedStructure = null;
-    structuresState.structureDetails = null;
-    
-    // Update field selection UI
-    var fieldItems = document.querySelectorAll('.field-item');
-    fieldItems.forEach(function(item) {
-        item.classList.remove('selected');
-        if (item.getAttribute('data-field') === fieldName) {
-            item.classList.add('selected');
-        }
-    });
-    
-    // Find field data
-    var fieldData = structuresData.fields.find(function(f) {
-        return f.field_name === fieldName;
-    });
-    
-    if (fieldData) {
-        structuresState.fieldDetails = {
-            field_name: fieldName,
-            structures: fieldData.structures,
-            total_wells: fieldData.structures.reduce(function(sum, s) { return sum + s.wells_count; }, 0),
-            total_records: fieldData.structures.reduce(function(sum, s) { return sum + s.total_records; }, 0)
-        };
-        
-        renderStructuresList(fieldData.structures);
-        showEmptyDetailsState();
-        showMessage('Loaded ' + fieldData.structures.length + ' structures from ' + fieldName, 'success');
-    }
-}
+// (duplicate handleFieldSelect removed)
 
 function renderStructuresList(structures) {
     var structuresTitle = document.getElementById('structuresTitle');
@@ -688,8 +617,8 @@ function handleNavigation(path) {
                     })
                     .catch(function(error) {
                         console.error('Error loading structure dataset:', error);
-                        showWarning('Failed to load structure dataset, loading default data');
-                        // Fallback to mock data if needed
+                        showWarning('Failed to load structure dataset, attempting default dataset');
+                        // Keep UI responsive even if dataset load failed
                         if (!appState.availableWells || appState.availableWells.length === 0) {
                             appState.availableWells = (appState.currentStructure.wells || []);
                             renderWellList(appState.availableWells);
@@ -844,7 +773,9 @@ function updateBadges() {
     }
     
     if (intervalsBadge) {
-        intervalsBadge.textContent = appState.selectedIntervals.length + '/' + appState.availableIntervals.length;
+        var selectedCount = appState.intervalsTab === 'zones' ? appState.selectedZones.length : appState.selectedIntervals.length;
+        var totalCount = appState.intervalsTab === 'zones' ? (appState.availableZones || []).length : (appState.availableIntervals || []).length;
+        intervalsBadge.textContent = selectedCount + '/' + totalCount;
     }
     
     if (selectedWellsCount) {
@@ -852,7 +783,8 @@ function updateBadges() {
     }
     
     if (selectedIntervalsCount) {
-        selectedIntervalsCount.textContent = appState.selectedIntervals.length;
+        var sel = appState.intervalsTab === 'zones' ? appState.selectedZones.length : appState.selectedIntervals.length;
+        selectedIntervalsCount.textContent = sel;
     }
 }
 
@@ -875,17 +807,103 @@ function setupPlotTypeSelect() {
     }
 }
 
+// Plot layout and custom curves
+function setupPlotLayoutControls() {
+    var layoutSelect = document.getElementById('plotLayoutSelect');
+    var customSection = document.getElementById('customCurvesSection');
+    var customList = document.getElementById('customCurvesList');
+    var customBadge = document.getElementById('customCurvesBadge');
+    var selectAllCustom = document.getElementById('selectAllCustomCurves');
+    if (layoutSelect) {
+        layoutSelect.addEventListener('change', function(){
+            appState.plotLayout = layoutSelect.value || 'default';
+            var isCustom = appState.plotLayout === 'custom';
+            if (customSection) customSection.classList.toggle('hidden', !isCustom);
+            if (isCustom) {
+                // Populate custom curves from current plot data
+                var logs = getCurrentLogs();
+                appState.customCurves = logs.map(function(l){ return l.curveName; });
+                appState.selectedCustomCurves = appState.customCurves.slice();
+                if (customList) {
+                    customList.innerHTML = appState.customCurves.map(function(name){
+                        var id = 'custom-' + name;
+                        var checked = appState.selectedCustomCurves.indexOf(name) !== -1;
+                        return '<div class="list-item" data-id="'+name+'">'
+                             + '<input type="checkbox" id="'+id+'" '+(checked?'checked':'')+'>'
+                             + '<label for="'+id+'">'+name+'</label>'
+                             + '<div class="status-dot" style="display:'+(checked?'block':'none')+'"></div>'
+                             + '</div>';
+                    }).join('');
+                    // Bind change events
+                    customList.querySelectorAll('input[type="checkbox"]').forEach(function(cb){
+                        cb.addEventListener('change', function(){
+                            var name = this.id.replace('custom-','');
+                            var idx = appState.selectedCustomCurves.indexOf(name);
+                            if (this.checked && idx === -1) appState.selectedCustomCurves.push(name);
+                            else if (!this.checked && idx !== -1) appState.selectedCustomCurves.splice(idx,1);
+                            if (customBadge) customBadge.textContent = appState.selectedCustomCurves.length + '/' + appState.customCurves.length;
+                        });
+                    });
+                }
+                if (customBadge) customBadge.textContent = appState.selectedCustomCurves.length + '/' + appState.customCurves.length;
+                if (selectAllCustom) {
+                    selectAllCustom.checked = true;
+                    selectAllCustom.onchange = function(){
+                        if (this.checked) appState.selectedCustomCurves = appState.customCurves.slice();
+                        else appState.selectedCustomCurves = [];
+                        if (customList) customList.querySelectorAll('input[type="checkbox"]').forEach(function(cb){ cb.checked = selectAllCustom.checked; });
+                        if (customBadge) customBadge.textContent = appState.selectedCustomCurves.length + '/' + appState.customCurves.length;
+                    };
+                }
+            }
+        });
+    }
+}
+
+function setupAnalysisTools() {
+    var crossplotSelect = document.getElementById('crossplotSelect');
+    if (crossplotSelect) {
+        crossplotSelect.addEventListener('change', function(){
+            var val = crossplotSelect.value;
+            if (!val) return;
+            showWarning('Crossplot generation is under development for: ' + val);
+            crossplotSelect.value = '';
+        });
+    }
+    var histBtn = document.getElementById('histogramLink');
+    if (histBtn) histBtn.addEventListener('click', handleHistogram);
+}
+
+function setupGenerateButton() {
+    var btn = document.getElementById('generatePlotBtn');
+    var spinner = document.getElementById('generateSpinner');
+    var text = document.getElementById('generateBtnText');
+    if (!btn) return;
+    function setLoading(state){
+        appState.isGenerating = state;
+        if (spinner) spinner.classList.toggle('hidden', !state);
+        if (text) text.textContent = state ? 'Generating...' : 'Generate Plot';
+        btn.disabled = state;
+    }
+    btn.addEventListener('click', function(){
+        if (appState.selectedWells.length === 0) { showError('Select wells first'); return; }
+        setLoading(true);
+        Promise.resolve().then(function(){ return generatePlot(); })
+            .catch(function(err){ console.error(err); showError('Failed to generate plot: ' + (err && err.message || err)); })
+            .finally(function(){ setLoading(false); });
+    });
+}
+
 // Update plot based on selected type
 function updatePlotForType(plotType) {
+    // Guard: require at least one well selected
     if (appState.selectedWells.length === 0) {
         showMessage('Please select wells first', 'warning');
         return;
     }
-    
-    console.log('Updating plot for type:', plotType, 'with wells:', appState.selectedWells);
-    
-    // Use existing createPlot function with the new plot type
-    createPlot(appState.selectedWells, plotType);
+    // Single source of truth: regenerate plot using current state (wells + intervals)
+    console.log('Updating plot for type:', plotType, 'with wells:', appState.selectedWells, 'and intervals:', appState.selectedIntervals);
+    generatePlot();
 }
 
 // Improved fetchJson with Dataiku backend URL support, better error handling, and fallback
@@ -919,15 +937,9 @@ function fetchJson(endpoint, options) {
     return fetch(url, finalOptions)
         .then(function(response) {
             console.log('Response status:', response.status, 'OK:', response.ok);
-            
-            // If response is not OK (e.g., 404, 500), try to use mock data
             if (!response.ok) {
-                console.warn('Server responded with status ' + response.status + ' for ' + endpoint + '. Attempting to use mock data.');
-                // For 404 or other server errors, directly return mock data
-                return getMockResponse(endpoint, options); 
+                throw new Error('HTTP ' + response.status + ' for ' + endpoint);
             }
-            
-            // If response is OK, parse JSON
             return response.text().then(function(text) {
                 console.log('Response text:', text.substring(0, 200) + '...');
                 try {
@@ -940,214 +952,10 @@ function fetchJson(endpoint, options) {
         })
         .catch(function(error) {
             console.error('Fetch error for', endpoint, ':', error);
-            
-            // This catch block is primarily for network errors (e.g., server unreachable)
-            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                console.warn('Backend not available (network error), using mock data for:', endpoint);
-                return getMockResponse(endpoint, options);
-            }
-            
-            throw error; // Re-throw other unexpected errors
+            throw error;
         });
 }
-
-// Mock response generator - Updated to match actual backend
-function getMockResponse(endpoint, options) {
-    console.log('Generating mock response for:', endpoint);
-    
-    switch (endpoint) {
-        case '/first_api_call':
-            return {
-                status: 'success',
-                message: 'Well Log Analysis backend is running',
-                timestamp: new Date().toISOString(),
-                backend_version: '1.0.0-mock',
-                current_dataset: 'fix_pass_qc',
-                dataset_loaded: true,
-                wells: mockData.wells,
-                well_count: mockData.wells.length,
-                total_rows: 1000
-            };
-            
-        case '/get_wells':
-            return {
-                status: 'success',
-                wells: mockData.wells,
-                count: mockData.wells.length
-            };
-            
-        case '/get_markers':
-            // Return structure-specific intervals if we have structure context
-            if (appState.currentStructure) {
-                var structureData = findStructureData(appState.currentStructure.fieldName, appState.currentStructure.structureName);
-                if (structureData && structureData.intervals) {
-                    return {
-                        status: 'success',
-                        markers: structureData.intervals,
-                        count: structureData.intervals.length
-                    };
-                }
-            }
-            return {
-                status: 'success',
-                markers: mockData.markers,
-                count: mockData.markers.length
-            };
-            
-        case '/get_well_plot':
-            var requestData = options.body ? JSON.parse(options.body) : {};
-            return {
-                status: 'success',
-                figure: mockData.plotData,
-                well_name: requestData.well_name || 'MOCK-WELL'
-            };
-            
-        case '/select_dataset':
-            return {
-                status: 'success',
-                dataset_name: 'fix_pass_qc',
-                wells: mockData.wells,
-                markers: mockData.markers,
-                columns: ['WELL_NAME', 'DEPTH', 'GR', 'RT', 'NPHI', 'RHOB', 'MARKER'],
-                total_rows: 1000,
-                message: 'Mock dataset selected successfully'
-            };
-            
-        case '/get_calculation_params':
-            var requestData = options.body ? JSON.parse(options.body) : {};
-            var calculationType = requestData.calculation_type;
-            return getMockCalculationParams(calculationType);
-            
-        case '/run_calculation_endpoint':
-            var requestData = options.body ? JSON.parse(options.body) : {};
-            return {
-                status: 'success',
-                message: requestData.calculation_type + ' calculation completed (mock)',
-                calculation_type: requestData.calculation_type,
-                rows_processed: 1000
-            };
-            
-        case '/get_plot_for_calculation':
-            var requestData = options.body ? JSON.parse(options.body) : {};
-            return {
-                status: 'success',
-                figure: mockData.plotData,
-                calculation_type: requestData.calculation_type
-            };
-            
-        case '/get_dataset_info':
-            return {
-                status: 'success',
-                info: {
-                    dataset_name: 'fix_pass_qc',
-                    total_rows: 1000,
-                    columns: ['WELL_NAME', 'DEPTH', 'GR', 'RT', 'NPHI', 'RHOB', 'MARKER'],
-                    wells: mockData.wells,
-                    markers: mockData.markers,
-                    depth_range: { min: 3000, max: 4000 }
-                }
-            };
-            
-        case '/get_available_columns':
-            return {
-                status: 'success',
-                columns: ['WELL_NAME', 'DEPTH', 'GR', 'RT', 'NPHI', 'RHOB', 'MARKER', 'VSH_GR', 'PHIE', 'SW']
-            };
-            
-        case '/validate_calculation':
-            var requestData = options.body ? JSON.parse(options.body) : {};
-            return {
-                status: 'success',
-                message: 'All required columns available for ' + requestData.calculation_type,
-                required_columns: getRequiredColumns(requestData.calculation_type)
-            };
-            
-        case '/get_current_status':
-            return {
-                status: 'success',
-                dataset_loaded: true,
-                current_dataset: 'fix_pass_qc',
-                wells: mockData.wells,
-                well_count: mockData.wells.length,
-                markers: mockData.markers,
-                marker_count: mockData.markers.length,
-                total_rows: 1000
-            };
-            
-        default:
-            return {
-                status: 'error',
-                message: 'Mock endpoint not implemented: ' + endpoint
-            };
-    }
-}
-
-// Helper function for mock calculation parameters
-function getMockCalculationParams(calculationType) {
-    var parameterDefinitions = {
-        "vsh": {
-            "title": "VSH Calculation Parameters",
-            "parameters": [
-                {"name": "GR_MA", "type": "float", "default": 30, "label": "GR Matrix Value", "min": 0, "max": 200},
-                {"name": "GR_SH", "type": "float", "default": 120, "label": "GR Shale Value", "min": 0, "max": 300},
-                {"name": "input_log", "type": "select", "default": "GR", "label": "Input Log", "options": ["GR", "CGR", "SGR"]},
-                {"name": "output_log", "type": "text", "default": "VSH_GR", "label": "Output Log Name"}
-            ]
-        },
-        "porosity": {
-            "title": "Porosity Calculation Parameters",
-            "parameters": [
-                {"name": "PHIE_METHOD", "type": "select", "default": "density", "label": "Porosity Method", "options": ["density", "neutron", "combined"]},
-                {"name": "RHO_MA", "type": "float", "default": 2.65, "label": "Matrix Density", "min": 1.0, "max": 4.0},
-                {"name": "RHO_FL", "type": "float", "default": 1.0, "label": "Fluid Density", "min": 0.5, "max": 2.0},
-                {"name": "NPHI_MA", "type": "float", "default": 0.0, "label": "Matrix Neutron", "min": 0.0, "max": 1.0}
-            ]
-        },
-        "gsa": {
-            "title": "GSA Calculation Parameters",
-            "parameters": [
-                {"name": "window_size", "type": "int", "default": 50, "label": "Window Size", "min": 10, "max": 200},
-                {"name": "overlap", "type": "int", "default": 25, "label": "Overlap", "min": 5, "max": 100},
-                {"name": "min_samples", "type": "int", "default": 10, "label": "Minimum Samples", "min": 5, "max": 50}
-            ]
-        },
-        "sw": {
-            "title": "Water Saturation Calculation Parameters",
-            "parameters": [
-                {"name": "rw", "type": "float", "default": 0.1, "label": "Water Resistivity", "min": 0.001, "max": 10},
-                {"name": "a", "type": "float", "default": 1.0, "label": "Archie's 'a'", "min": 0.1, "max": 10},
-                {"name": "m", "type": "float", "default": 2.0, "label": "Archie's 'm'", "min": 1.0, "max": 5.0},
-                {"name": "n", "type": "float", "default": 2.0, "label": "Archie's 'n'", "min": 1.0, "max": 5.0}
-            ]
-        },
-        "normalization": {
-            "title": "Interval Normalization Parameters",
-            "parameters": [
-                {"name": "LOG_IN", "type": "select", "default": "GR", "label": "Input Log", "options": ["GR", "CGR", "SGR", "NPHI", "RHOB"]},
-                {"name": "LOG_OUT", "type": "text", "default": "GR_NORM", "label": "Output Log Name"},
-                {"name": "LOW_REF", "type": "float", "default": 40, "label": "Low Reference", "min": 0, "max": 1000},
-                {"name": "HIGH_REF", "type": "float", "default": 140, "label": "High Reference", "min": 0, "max": 1000},
-                {"name": "LOW_IN", "type": "int", "default": 3, "label": "Low Percentile", "min": 0, "max": 50},
-                {"name": "HIGH_IN", "type": "int", "default": 97, "label": "High Percentile", "min": 50, "max": 100},
-                {"name": "CUTOFF_MIN", "type": "float", "default": 0.0, "label": "Cutoff Min", "min": -1000, "max": 1000},
-                {"name": "CUTOFF_MAX", "type": "float", "default": 250.0, "label": "Cutoff Max", "min": -1000, "max": 1000}
-            ]
-        }
-    };
-    
-    if (calculationType && parameterDefinitions[calculationType]) {
-        return {
-            status: 'success',
-            calculation_type: calculationType,
-            parameters: parameterDefinitions[calculationType]
-        };
-    } else {
-        return {
-            status: 'error',
-            message: 'Unknown calculation type: ' + calculationType
-        };
-    }
-}
+// (mock helpers removed; app now requires real backend)
 
 // Helper function for required columns
 function getRequiredColumns(calculationType) {
@@ -1180,8 +988,8 @@ function testBackendConnection() {
         })
         .catch(function(error) {
             console.log('❌ Backend connection failed:', error.message);
-            updateStatus('Using mock data');
-            showWarning('Backend not available - using mock data for testing');
+            updateStatus('Backend error');
+            showError('Backend not available: ' + error.message);
             return false;
         });
 }
@@ -1254,12 +1062,8 @@ function loadWells() {
             }
         })
         .catch(function(error) {
-            console.error('Backend not available, using mock wells:', error);
-            // Use mock wells for testing
-            appState.availableWells = mockData.wells;
-            renderWellList(mockData.wells);
-            updateBadges();
-            showWarning('Using mock wells for testing. Backend: ' + error.message);
+            console.error('Failed to load wells:', error);
+            showError('Failed to load wells: ' + error.message);
         })
         .finally(function() {
             hideLoading();
@@ -1370,7 +1174,7 @@ function loadWellPlot(wellName) {
         console.log('🚀 Adding structure context:', requestData.structure_context);
     }
     
-    fetchJson('/get_well_plot', {
+    return fetchJson('/get_well_plot', {
         method: 'POST',
         body: JSON.stringify(requestData)
     })
@@ -1574,23 +1378,28 @@ function updateIntervalsForSelectedWells() {
         return;
     }
 
-    // Always load intervals/markers from CSV via backend
-    fetchJson('/get_markers')
-    .then(function(response) {
-        if (response.status === 'success') {
-            appState.availableIntervals = response.markers;
-            renderIntervalList(response.markers);
-            updateBadges();
-        } else {
-            throw new Error(response.message || 'Failed to load intervals');
-        }
-    })
-    .catch(function(error) {
-        console.error('Backend not available, using mock intervals:', error);
-        // Use mock intervals for testing
-        appState.availableIntervals = mockData.markers;
-        renderIntervalList(mockData.markers);
+    // Load both markers and zones; default tab decides which list is visible
+    Promise.all([
+        fetchJson('/get_markers').catch(function(err){ console.warn('Markers load failed', err); return { status:'error', markers: [] }; }),
+        fetchJson('/get_zones').catch(function(err){ console.warn('Zones load failed', err); return { status:'error', zones: [] }; })
+    ])
+    .then(function(results){
+        var markersResp = results[0] || {};
+        var zonesResp = results[1] || {};
+        var markers = Array.isArray(markersResp.markers) ? markersResp.markers : [];
+        var zones = Array.isArray(zonesResp.zones) ? zonesResp.zones : [];
+
+        appState.availableIntervals = markers; // keep for backward compat (markers)
+        appState.availableZones = zones;
+
+        renderMarkersList(markers);
+        renderZonesList(zones);
         updateBadges();
+        updateIntervalsTabVisibility();
+    })
+    .catch(function(error){
+        console.error('Failed to load intervals/zones:', error);
+        showError('Failed to load intervals/zones: ' + error.message);
     });
 }
 
@@ -1603,6 +1412,7 @@ function findStructureData(fieldName, structureName) {
     return structure || null;
 }
 
+// Back-compat: markers list was previously called interval list
 function renderIntervalList(intervals) {
     var intervalList = document.getElementById('intervalList');
     intervalList.innerHTML = '';
@@ -1653,6 +1463,136 @@ function renderIntervalList(intervals) {
     });
 }
 
+function renderMarkersList(markers) {
+    var list = document.getElementById('markersList');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!markers || markers.length === 0) {
+        list.innerHTML = '<div class="empty-state">No markers available</div>';
+        return;
+    }
+    markers.forEach(function(name){
+        var item = document.createElement('div');
+        item.className = 'list-item';
+        item.setAttribute('data-id', name);
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id = 'marker-' + name;
+        cb.checked = appState.selectedIntervals.indexOf(name) !== -1;
+        var label = document.createElement('label');
+        label.htmlFor = cb.id;
+        label.textContent = name;
+        var dot = document.createElement('div');
+        dot.className = 'status-dot';
+        dot.style.display = cb.checked ? 'block' : 'none';
+        item.appendChild(cb); item.appendChild(label); item.appendChild(dot);
+        item.addEventListener('click', function(e){
+            var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+            if (e.target === cb || tag === 'label') return;
+            cb.checked = !cb.checked;
+            toggleInterval(name);
+        });
+        cb.addEventListener('change', function(e){ e.stopPropagation(); toggleInterval(name); });
+        list.appendChild(item);
+    });
+}
+
+function renderZonesList(zones) {
+    var list = document.getElementById('zonesList');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!zones || zones.length === 0) {
+        list.innerHTML = '<div class="empty-state">No zones available</div>';
+        return;
+    }
+    zones.forEach(function(name){
+        var item = document.createElement('div');
+        item.className = 'list-item';
+        item.setAttribute('data-id', name);
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id = 'zone-' + name;
+        cb.checked = appState.selectedZones.indexOf(name) !== -1;
+        var label = document.createElement('label');
+        label.htmlFor = cb.id;
+        label.textContent = name;
+        var dot = document.createElement('div');
+        dot.className = 'status-dot';
+        dot.style.display = cb.checked ? 'block' : 'none';
+        item.appendChild(cb); item.appendChild(label); item.appendChild(dot);
+        item.addEventListener('click', function(e){
+            var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+            if (e.target === cb || tag === 'label') return;
+            cb.checked = !cb.checked;
+            toggleZone(name);
+        });
+        cb.addEventListener('change', function(e){ e.stopPropagation(); toggleZone(name); });
+        list.appendChild(item);
+    });
+}
+
+function updateIntervalsTabVisibility() {
+    var markersControls = document.getElementById('markersSelectAll');
+    var zonesControls = document.getElementById('zonesSelectAll');
+    var markersList = document.getElementById('markersList');
+    var zonesList = document.getElementById('zonesList');
+    if (!markersControls || !zonesControls || !markersList || !zonesList) return;
+    var showMarkers = appState.intervalsTab === 'markers';
+    markersControls.classList.toggle('hidden', !showMarkers);
+    markersList.classList.toggle('hidden', !showMarkers);
+    zonesControls.classList.toggle('hidden', showMarkers);
+    zonesList.classList.toggle('hidden', showMarkers);
+}
+
+function toggleZone(zoneName) {
+    var idx = appState.selectedZones.indexOf(zoneName);
+    if (idx === -1) {
+        // Switching to zones clears markers selection per spec
+        if (appState.intervalsTab !== 'zones') {
+            appState.selectedIntervals = [];
+            appState.intervalsTab = 'zones';
+            updateIntervalsTabVisibility();
+        }
+        appState.selectedZones.push(zoneName);
+    } else {
+        appState.selectedZones.splice(idx, 1);
+    }
+    updateZonesSelectionUI();
+    updateBadges();
+    updateParameterFormColumns();
+}
+
+function updateZonesSelectionUI() {
+    var items = document.querySelectorAll('#zonesList .list-item');
+    items.forEach(function(item){
+        var name = item.getAttribute('data-id');
+        var cb = item.querySelector('input[type="checkbox"]');
+        var dot = item.querySelector('.status-dot');
+        var selected = appState.selectedZones.indexOf(name) !== -1;
+        item.classList.toggle('selected', selected);
+        if (cb) cb.checked = selected;
+        if (dot) dot.style.display = selected ? 'block' : 'none';
+    });
+    var allCb = document.getElementById('selectAllZones');
+    if (allCb) allCb.checked = appState.selectedZones.length === appState.availableZones.length && appState.availableZones.length > 0;
+}
+
+function toggleAllZones() {
+    var checkbox = document.getElementById('selectAllZones');
+    if (!checkbox) return;
+    // Switching to zones clears markers selection per spec
+    appState.intervalsTab = 'zones';
+    appState.selectedIntervals = [];
+    if (checkbox.checked) {
+        appState.selectedZones = (appState.availableZones || []).slice();
+    } else {
+        appState.selectedZones = [];
+    }
+    updateIntervalsTabVisibility();
+    updateZonesSelectionUI();
+    updateBadges();
+}
+
 function toggleInterval(intervalId) {
     console.log('🎯 Toggling interval:', intervalId);
     
@@ -1677,7 +1617,8 @@ function toggleInterval(intervalId) {
 }
 
 function updateIntervalSelection() {
-    var intervalItems = document.querySelectorAll('#intervalList .list-item');
+    // Update markers list selection state
+    var intervalItems = document.querySelectorAll('#markersList .list-item');
     intervalItems.forEach(function(item) {
         var intervalId = item.getAttribute('data-id');
         var checkbox = item.querySelector('input[type="checkbox"]');
@@ -1695,9 +1636,10 @@ function updateIntervalSelection() {
     });
     
     // Update select all checkbox
-    var selectAllCheckbox = document.getElementById('selectAllIntervals');
-    if (selectAllCheckbox) {
-        selectAllCheckbox.checked = appState.selectedIntervals.length === appState.availableIntervals.length;
+    // Select-all checkbox is handled via #selectAllMarkers now
+    var selectAllMarkers = document.getElementById('selectAllMarkers');
+    if (selectAllMarkers) {
+        selectAllMarkers.checked = appState.selectedIntervals.length === (appState.availableIntervals || []).length && (appState.availableIntervals || []).length > 0;
     }
 }
 
@@ -1722,9 +1664,15 @@ function toggleAllIntervals() {
 
 function clearIntervals() {
     var intervalList = document.getElementById('intervalList');
-    intervalList.innerHTML = '<div class="empty-state">Select wells to view intervals</div>';
+    if (intervalList) intervalList.innerHTML = '<div class="empty-state">Select wells to view intervals</div>';
+    var markersList = document.getElementById('markersList');
+    var zonesList = document.getElementById('zonesList');
+    if (markersList) markersList.innerHTML = '<div class="empty-state">Select wells to view markers</div>';
+    if (zonesList) zonesList.innerHTML = '<div class="empty-state">Select wells to view zones</div>';
     appState.selectedIntervals = [];
     appState.availableIntervals = [];
+    appState.selectedZones = [];
+    appState.availableZones = [];
     updateBadges();
 }
 
@@ -1933,130 +1881,19 @@ function generatePlot() {
     
     if (appState.selectedWells.length === 0) {
         showError('Please select at least one well to generate plot');
-        return;
+        return Promise.reject(new Error('No wells selected'));
     }
     
     // Use the primary selected well for plotting
     var primaryWell = appState.selectedWells[0];
     
     // Load plot with current intervals
-    loadWellPlot(primaryWell);
+    return loadWellPlot(primaryWell);
     
     console.log('Plot generated for well:', primaryWell, 'with intervals:', appState.selectedIntervals);
 }
 
-// Generate mock calculation plot for demo purposes
-function generateMockCalculationPlot(calculationType) {
-    console.log('Generating mock calculation plot for:', calculationType);
-    
-    var plotTitles = {
-        'gsa': 'Gamma Ray Shale Analysis Results',
-        'rgsa': 'Resistivity-Gamma Ray Shale Analysis Results',
-        'dgsa': 'Density-Gamma Ray Shale Analysis Results',
-        'ngsa': 'Neutron-Gamma Ray Shale Analysis Results',
-        'normalization': 'Data Normalization Results',
-        'vsh_calculation': 'Volume of Shale Calculation Results',
-        'porosity_calculation': 'Porosity Calculation Results',
-        'sw_calculation': 'Water Saturation Calculation Results'
-    };
-    
-    var title = plotTitles[calculationType] || (calculationType.toUpperCase() + ' Calculation Results');
-    
-    // Generate mock data based on calculation type
-    var mockPlotData = generateMockCalculationData(calculationType);
-    
-    // Display the mock plot
-    displayCalculationPlot(mockPlotData, title);
-}
-
-// Generate mock calculation data for different types
-function generateMockCalculationData(calculationType) {
-    var depth = [];
-    for (var i = 0; i < 50; i++) {
-        depth.push(3000 + i * 10);
-    }
-    
-    var data = [];
-    var layout = {
-        xaxis: { title: 'Value' },
-        yaxis: { title: 'Depth (ft)', autorange: 'reversed' },
-        showlegend: true
-    };
-    
-    switch (calculationType) {
-        case 'vsh_calculation':
-            var vsh = depth.map(() => Math.random() * 0.8 + 0.1);
-            data.push({
-                x: vsh,
-                y: depth,
-                type: 'scatter',
-                mode: 'lines',
-                name: 'VSH',
-                line: { color: 'brown', width: 2 }
-            });
-            layout.xaxis.title = 'Volume of Shale (v/v)';
-            break;
-            
-        case 'porosity_calculation':
-            var porosity = depth.map(() => Math.random() * 0.3 + 0.05);
-            data.push({
-                x: porosity,
-                y: depth,
-                type: 'scatter',
-                mode: 'lines',
-                name: 'Porosity',
-                line: { color: 'blue', width: 2 }
-            });
-            layout.xaxis.title = 'Porosity (v/v)';
-            break;
-            
-        case 'sw_calculation':
-            var sw = depth.map(() => Math.random() * 0.8 + 0.2);
-            data.push({
-                x: sw,
-                y: depth,
-                type: 'scatter',
-                mode: 'lines',
-                name: 'Water Saturation',
-                line: { color: 'cyan', width: 2 }
-            });
-            layout.xaxis.title = 'Water Saturation (v/v)';
-            break;
-            
-        case 'gsa':
-        case 'rgsa':
-        case 'dgsa':
-        case 'ngsa':
-            var analysis = depth.map(() => Math.random() * 100 + 20);
-            data.push({
-                x: analysis,
-                y: depth,
-                type: 'scatter',
-                mode: 'lines',
-                name: calculationType.toUpperCase(),
-                line: { color: 'green', width: 2 }
-            });
-            layout.xaxis.title = 'Analysis Value';
-            break;
-            
-        default:
-            var result = depth.map(() => Math.random() * 50 + 25);
-            data.push({
-                x: result,
-                y: depth,
-                type: 'scatter',
-                mode: 'lines',
-                name: 'Calculated Result',
-                line: { color: 'purple', width: 2 }
-            });
-            layout.xaxis.title = 'Calculated Value';
-    }
-    
-    return {
-        data: data,
-        layout: layout
-    };
-}
+// Removed mock calculation generators; use real backend responses only
 
 // Get calculation parameters from backend
 function getCalculationParameters(calculationType) {
@@ -2570,9 +2407,15 @@ function handleVshGRCalculation(params) {
     
     console.log('🚀 VSH-GR Calculation payload:', payload);
     
-    fetchJson('/run_calculation_endpoint', {
+    fetchJson('/vsh_calculation', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+            method: 'vsh_gr',
+            parameters: payload.params,
+            selected_wells: payload.selected_wells,
+            selected_intervals: payload.selected_intervals,
+            interval_specific_params: params.intervals || null
+        })
     })
     .then(function(data) {
         setIsLoading(false);
@@ -2620,9 +2463,15 @@ function handleVshDNCalculation(params) {
     
     console.log('🚀 VSH-DN Calculation payload:', payload);
     
-    fetchJson('/run_calculation_endpoint', {
+    fetchJson('/vsh_calculation', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+            method: 'vsh_dn',
+            parameters: payload.params,
+            selected_wells: payload.selected_wells,
+            selected_intervals: payload.selected_intervals,
+            interval_specific_params: params.intervals || null
+        })
     })
     .then(function(data) {
         setIsLoading(false);
@@ -2660,15 +2509,13 @@ function handlePorosityCalculation(params) {
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/porosity_calculation', {
+    fetchJson('/porosity_calculation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(response => response.json())
     .then(data => {
         setIsLoading(false);
-        if (data.status === 'success') {
+        if (data.status === 'success' || data.success === true) {
             showSuccess('Porosity calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
             
@@ -2679,7 +2526,7 @@ function handlePorosityCalculation(params) {
                 refreshCurrentPlot();
             }
         } else {
-            throw new Error(data.message || 'Calculation failed');
+            throw new Error(data.message || data.error || 'Calculation failed');
         }
     })
     .catch(error => {
@@ -2708,15 +2555,13 @@ function handleSWIndonesiaCalculation(params) {
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/sw_calculation', {
+    fetchJson('/sw_calculation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(response => response.json())
     .then(data => {
         setIsLoading(false);
-        if (data.status === 'success') {
+        if (data.status === 'success' || data.success === true) {
             showSuccess('SW Indonesia calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
             
@@ -2727,7 +2572,7 @@ function handleSWIndonesiaCalculation(params) {
                 refreshCurrentPlot();
             }
         } else {
-            throw new Error(data.message || 'Calculation failed');
+            throw new Error(data.message || data.error || 'Calculation failed');
         }
     })
     .catch(error => {
@@ -2746,19 +2591,17 @@ function handleSWSimandouxCalculation(params) {
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/backend/sw_calculation', {
+    fetchJson('/sw_calculation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(response => response.json())
     .then(data => {
         setIsLoading(false);
-        if (data.success) {
+        if (data.status === 'success' || data.success === true) {
             showSuccess('SW Simandoux calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
         } else {
-            throw new Error(data.error || 'Calculation failed');
+            throw new Error(data.message || data.error || 'Calculation failed');
         }
     })
     .catch(error => {
@@ -2780,15 +2623,13 @@ function handleWaterResistivityCalculation(params) {
         selected_intervals: appState.selectedIntervals
     };
     
-    fetch('/rwa_calculation', {
+    fetchJson('/rwa_calculation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(response => response.json())
     .then(data => {
         setIsLoading(false);
-        if (data.status === 'success') {
+        if (data.status === 'success' || data.success === true) {
             showSuccess('Water Resistivity calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
             
@@ -2799,7 +2640,7 @@ function handleWaterResistivityCalculation(params) {
                 refreshCurrentPlot();
             }
         } else {
-            throw new Error(data.message || 'Calculation failed');
+            throw new Error(data.message || data.error || 'Calculation failed');
         }
     })
     .catch(error => {
@@ -2826,33 +2667,33 @@ function loadModule(moduleName) {
             break;
         case 'vsh-calculation':
         case 'vsh-gr':
-            handleVshCalculation();
+            openVshCalculationForm();
             break;
         case 'vsh-dn':
-            handleVshDnCalculation();
+            openVshDnCalculationForm();
             break;
         case 'porosity-calculation':
-            handlePorosityCalculation();
+            openPorosityCalculationForm();
             break;
         case 'sw-calculation':
         case 'sw-indonesia':
-            handleSwCalculation();
+            openSwCalculationForm();
             break;
         case 'sw-simandoux':
             handleSwSimandouxCalculation();
             break;
         case 'rgsa':
-            handleRgsaCalculation();
+            openRgsaCalculationForm();
             break;
         case 'dgsa':
-            handleDgsaCalculation();
+            openDgsaCalculationForm();
             break;
         case 'ngsa':
-            handleNgsaCalculation();
+            openNgsaCalculationForm();
             break;
         case 'gsa':
         case 'rgsa-ngsa-dgsa':
-            handleGsaCalculation();
+            openGsaCalculationForm();
             break;
         case 'normalization':
             handleNormalization();
@@ -2861,7 +2702,7 @@ function loadModule(moduleName) {
             handleHistogram();
             break;
         case 'water-resistivity-calculation':
-            handleWaterResistivityCalculation();
+            openWaterResistivityCalculationForm();
             break;
         case 'trim-data':
             showTrimDataModal();
@@ -2905,11 +2746,11 @@ function handleLogPlot(wellName) {
 }
 
 // Enhanced module handlers with parameter forms
-function handleVshCalculation() {
-    getCalculationParameters('vsh')
+function openVshCalculationForm() {
+    getCalculationParameters('vsh-gr')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
-            showParameterForm('vsh', parameters);
+            showParameterForm('vsh-gr', parameters);
         })
         .catch(function(error) {
             hideLoading(); // Hide loading on error
@@ -2917,7 +2758,7 @@ function handleVshCalculation() {
         });
 }
 
-function handlePorosityCalculation() {
+function openPorosityCalculationForm() {
     getCalculationParameters('porosity')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
@@ -2929,7 +2770,7 @@ function handlePorosityCalculation() {
         });
 }
 
-function handleSwCalculation() {
+function openSwCalculationForm() {
     getCalculationParameters('sw')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
@@ -2959,7 +2800,7 @@ function handleNormalization() {
         });
 }
 
-function handleGsaCalculation() {
+function openGsaCalculationForm() {
     getCalculationParameters('gsa')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
@@ -2971,7 +2812,7 @@ function handleGsaCalculation() {
         });
 }
 
-function handleRgsaCalculation() {
+function openRgsaCalculationForm() {
     getCalculationParameters('rgsa')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
@@ -2983,7 +2824,7 @@ function handleRgsaCalculation() {
         });
 }
 
-function handleDgsaCalculation() {
+function openDgsaCalculationForm() {
     getCalculationParameters('dgsa')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
@@ -2995,7 +2836,7 @@ function handleDgsaCalculation() {
         });
 }
 
-function handleNgsaCalculation() {
+function openNgsaCalculationForm() {
     getCalculationParameters('ngsa')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
@@ -3086,7 +2927,7 @@ function handleSwSimandouxCalculation() {
     });
 }
 
-function handleVshGrCalculation() {
+function openVshGrCalculationForm() {
     getCalculationParameters('vsh-gr')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
@@ -3098,7 +2939,7 @@ function handleVshGrCalculation() {
         });
 }
 
-function handleVshDnCalculation() {
+function openVshDnCalculationForm() {
     getCalculationParameters('vsh-dn')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
@@ -3110,7 +2951,7 @@ function handleVshDnCalculation() {
         });
 }
 
-function handleWaterResistivityCalculation() {
+function openWaterResistivityCalculationForm() {
     getCalculationParameters('water-resistivity')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
@@ -3270,11 +3111,9 @@ function initializeApp() {
             })
             .catch(function(error) {
                 console.error('Failed to initialize application:', error);
-                showError('Backend connection failed - using mock data for testing');
-                
-                // Initialize with mock data for dashboard
+                showError('Backend connection failed: ' + error.message);
                 setupEventListeners();
-                updateStatus('Ready (Mock Mode)');
+                updateStatus('Backend error');
             });
     }, 1000);
 }
@@ -3387,27 +3226,7 @@ function autoLoadFallbackDataset() {
     });
 }
 
-// Load intervals from dataset when not provided in dataset response
-function loadIntervalsFromDataset() {
-    console.log('Loading intervals from current dataset...');
-    
-    fetchJson('/get_markers')
-    .then(function(response) {
-        if (response.status === 'success' && response.markers) {
-            appState.availableIntervals = response.markers;
-            renderIntervalList(response.markers);
-            updateBadges();
-            console.log('Loaded', response.markers.length, 'intervals via separate API call');
-        } else {
-            console.log('No intervals found in dataset');
-            renderIntervalList([]);
-        }
-    })
-    .catch(function(error) {
-        console.error('Error loading intervals:', error);
-        renderIntervalList([]);
-    });
-}
+// (duplicate loadIntervalsFromDataset removed)
 
 // Load intervals from current dataset  
 function loadIntervalsFromDataset() {
@@ -3440,18 +3259,77 @@ function setupEventListeners() {
     
     // Setup plot type select
     setupPlotTypeSelect();
+    setupPlotLayoutControls();
+    setupAnalysisTools();
+    setupGenerateButton();
     
-    // Select All checkboxes
+    // Select All checkboxes - Wells
     var selectAllWells = document.getElementById('selectAllWells');
     if (selectAllWells) {
         selectAllWells.addEventListener('change', toggleAllWells);
     }
-    
-    var selectAllIntervals = document.getElementById('selectAllIntervals');
-    if (selectAllIntervals) {
-        selectAllIntervals.addEventListener('change', toggleAllIntervals);
+
+    // Intervals tabs and lists
+    var tabMarkers = document.getElementById('tabMarkers');
+    var tabZones = document.getElementById('tabZones');
+    if (tabMarkers) {
+        tabMarkers.addEventListener('click', function(){
+            appState.intervalsTab = 'markers';
+            // Switching to markers clears zones selection
+            appState.selectedZones = [];
+            // Update tab UI
+            document.getElementById('tabMarkers').classList.add('active');
+            document.getElementById('tabZones').classList.remove('active');
+            updateIntervalsTabVisibility();
+            updateBadges();
+        });
+    }
+    if (tabZones) {
+        tabZones.addEventListener('click', function(){
+            appState.intervalsTab = 'zones';
+            // Switching to zones clears markers selection
+            appState.selectedIntervals = [];
+            // Update tab UI
+            document.getElementById('tabZones').classList.add('active');
+            document.getElementById('tabMarkers').classList.remove('active');
+            updateIntervalsTabVisibility();
+            updateBadges();
+        });
+    }
+
+    // Select-all for Markers and Zones
+    var selectAllMarkers = document.getElementById('selectAllMarkers');
+    if (selectAllMarkers) {
+        selectAllMarkers.addEventListener('change', function(){
+            // Switching to markers clears zones selection per spec
+            appState.intervalsTab = 'markers';
+            appState.selectedZones = [];
+            if (this.checked) {
+                appState.selectedIntervals = (appState.availableIntervals || []).slice();
+            } else {
+                appState.selectedIntervals = [];
+            }
+            updateIntervalsTabVisibility();
+            updateIntervalSelection();
+            updateBadges();
+            updateParameterFormColumns();
+        });
+    }
+    var selectAllZones = document.getElementById('selectAllZones');
+    if (selectAllZones) {
+        selectAllZones.addEventListener('change', toggleAllZones);
     }
     
+    // Bind dashboard debug/test buttons if present
+    var dbgBtn = document.getElementById('debugBtn');
+    if (dbgBtn) {
+        dbgBtn.onclick = function(){ try { showDashboardDebugInfo(); } catch(e) { console.warn(e); } };
+    }
+    var testBtn = document.getElementById('testConnectionBtn');
+    if (testBtn) {
+        testBtn.onclick = function(){ try { testBackendConnection(); } catch(e) { console.warn(e); } };
+    }
+
     // Module buttons
     var moduleButtons = document.querySelectorAll('.module-btn:not(.dropdown-btn)');
     moduleButtons.forEach(function(button) {
@@ -3519,9 +3397,11 @@ window.toggleInterval = toggleInterval;
 window.loadModule = loadModule;
 window.toggleAllWells = toggleAllWells;
 window.toggleAllIntervals = toggleAllIntervals;
+window.toggleAllZones = toggleAllZones;
 window.loadWells = loadWells;
 window.createPlot = createPlot;
 window.clearPlot = clearPlot;
+window.updateIntervalsForSelectedWells = updateIntervalsForSelectedWells;
 
 // Debug functions
 function debugApiCall(endpoint) {
@@ -3589,187 +3469,56 @@ function updateTrimDataModalInfo() {
 }
 
 function setupTrimDataModalEvents() {
-    // Prevent multiple event listeners
-    if (window.trimDataModalEventsSetup) return;
-    window.trimDataModalEventsSetup = true;
-    
-    // Close modal events
     var closeBtn = document.getElementById('closeTrimDataModal');
     var cancelBtn = document.getElementById('cancelTrimData');
-    var modal = document.getElementById('trimDataModal');
-    
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closeTrimDataModal);
-    }
-    
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', closeTrimDataModal);
-    }
-    
-    // Click outside modal to close
-    if (modal) {
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeTrimDataModal();
-            }
-        });
-    }
-    
-    // Run Trim Data button
     var runBtn = document.getElementById('runTrimData');
+    if (closeBtn) closeBtn.onclick = closeTrimDataModal;
+    if (cancelBtn) cancelBtn.onclick = closeTrimDataModal;
     if (runBtn) {
-        runBtn.addEventListener('click', executeTrimData);
-    }
-    
-    // ESC key to close
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
+        runBtn.onclick = function() {
+            var startDepth = parseFloat(document.getElementById('trimStartDepth')?.value || '');
+            var endDepth = parseFloat(document.getElementById('trimEndDepth')?.value || '');
+            var method = document.getElementById('trimMethod')?.value || 'depth_range';
+            var suffix = document.getElementById('trimOutputSuffix')?.value || '_TRIM';
+            var preserveBadHoles = !!document.getElementById('trimPreserveBadHoles')?.checked;
+            var interpolateGaps = !!document.getElementById('trimInterpolateGaps')?.checked;
+            var validateDepthsValue = !!document.getElementById('trimValidateDepths')?.checked;
+            var payload = {
+                calculation_type: 'trim_data',
+                params: {
+                    start_depth: startDepth,
+                    end_depth: endDepth,
+                    method: method,
+                    output_suffix: suffix,
+                    preserve_bad_holes: preserveBadHoles,
+                    interpolate_gaps: interpolateGaps,
+                    validate_depths: validateDepthsValue
+                },
+                selected_wells: appState.selectedWells,
+                selected_intervals: appState.selectedIntervals
+            };
             closeTrimDataModal();
-        }
-    });
-}
-
-function closeTrimDataModal() {
-    var modal = document.getElementById('trimDataModal');
-    if (modal) {
-        modal.classList.add('hidden');
+            setIsLoading(true);
+            console.log('📊 Trim Data payload:', payload);
+            fetchJson('/run_calculation_endpoint', { method: 'POST', body: JSON.stringify(payload) })
+                .then(function(resp){
+                    if (resp && resp.status === 'success') {
+                        showSuccess('Trim Data operation completed successfully!');
+                        if (appState.selectedWells.length > 0) refreshCurrentPlot();
+                    } else {
+                        throw new Error(resp && resp.message ? resp.message : 'Trim Data operation failed');
+                    }
+                })
+                .catch(function(err){
+                    showError('Error in Trim Data operation: ' + err.message);
+                    console.error('Trim Data error:', err);
+                })
+                .finally(function(){ setIsLoading(false); });
+        };
     }
 }
 
-function executeTrimData() {
-    console.log('🚀 Executing Trim Data operation');
-    console.log('🚀 Current view:', appState.currentView);
-    
-    // Validate selection
-    if (appState.selectedWells.length === 0) {
-        showError('Please select at least one well before running Trim Data');
-        return;
-    }
-    
-    // Get parameters from modal
-    var startDepth = document.getElementById('trimStartDepth');
-    var endDepth = document.getElementById('trimEndDepth');
-    var method = document.getElementById('trimMethod');
-    var outputSuffix = document.getElementById('trimOutputSuffix');
-    var preserveBadHoles = document.getElementById('trimPreserveBadHoles');
-    var interpolateGaps = document.getElementById('trimInterpolateGaps');
-    var validateDepths = document.getElementById('trimValidateDepths');
-    
-    // Check if elements exist
-    if (!startDepth || !endDepth) {
-        showError('Trim Data form elements not found');
-        return;
-    }
-    
-    var startDepthValue = startDepth.value;
-    var endDepthValue = endDepth.value;
-    var methodValue = method ? method.value : 'depth_range';
-    var outputSuffixValue = outputSuffix ? outputSuffix.value || '_TRIM' : '_TRIM';
-    var preserveBadHolesValue = preserveBadHoles ? preserveBadHoles.checked : true;
-    var interpolateGapsValue = interpolateGaps ? interpolateGaps.checked : false;
-    var validateDepthsValue = validateDepths ? validateDepths.checked : true;
-    
-    // Validate parameters
-    if (!startDepthValue || !endDepthValue) {
-        showError('Please enter both start and end depths');
-        return;
-    }
-    
-    if (parseFloat(startDepthValue) >= parseFloat(endDepthValue)) {
-        showError('Start depth must be less than end depth');
-        return;
-    }
-    
-    // Prepare payload
-    var payload = {
-        calculation_type: 'trim_data',
-        params: {
-            start_depth: parseFloat(startDepthValue),
-            end_depth: parseFloat(endDepthValue),
-            method: methodValue,
-            output_suffix: outputSuffixValue,
-            preserve_bad_holes: preserveBadHolesValue,
-            interpolate_gaps: interpolateGapsValue,
-            validate_depths: validateDepthsValue
-        },
-        selected_wells: appState.selectedWells,
-        selected_intervals: appState.selectedIntervals
-    };
-    
-    // Close modal and show loading
-    closeTrimDataModal();
-    setIsLoading(true);
-    
-    console.log('📊 Trim Data payload:', payload);
-    
-    // For now, simulate successful execution since backend may not be available
-    setTimeout(function() {
-        setIsLoading(false);
-        showSuccess('Trim Data operation completed successfully!');
-        
-        // Refresh current plot to show results
-        if (appState.selectedWells.length > 0) {
-            refreshCurrentPlot();
-        }
-    }, 2000);
-    
-    // Uncomment below for real backend execution
-    /*
-    fetchJson('/run_calculation_endpoint', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-    })
-    .then(function(response) {
-        if (response.status === 'success') {
-            showSuccess('Trim Data operation completed successfully!');
-            
-            // Refresh current plot to show results
-            if (appState.selectedWells.length > 0) {
-                refreshCurrentPlot();
-            }
-        } else {
-            throw new Error(response.message || 'Trim Data operation failed');
-        }
-    })
-    .catch(function(error) {
-        showError('Error in Trim Data operation: ' + error.message);
-        console.error('Trim Data error:', error);
-    })
-    .finally(function() {
-        setIsLoading(false);
-    });
-    */
-}
-
-// Refresh current plot after data changes
-function refreshCurrentPlot() {
-    console.log('🔄 Refreshing current plot view');
-    
-    if (appState.currentModule && appState.selectedWells.length > 0) {
-        // If we're in Data Prep mode, refresh the module area
-        if (appState.currentView === 'dataPrep') {
-            var moduleArea = document.getElementById('dataPrepModuleArea');
-            if (moduleArea) {
-                moduleArea.innerHTML = '<div class="empty-plot-state">' +
-                    '<h3>Data updated successfully</h3>' +
-                    '<p>Trim Data operation completed. Select another module to continue analysis.</p>' +
-                    '</div>';
-            }
-        } else {
-            // If we're in Dashboard mode, refresh the current plot
-            var plotArea = document.getElementById('plotArea');
-            if (plotArea) {
-                plotArea.innerHTML = '<div class="empty-plot-state">' +
-                    '<h3>Data updated successfully</h3>' +
-                    '<p>Trim Data operation completed. Current visualization has been updated.</p>' +
-                    '</div>';
-            }
-        }
-        
-        // Update status
-        updateStatusText('Data processing completed - Ready for analysis');
-    }
-}
+// (removed duplicate refreshCurrentPlot)
 
 // Utility functions for user feedback
 function updateStatusText(message) {
@@ -3786,7 +3535,7 @@ function updateStatusText(message) {
     }
 }
 
-function showDebugInfo() {
+function showDashboardDebugInfo() {
     console.log('=== DEBUG INFO ===');
     console.log('App State:', appState);
     console.log('Current URL:', window.location.href);
@@ -3830,7 +3579,7 @@ function initializeDataPrepPage() {
     var debugBtn = document.getElementById('dataPrepDebugBtn');
     if (debugBtn) {
         debugBtn.addEventListener('click', function() {
-            showDebugInfo();
+            showDataPrepDebugInfo();
         });
     }
     
@@ -3899,14 +3648,12 @@ function testBackendConnection() {
     }, 1500);
 }
 
-function showDebugInfo() {
+function showDataPrepDebugInfo() {
     var debugInfo = `
 === DATA PREPARATION DEBUG INFO ===
 Current Module: ${dataPrepState.activeModule || 'None'}
 Selected Files: ${dataPrepState.selectedFiles.length} (${dataPrepState.selectedFiles.join(', ')})
 Selected Columns: ${dataPrepState.selectedColumns.length} (${dataPrepState.selectedColumns.join(', ')})
-Available Files: ${mockFiles.length}
-Available Columns: ${mockColumns.length}
 Status: ${document.getElementById('dataPrepStatusText')?.textContent || 'Unknown'}
 ================================
     `;
@@ -3919,12 +3666,13 @@ function updateFileList() {
     var fileList = document.getElementById('dataPrepFileList');
     if (!fileList) return;
     
-    if (mockFiles.length === 0) {
+    var files = dataPrepState.availableFiles || [];
+    if (files.length === 0) {
         fileList.innerHTML = '<div class="empty-state">No files available</div>';
         return;
     }
     
-    fileList.innerHTML = mockFiles.map(function(file) {
+    fileList.innerHTML = files.map(function(file) {
         var isSelected = dataPrepState.selectedFiles.includes(file);
         return `
             <div class="data-prep-item ${isSelected ? 'selected' : ''}" 
@@ -3946,7 +3694,8 @@ function updateColumnList() {
         return;
     }
     
-    columnList.innerHTML = mockColumns.map(function(column) {
+    var columns = dataPrepState.availableColumns || [];
+    columnList.innerHTML = columns.map(function(column) {
         var isSelected = dataPrepState.selectedColumns.includes(column);
         return `
             <div class="data-prep-item ${isSelected ? 'selected' : ''}" 
@@ -4549,55 +4298,50 @@ function loadDefaultModule(container, moduleName) {
 }
 
 function loadDataPrepFiles() {
-    // Simulate loading files from backend
     console.log('Loading data preparation files...');
     var fileList = document.getElementById('dataPrepFileList');
-    
     if (!fileList) {
         console.warn('File list container not found');
         return;
     }
-    
-    // Mock data for demo - in real implementation this would fetch from backend
-    var mockFiles = [
-        'BNG-057_composite.csv',
-        'BNG-057_raw.csv', 
-        'BNG-057_processed.csv',
-        'BNG-057_logs.csv',
-        'BNG-057_deviation.csv'
-    ];
-    
-    fileList.innerHTML = mockFiles.map(function(file, index) {
-        return `
-            <div class="list-item">
-                <label class="checkbox-label">
-                    <input type="checkbox" class="file-checkbox" value="${file}" data-index="${index}">
-                    <span class="item-text">${file}</span>
-                </label>
-            </div>
-        `;
-    }).join('');
-    
-    // Setup file selection handlers
-    document.querySelectorAll('.file-checkbox').forEach(function(checkbox) {
-        checkbox.addEventListener('change', function() {
-            updateSelectedFiles();
-            updateFilesBadge();
+    // Try to fetch available files list from backend (endpoint to be implemented)
+    fetchJson('/get_data_prep_files')
+        .then(function(resp){
+            if (resp && resp.status === 'success' && Array.isArray(resp.files)) {
+                fileList.innerHTML = resp.files.map(function(file, index){
+                    return `
+                        <div class="list-item">
+                            <label class="checkbox-label">
+                                <input type="checkbox" class="file-checkbox" value="${file}" data-index="${index}">
+                                <span class="item-text">${file}</span>
+                            </label>
+                        </div>
+                    `;
+                }).join('');
+                // Setup handlers
+                document.querySelectorAll('.file-checkbox').forEach(function(checkbox) {
+                    checkbox.addEventListener('change', function() {
+                        updateSelectedFiles();
+                        updateFilesBadge();
+                    });
+                });
+                var selectAllFiles = document.getElementById('selectAllFiles');
+                if (selectAllFiles) {
+                    selectAllFiles.addEventListener('change', function() {
+                        var checkboxes = document.querySelectorAll('.file-checkbox');
+                        checkboxes.forEach(function(cb) { cb.checked = this.checked; }.bind(this));
+                        updateSelectedFiles();
+                        updateFilesBadge();
+                    });
+                }
+            } else {
+                fileList.innerHTML = '<div class="empty-state">No files available</div>';
+            }
+        })
+        .catch(function(err){
+            console.error('Failed to load data prep files:', err);
+            fileList.innerHTML = '<div class="empty-state">Failed to load files</div>';
         });
-    });
-    
-    // Setup select all functionality
-    var selectAllFiles = document.getElementById('selectAllFiles');
-    if (selectAllFiles) {
-        selectAllFiles.addEventListener('change', function() {
-            var checkboxes = document.querySelectorAll('.file-checkbox');
-            checkboxes.forEach(function(cb) {
-                cb.checked = this.checked;
-            }.bind(this));
-            updateSelectedFiles();
-            updateFilesBadge();
-        });
-    }
 }
 
 function updateFilesBadge() {
@@ -4624,8 +4368,20 @@ function updateSelectedFiles() {
     
     // Update log columns dropdown if files are selected
     if (selected.length > 0) {
-        updateLogColumns(['DEPTH', 'GR', 'NPHI', 'RHOB', 'RT', 'SP', 'CALI', 'PEF']); // Mock columns
-        updateColumnsList(['DEPTH', 'GR', 'NPHI', 'RHOB', 'RT', 'SP', 'CALI', 'PEF']);
+        // Ask backend for available columns in selected files (endpoint to be implemented)
+        fetchJson('/get_data_prep_columns', { method: 'POST', body: JSON.stringify({ files: selected }) })
+            .then(function(resp){
+                if (resp && resp.status === 'success' && Array.isArray(resp.columns)) {
+                    updateLogColumns(resp.columns);
+                    updateColumnsList(resp.columns);
+                } else {
+                    updateColumnsList([]);
+                }
+            })
+            .catch(function(err){
+                console.error('Failed to load columns:', err);
+                updateColumnsList([]);
+            });
     } else {
         // Clear columns if no files selected
         var columnList = document.getElementById('dataPrepColumnList');

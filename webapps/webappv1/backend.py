@@ -18,7 +18,7 @@ import os
 
 # Import your services (assuming they exist)
 try:
-    from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr, calculate_vsh_from_gr_with_params
+    from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr
     from standardwebappv1.services.porosity import calculate_porosity
     from standardwebappv1.services.depth_matching import depth_matching
     from standardwebappv1.services.rgsa import process_all_wells_rgsa
@@ -117,7 +117,10 @@ class WellLogAnalysis:
         self.current_dataset = None
         self.current_well_data = None
         self.available_datasets = []
-        
+        # Track selection coming from UI
+        self.selected_intervals = []
+        self.selected_zones = []
+
         # Auto-load the fix_pass_qc dataset
         self.auto_load_default_dataset()
 
@@ -164,8 +167,8 @@ class WellLogAnalysis:
     def auto_load_default_dataset(self):
         """Automatically load the raw_data_well dataset on initialization"""
         try:
-            # Try to find raw_data_well dataset
-            dataset_name = "raw_data_well"
+            # Prefer explicit fix_pass_qc first as requested
+            dataset_name = "fix_pass_qc"
             result = self.select_dataset(dataset_name)
             if result.get("status") == "success":
                 print(f"Successfully auto-loaded dataset: {dataset_name}")
@@ -175,16 +178,27 @@ class WellLogAnalysis:
                     available_datasets = self.get_available_datasets()
                     if available_datasets.get("status") == "success":
                         datasets = available_datasets.get("datasets", [])
-                        raw_datasets = [ds for ds in datasets if 'raw' in ds.lower() and ('well' in ds.lower() or 'data' in ds.lower())]
-                        if raw_datasets:
-                            fallback_dataset = raw_datasets[0]
+                        # Try exact/partial fix_pass_qc first among discovered datasets
+                        fx = [ds for ds in datasets if ds.lower() == 'fix_pass_qc']
+                        if fx:
+                            fallback_dataset = fx[0]
                             result = self.select_dataset(fallback_dataset)
                             if result.get("status") == "success":
                                 print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
                             else:
                                 print(f"Failed to auto-load fallback dataset {fallback_dataset}")
                         else:
-                            print("No raw well data dataset found")
+                            raw_datasets = [ds for ds in datasets if 'raw' in ds.lower() and ('well' in ds.lower() or 'data' in ds.lower())]
+                            # Keep legacy fallback order
+                            if raw_datasets:
+                                fallback_dataset = raw_datasets[0]
+                                result = self.select_dataset(fallback_dataset)
+                                if result.get("status") == "success":
+                                    print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
+                                else:
+                                    print(f"Failed to auto-load fallback dataset {fallback_dataset}")
+                            else:
+                                print("No raw well data dataset found")
                     else:
                         print("Failed to get available datasets for fallback")
                 except Exception as fallback_error:
@@ -304,6 +318,16 @@ class WellLogAnalysis:
                 well_data = well_data[well_data['MARKER'].isin(selected_intervals)]
                 print(f"After interval filtering: {len(well_data)} rows (was {original_count})")
             
+            # Also support zone-based filtering if provided via request context
+            # Note: selected zones are passed at endpoint level (see get_well_plot)
+            if hasattr(self, '_tmp_selected_zones'):
+                zones = getattr(self, '_tmp_selected_zones') or []
+                if zones and 'ZONE' in well_data.columns:
+                    print(f"Filtering data by selected zones: {zones}")
+                    original_count2 = len(well_data)
+                    well_data = well_data[well_data['ZONE'].isin(zones)]
+                    print(f"After zone filtering: {len(well_data)} rows (was {original_count2})")
+            
                 if well_data.empty:
                     available_intervals = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]['MARKER'].unique().tolist()
                     return {"status": "error", "message": f"No data found for well {well_name} in selected intervals {selected_intervals}. Available intervals: {available_intervals}"}
@@ -371,6 +395,34 @@ class WellLogAnalysis:
         except Exception as e:
             return {"status": "error", "message": f"Error getting markers: {str(e)}"}
 
+    def get_zones_list(self):
+        """Get list of zones from current dataset (supports multiple possible column names)"""
+        try:
+            if self.current_well_data is None:
+                return {"status": "error", "message": "No dataset selected"}
+
+            zone_cols = ['ZONE', 'ZONES', 'ZONE_NAME', 'Zone', 'zone']
+            found_col = None
+            for zc in zone_cols:
+                if zc in self.current_well_data.columns:
+                    found_col = zc
+                    break
+
+            if not found_col:
+                return {"status": "success", "zones": [], "count": 0}
+
+            zones_series = self.current_well_data[found_col].dropna().unique()
+            zones = [str(z) for z in zones_series if pd.notna(z) and str(z).strip() != '']
+
+            return {
+                "status": "success",
+                "zones": zones,
+                "count": len(zones),
+                "column": found_col
+            }
+        except Exception as e:
+            return {"status": "error", "message": f"Error getting zones: {str(e)}"}
+
     # -----------------------------
     # Additional data/params helpers
     # -----------------------------
@@ -402,6 +454,30 @@ class WellLogAnalysis:
                         {"name": "window_size", "type": "int", "default": 50, "label": "Window Size", "min": 10, "max": 200},
                         {"name": "overlap", "type": "int", "default": 25, "label": "Overlap", "min": 5, "max": 100},
                         {"name": "min_samples", "type": "int", "default": 10, "label": "Minimum Samples", "min": 5, "max": 50}
+                    ]
+                },
+                "rgsa": {
+                    "title": "RGSA Parameters",
+                    "parameters": [
+                        {"name": "SLIDING_WINDOW", "type": "int", "default": 100, "label": "Sliding Window", "min": 20, "max": 500},
+                        {"name": "GR", "type": "select", "default": "GR", "label": "Gamma Ray Log", "options": ["GR", "CGR", "SGR"]},
+                        {"name": "RES", "type": "select", "default": "RT", "label": "Resistivity Log", "options": ["RT", "ILD", "LLD"]}
+                    ]
+                },
+                "dgsa": {
+                    "title": "DGSA Parameters",
+                    "parameters": [
+                        {"name": "SLIDING_WINDOW", "type": "int", "default": 100, "label": "Sliding Window", "min": 20, "max": 500},
+                        {"name": "GR", "type": "select", "default": "GR", "label": "Gamma Ray Log", "options": ["GR", "CGR", "SGR"]},
+                        {"name": "DENS", "type": "select", "default": "RHOB", "label": "Density Log", "options": ["RHOB"]}
+                    ]
+                },
+                "ngsa": {
+                    "title": "NGSA Parameters",
+                    "parameters": [
+                        {"name": "SLIDING_WINDOW", "type": "int", "default": 100, "label": "Sliding Window", "min": 20, "max": 500},
+                        {"name": "GR", "type": "select", "default": "GR", "label": "Gamma Ray Log", "options": ["GR", "CGR", "SGR"]},
+                        {"name": "NEUT", "type": "select", "default": "NPHI", "label": "Neutron Log", "options": ["NPHI"]}
                     ]
                 },
                 "sw": {
@@ -556,6 +632,12 @@ class WellLogAnalysis:
                 result_df = self._run_porosity_calculation(df, processed_params)
             elif calculation_type == "gsa":
                 result_df = self._run_gsa_calculation(df, processed_params)
+            elif calculation_type == "rgsa":
+                result_df = self._run_rgsa_calculation(df, processed_params)
+            elif calculation_type == "dgsa":
+                result_df = self._run_dgsa_calculation(df, processed_params)
+            elif calculation_type == "ngsa":
+                result_df = self._run_ngsa_calculation(df, processed_params)
             elif calculation_type == "rgbe_rpbe":
                 result_df = self._run_rgbe_rpbe_calculation(df, processed_params)
             elif calculation_type == "rt_r0":
@@ -637,6 +719,24 @@ class WellLogAnalysis:
             return df
         except Exception as e:
             raise Exception(f"GSA calculation error: {str(e)}")
+
+    def _run_rgsa_calculation(self, df, params):
+        try:
+            return process_all_wells_rgsa(df, params, target_intervals=self.selected_intervals, target_zones=None)
+        except Exception as e:
+            raise Exception(f"RGSA calculation error: {str(e)}")
+
+    def _run_dgsa_calculation(self, df, params):
+        try:
+            return process_all_wells_dgsa(df, params, target_intervals=self.selected_intervals, target_zones=None)
+        except Exception as e:
+            raise Exception(f"DGSA calculation error: {str(e)}")
+
+    def _run_ngsa_calculation(self, df, params):
+        try:
+            return process_all_wells_ngsa(df, params, target_intervals=self.selected_intervals, target_zones=None)
+        except Exception as e:
+            raise Exception(f"NGSA calculation error: {str(e)}")
 
     def _run_rgbe_rpbe_calculation(self, df, params):
         try:
@@ -732,6 +832,9 @@ class WellLogAnalysis:
                 return self._create_porosity_plot(df)
             elif calculation_type == "gsa":
                 return self._create_gsa_plot(df)
+            elif calculation_type in ["rgsa", "dgsa", "ngsa"]:
+                # Map specific variants to the general GSA plot
+                return self._create_gsa_plot(df)
             elif calculation_type == "normalization":
                 return self._create_normalization_plot(df)
             elif calculation_type == "sw":
@@ -793,8 +896,9 @@ class WellLogAnalysis:
     def _create_gsa_plot(self, df):
         """Create GSA plot"""
         try:
-            required_cols = ['RGSA', 'NGSA', 'DGSA']
-            if not all(col in df.columns for col in required_cols):
+            # Accept plot if any GSA-related column exists
+            gsa_cols = [c for c in ['RGSA', 'NGSA', 'DGSA'] if c in df.columns]
+            if len(gsa_cols) == 0:
                 return {"status": "error", "message": "Missing GSA data"}
             fig = plot_gsa_main(df)
             return {"status": "success", "figure": fig.to_dict()}
@@ -892,13 +996,13 @@ def find_raw_data_dataset(structure_name=None):
                     print(f"Found matching dataset with structure name: {name}")
                     return name
         
-        # Fallback to general dataset discovery - try different patterns
+        # Fallback to general dataset discovery - prioritize fix_pass_qc
         search_patterns = [
+            'fix_pass_qc',
             'raw_data_well',
             'raw_well_data', 
             'well_data',
-            'data_well',
-            'fix_pass_qc'  # Legacy fallback
+            'data_well'
         ]
         
         for pattern in search_patterns:
@@ -1079,12 +1183,18 @@ def get_well_plot():
         data = request.get_json()
         well_name = data.get('well_name')
         selected_intervals = data.get('selected_intervals', [])
+        selected_zones = data.get('selected_zones', [])
         structure_context = data.get('structure_context')
         
         analysis = get_analysis_instance()
+        # Pass zones transiently to analysis for this call only
+        analysis._tmp_selected_zones = selected_zones
         
         # Pass intervals and structure context to plot creation
         result = analysis.create_log_plot(well_name, selected_intervals, structure_context)
+        # Clean up transient attribute
+        if hasattr(analysis, '_tmp_selected_zones'):
+            delattr(analysis, '_tmp_selected_zones')
         return json.dumps(result)
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
@@ -1110,12 +1220,15 @@ def run_calculation_endpoint():
         params = data.get('params', {})
         output_dataset = data.get('output_dataset')
         selected_intervals = data.get('selected_intervals', [])
+        selected_zones = data.get('selected_zones', [])
         
         analysis = get_analysis_instance()
         
         # Update selected intervals if provided
         if selected_intervals:
             analysis.selected_intervals = selected_intervals
+        if selected_zones:
+            analysis.selected_zones = selected_zones
         
         result = analysis.run_calculation(calculation_type, params, output_dataset)
         return json.dumps(result)
@@ -1141,6 +1254,16 @@ def get_markers():
     try:
         analysis = get_analysis_instance()
         result = analysis.get_markers_list()
+        return json.dumps(result)
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
+
+@app.route('/get_zones')
+def get_zones():
+    """API endpoint to get zones"""
+    try:
+        analysis = get_analysis_instance()
+        result = analysis.get_zones_list()
         return json.dumps(result)
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
@@ -1256,6 +1379,7 @@ def vsh_calculation_endpoint():
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         interval_specific_params = data.get('interval_specific_params')
+        selected_zones = data.get('selected_zones', [])
         
         print(f"VSH Calculation Request:")
         print(f"  Method: {method}")
@@ -1277,12 +1401,11 @@ def vsh_calculation_endpoint():
             if first_interval and first_interval in interval_specific_params:
                 final_params = interval_specific_params[first_interval]
                 print(f"Using interval-specific params for {first_interval}: {final_params}")
-        
-        # Find the raw data dataset
-        raw_data_name = find_raw_data_dataset()
+        # Prefer the currently loaded dataset; else find one (prioritize fix_pass_qc)
+        raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
             return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
-        
+
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
         df = dataset.get_dataframe()
@@ -1300,7 +1423,20 @@ def vsh_calculation_endpoint():
         if method == 'vsh_gr':
             # VSH from Gamma Ray calculation
             try:
-                result_df = calculate_vsh_from_gr_with_params(df, final_params)
+                # Map incoming params to service signature
+                gr_ma = float(final_params.get('GR_MA', final_params.get('gr_ma', 30)))
+                gr_sh = float(final_params.get('GR_SH', final_params.get('gr_sh', 120)))
+                input_log = final_params.get('input_log') or final_params.get('GR_LOG', 'GR')
+                output_log = final_params.get('output_log', 'VSH_GR')
+                result_df = calculate_vsh_from_gr(
+                    df=df,
+                    gr_log=input_log,
+                    gr_ma=gr_ma,
+                    gr_sh=gr_sh,
+                    output_col=output_log,
+                    target_intervals=selected_intervals,
+                    target_zones=selected_zones or None
+                )
                 
                 # Update current data in analysis instance
                 analysis.current_well_data = result_df
@@ -1315,11 +1451,11 @@ def vsh_calculation_endpoint():
                 })
             except Exception as e:
                 return json.dumps({"status": "error", "message": f"VSH-GR calculation failed: {str(e)}"})
-                
+        
         elif method == 'vsh_dn':
             # VSH from Density-Neutron calculation
             try:
-                result_df = calculate_vsh_dn(df, final_params)
+                result_df = calculate_vsh_dn(df, final_params, target_intervals=selected_intervals, target_zones=selected_zones or None)
                 
                 # Update current data in analysis instance
                 analysis.current_well_data = result_df
@@ -1336,7 +1472,7 @@ def vsh_calculation_endpoint():
                 return json.dumps({"status": "error", "message": f"VSH-DN calculation failed: {str(e)}"})
         
         return json.dumps({"status": "error", "message": "Unknown VSH method"})
-        
+
     except Exception as e:
         traceback.print_exc()
         return json.dumps({"status": "error", "message": str(e)})
@@ -1349,16 +1485,16 @@ def porosity_calculation_endpoint():
         parameters = data.get('parameters', {})
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
-        
-        # Find the raw data dataset
-        raw_data_name = find_raw_data_dataset()
+        # Prefer the currently loaded dataset; else find one (prioritize fix_pass_qc)
+        analysis = get_analysis_instance()
+        raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
             return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
-        
+
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
         df = dataset.get_dataframe()
-        
+
         # Filter for selected wells if specified (check different well column names)
         if selected_wells:
             well_col = None
@@ -1368,19 +1504,16 @@ def porosity_calculation_endpoint():
                     break
             if well_col:
                 df = df[df[well_col].isin(selected_wells)]
+
+        # Perform porosity calculation (interval-aware)
+        result_df = calculate_porosity(df, parameters, target_intervals=selected_intervals, target_zones=None)
         
-        # Perform porosity calculation
-        result_df = calculate_porosity(df, parameters)
-        
-        # Save results back to dataset or create new one
-        output_dataset_name = f"{raw_data_name}_porosity_results"
-        output_dataset = dataiku.Dataset(output_dataset_name)
-        output_dataset.write_with_schema(result_df)
+        # Update current data in analysis instance for downstream plotting
+        analysis.current_well_data = result_df
         
         return json.dumps({
             "success": True, 
             "message": "Porosity calculation completed",
-            "output_dataset": output_dataset_name,
             "rows_processed": len(result_df),
             "source_dataset": raw_data_name
         })
@@ -1399,15 +1532,16 @@ def sw_calculation_endpoint():
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         
-        # Find the raw data dataset
-        raw_data_name = find_raw_data_dataset()
+        # Prefer the currently loaded dataset; else find one (prioritize fix_pass_qc)
+        analysis = get_analysis_instance()
+        raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
             return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
-        
+
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
         df = dataset.get_dataframe()
-        
+
         # Filter for selected wells if specified (check different well column names)
         if selected_wells:
             well_col = None
@@ -1417,28 +1551,24 @@ def sw_calculation_endpoint():
                     break
             if well_col:
                 df = df[df[well_col].isin(selected_wells)]
-        
+
         if method == 'sw_indonesia':
             # SW Indonesia calculation
-            result_df = calculate_sw(df, parameters)
-            output_dataset_name = f"{raw_data_name}_sw_indonesia_results"
+            result_df = calculate_sw(df, parameters, target_intervals=selected_intervals, target_zones=None)
         elif method == 'sw_simandoux':
             # SW Simandoux calculation (placeholder - implement when needed)
             # result_df = calculate_sw_simandoux(df, parameters)
             result_df = df.copy()  # Placeholder
             result_df['SW_SIMANDOUX'] = 0.5  # Placeholder value
-            output_dataset_name = f"{raw_data_name}_sw_simandoux_results"
         else:
             return json.dumps({"success": False, "error": "Unknown SW method"})
         
-        # Save results back to dataset or create new one
-        output_dataset = dataiku.Dataset(output_dataset_name)
-        output_dataset.write_with_schema(result_df)
+        # Update current data in analysis instance for downstream plotting
+        analysis.current_well_data = result_df
         
         return json.dumps({
             "success": True, 
             "message": f"SW {method.replace('sw_', '').upper()} calculation completed",
-            "output_dataset": output_dataset_name,
             "rows_processed": len(result_df),
             "source_dataset": raw_data_name
         })
@@ -1456,15 +1586,16 @@ def rwa_calculation_endpoint():
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         
-        # Find the raw data dataset
-        raw_data_name = find_raw_data_dataset()
+        # Prefer the currently loaded dataset; else find one (prioritize fix_pass_qc)
+        analysis = get_analysis_instance()
+        raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
             return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
-        
+
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
         df = dataset.get_dataframe()
-        
+
         # Filter for selected wells if specified (check different well column names)
         if selected_wells:
             well_col = None
@@ -1474,19 +1605,16 @@ def rwa_calculation_endpoint():
                     break
             if well_col:
                 df = df[df[well_col].isin(selected_wells)]
-        
-        # Perform water resistivity calculation
-        result_df = calculate_rwa(df, parameters)
-        
-        # Save results back to dataset or create new one
-        output_dataset_name = f"{raw_data_name}_rwa_results"
-        output_dataset = dataiku.Dataset(output_dataset_name)
-        output_dataset.write_with_schema(result_df)
-        
+
+        # Perform water resistivity calculation (interval-aware)
+        result_df = calculate_rwa(df, parameters, target_intervals=selected_intervals, target_zones=None)
+
+        # Update current data in analysis instance for downstream plotting
+        analysis.current_well_data = result_df
+
         return json.dumps({
             "success": True, 
             "message": "Water Resistivity calculation completed",
-            "output_dataset": output_dataset_name,
             "rows_processed": len(result_df),
             "source_dataset": raw_data_name
         })
