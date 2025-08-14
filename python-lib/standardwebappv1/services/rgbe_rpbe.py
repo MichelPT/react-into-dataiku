@@ -1,254 +1,183 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import linregress
-from .plotting_service import (
-    extract_markers_with_mean_depth,
-    extract_markers_customize,
-    normalize_xover,
-    plot_line,
-    plot_xover_log_normal,
-    plot_two_features_simple,
-    plot_flag,
-    plot_text_values,
-    plot_texts_marker,
-    layout_range_all_axis,
-    layout_draw_lines,
-    layout_axis
-)
-from plotly.subplots import make_subplots
+# Asumsi file-file ini ada dan berfungsi
+from services.plotting_service import main_plot
+from services.iqual import calculate_iqual
 
-# Configuration for plot ratios (this should match your existing ratio_plots dictionary)
-ratio_plots = {
-    'MARKER': 0.1,
-    'GR': 0.2,
-    'RT': 0.2,
-    'VSH': 0.2,
-    'NPHI_RHOB': 0.2,
-    'IQUAL': 0.2,
-    'RT_GR': 0.2,
-    'RGBE': 0.2,
-    'RGBE_TEXT': 0.1,
-    'RT_PHIE': 0.2,
-    'RPBE': 0.2,
-    'RPBE_TEXT': 0.1
-}
 
-def calculate_iqual(df):
+def calculate_interval_statistics(df_input: pd.DataFrame) -> pd.DataFrame:
     """
-    Calculate IQUAL based on conditions:
-    IF (PHIE>0.1)&&(VSH<0.5): IQUAL = 1
-    else: IQUAL = 0
+    Menghitung statistik (RGBE, RPBE, R-squared) untuk setiap interval contiguous
+    di mana IQUAL > 0. Menggunakan metode single-pass untuk efisiensi.
+    (Fungsi ini tidak perlu diubah, logikanya sudah benar untuk data yang masuk)
     """
-    df = df.copy()
-    df['IQUAL'] = np.where((df['PHIE'] > 0.1) & (df['VSH'] < 0.5), 1, 0)
+    df = df_input.copy()
+    if df.empty:
+        return df
+
+    # Inisialisasi kolom hasil
+    stat_cols = ['NOD', 'RGBE', 'R_RGBE', 'RPBE', 'R_RPBE']
+    for col in stat_cols:
+        df[col] = np.nan
+
+    # Pastikan kolom input ada
+    required_cols = ['IQUAL', 'GR', 'RT', 'PHIE']
+    if not all(col in df.columns for col in required_cols):
+        print("Peringatan: Kolom yang dibutuhkan (IQUAL, GR, RT, PHIE) tidak ada. Melewatkan kalkulasi statistik.")
+        return df_input  # Kembalikan yang asli
+
+    grpstr_idx, grpsize = None, 0
+    sx_rg, sy_rg, sxy_rg, sx2_rg, sy2_rg = 0.0, 0.0, 0.0, 0.0, 0.0
+    sx_rp, sy_rp, sxy_rp, sx2_rp, sy2_rp = 0.0, 0.0, 0.0, 0.0, 0.0
+
+    # Iterasi melalui setiap baris DataFrame
+    for idx in range(len(df)):
+        iqual = df.at[idx, 'IQUAL']
+        iqual_prev = df.at[idx - 1, 'IQUAL'] if idx > 0 else 0
+
+        if iqual > 0:
+            if iqual_prev == 0:
+                grpstr_idx = idx
+                grpsize = 0
+                sx_rg, sy_rg, sxy_rg, sx2_rg, sy2_rg = 0.0, 0.0, 0.0, 0.0, 0.0
+                sx_rp, sy_rp, sxy_rp, sx2_rp, sy2_rp = 0.0, 0.0, 0.0, 0.0, 0.0
+
+            grpsize += 1
+            gr, rt, phie = df.at[idx, 'GR'], df.at[idx,
+                                                   'RT'], df.at[idx, 'PHIE']
+            sx_rg += gr
+            sy_rg += rt
+            sxy_rg += gr * rt
+            sx2_rg += gr**2
+            sy2_rg += rt**2
+            sx_rp += phie
+            sy_rp += rt
+            sxy_rp += phie * rt
+            sx2_rp += phie**2
+            sy2_rp += rt**2
+        else:
+            if grpsize > 2 and grpstr_idx is not None:
+                # Hitung statistik untuk grup yang baru saja selesai
+                denom_rg = sx_rg * sx_rg - grpsize * sx2_rg
+                denom_rp = sx_rp * sx_rp - grpsize * sx2_rp
+                denom_r_rg_sq = (grpsize * sx2_rg - sx_rg**2) * \
+                    (grpsize * sy2_rg - sy_rg**2)
+                denom_r_rp_sq = (grpsize * sx2_rp - sx_rp**2) * \
+                    (grpsize * sy2_rp - sy_rp**2)
+
+                rgbe = 100 * (sx_rg * sy_rg - grpsize * sxy_rg) / \
+                    denom_rg if denom_rg != 0 else np.nan
+                rpbe = (sx_rp * sy_rp - grpsize * sxy_rp) / \
+                    denom_rp if denom_rp != 0 else np.nan
+                r_rgbe = abs(grpsize * sxy_rg - sx_rg * sy_rg) / \
+                    np.sqrt(denom_r_rg_sq) if denom_r_rg_sq > 0 else np.nan
+                r_rpbe = abs(grpsize * sxy_rp - sx_rp * sy_rp) / \
+                    np.sqrt(denom_r_rp_sq) if denom_r_rp_sq > 0 else np.nan
+
+                # Terapkan hasil ke semua baris dalam grup yang telah selesai
+                df.loc[grpstr_idx:idx-1, 'NOD'] = grpsize
+                df.loc[grpstr_idx:idx-1, ['RGBE', 'R_RGBE', 'RPBE',
+                                          'R_RPBE']] = [rgbe, r_rgbe, rpbe, r_rpbe]
+
+            grpstr_idx, grpsize = None, 0
+
+    # Proses grup terakhir jika file diakhiri dengan IQUAL > 0
+    if grpsize > 2 and grpstr_idx is not None:
+        denom_rg = sx_rg * sx_rg - grpsize * sx2_rg
+        denom_rp = sx_rp * sx_rp - grpsize * sx2_rp
+        denom_r_rg_sq = (grpsize * sx2_rg - sx_rg**2) * \
+            (grpsize * sy2_rg - sy_rg**2)
+        denom_r_rp_sq = (grpsize * sx2_rp - sx_rp**2) * \
+            (grpsize * sy2_rp - sy_rp**2)
+        rgbe = 100 * (sx_rg * sy_rg - grpsize * sxy_rg) / \
+            denom_rg if denom_rg != 0 else np.nan
+        rpbe = (sx_rp * sy_rp - grpsize * sxy_rp) / \
+            denom_rp if denom_rp != 0 else np.nan
+        r_rgbe = abs(grpsize * sxy_rg - sx_rg * sy_rg) / \
+            np.sqrt(denom_r_rg_sq) if denom_r_rg_sq > 0 else np.nan
+        r_rpbe = abs(grpsize * sxy_rp - sx_rp * sy_rp) / \
+            np.sqrt(denom_r_rp_sq) if denom_r_rp_sq > 0 else np.nan
+        df.loc[grpstr_idx:, 'NOD'] = grpsize
+        df.loc[grpstr_idx:, ['RGBE', 'R_RGBE', 'RPBE', 'R_RPBE']] = [
+            rgbe, r_rgbe, rpbe, r_rpbe]
+
     return df
 
-def group_by_seq(df, seq_col):
+
+def process_rgbe_rpbe(df: pd.DataFrame, params: dict = None, target_intervals: list = None, target_zones: list = None) -> pd.DataFrame:
     """
-    Group data based on sequential changes in a specific column
-    """
-    diff = df[seq_col].diff()
-    seq_change = diff != 0
-    group_id = seq_change.cumsum()
-    df['GROUP_ID'] = group_id
-    return df
-
-def process_single_well(well_df):
-    """
-    Process analysis for a single well's data
-    """
-    # Calculate IQUAL first
-    well_df = calculate_iqual(well_df)
-
-    # Data cleaning & grouping
-    df_clean = well_df.dropna()
-
-    if len(df_clean) == 0:
-        return pd.DataFrame()
-
-    df_grouped = group_by_seq(df_clean, 'IQUAL')
-
-    # Calculate slope & r-squared
-    results_fluid = []
-    for group_id, group in df_grouped.groupby('GROUP_ID'):
-        n = len(group)
-
-        # Skip invalid groups
-        if (group['GR'].nunique() == 1) | (group['PHIE'].nunique() == 1) | (n <= 1):
-            continue
-
-        # Linear regression for slope and r-squared
-        slope_rgbe, _, r_rgbe, _, _ = linregress(group['GR'], group['RT'])
-        slope_rpbe, _, r_rpbe, _, _ = linregress(group['PHIE'], group['RT'])
-
-        # Store results with 1 decimal rounding
-        results_fluid.append({
-            'GROUP_ID': group_id,
-            'RGBE': round(100 * slope_rgbe, 1),
-            'R_RGBE': round(r_rgbe, 1),
-            'RPBE': round(slope_rpbe, 1),
-            'R_RPBE': round(r_rpbe, 1),
-        })
-
-    if not results_fluid:
-        return pd.DataFrame()
-
-    df_results_fluid = pd.DataFrame(results_fluid)
-
-    # Merge results with grouped data
-    df_results = df_grouped.merge(df_results_fluid, on='GROUP_ID', how='left')
-
-    # Filter and select required columns
-    df_results = df_results.query('IQUAL > 0').dropna()
-    df_results = df_results[['DEPTH']]  # First select just DEPTH
-    # Now add the columns from df_results_fluid that we know exist
-    df_results['RGBE'] = df_results_fluid['RGBE']
-    df_results['R_RGBE'] = df_results_fluid['R_RGBE']
-    df_results['RPBE'] = df_results_fluid['RPBE']
-    df_results['R_RPBE'] = df_results_fluid['R_RPBE']
-
-    return df_results
-
-def process_rgbe_rpbe(df, params=None):
-    """
-    Main function to process RGBE-RPBE analysis
+    Fungsi utama untuk memproses analisis RGBE-RPBE.
+    Sekarang menangani filter interval/zona secara internal untuk mencegah kehilangan data.
     """
     try:
-        # Calculate IQUAL first
-        df = calculate_iqual(df)
-        
-        # Process well's data
-        well_results = process_single_well(df)
-        
-        if not well_results.empty:
-            # Merge results back to original dataframe
-            # First initialize the new columns with NaN
-            for col in ['RGBE', 'R_RGBE', 'RPBE', 'R_RPBE']:
-                if col not in df.columns:
-                    df[col] = np.nan
-            
-            # Now do the merge safely
-            if not well_results.empty:
-                # Create a temporary merge result
-                merge_cols = ['DEPTH'] + [col for col in ['RGBE', 'R_RGBE', 'RPBE', 'R_RPBE'] 
-                                        if col in well_results.columns]
-                merge_result = df.merge(
-                    well_results[merge_cols],
-                    on=['DEPTH'],
-                    how='left',
-                    suffixes=('', '_new')
-                )
-                
-                # Update only the columns that came from well_results
-                for col in ['RGBE', 'R_RGBE', 'RPBE', 'R_RPBE']:
-                    if col in well_results.columns:
-                        df[col] = merge_result[col + '_new'].fillna(df[col])
-        
-        # Ensure IQUAL column exists
-        if 'IQUAL' not in df.columns:
-            df['IQUAL'] = np.where((df['PHIE'] > 0.1) & (df['VSH'] < 0.5), 1, 0)
-        
-        return df
-    
+        # 1. Pastikan kolom IQUAL ada di DataFrame lengkap
+        df_with_iqual = calculate_iqual(df)
+
+        # 2. Tentukan data mana yang akan diproses
+        df_to_process = df_with_iqual.copy()
+        has_filters = (target_intervals and 'MARKER' in df.columns) or \
+                      (target_zones and 'ZONE' in df.columns)
+
+        if has_filters:
+            # Buat mask untuk memfilter data yang akan dihitung
+            interval_mask = pd.Series(False, index=df.index)
+            if target_intervals and 'MARKER' in df.columns:
+                interval_mask |= df['MARKER'].isin(target_intervals)
+            if target_zones and 'ZONE' in df.columns:
+                interval_mask |= df['ZONE'].isin(target_zones)
+
+            # Hanya proses baris yang cocok dengan filter
+            df_to_process = df_with_iqual[interval_mask].copy()
+
+        # 3. Lakukan perhitungan statistik pada data yang telah dipilih (difilter atau lengkap)
+        # Fungsi groupby akan menangani jika ada beberapa sumur dalam satu file
+        all_results = []
+        if 'WELL_NAME' not in df_to_process.columns:
+            df_to_process['WELL_NAME'] = 'SINGLE_WELL'
+
+        for well_name, well_df in df_to_process.groupby('WELL_NAME'):
+            print(f"Memproses statistik untuk sumur: {well_name}")
+            well_df_sorted = well_df.sort_values(
+                by='DEPTH').reset_index(drop=True)
+            result_df = calculate_interval_statistics(well_df_sorted)
+            all_results.append(result_df)
+
+        if not all_results:
+            print("Peringatan: Tidak ada data yang diproses setelah filtering.")
+            return df  # Kembalikan df asli jika tidak ada hasil
+
+        processed_df = pd.concat(all_results, ignore_index=True)
+
+        # 4. Gabungkan hasil kembali ke DataFrame asli yang lengkap
+        stat_cols = ['NOD', 'RGBE', 'R_RGBE', 'RPBE', 'R_RPBE']
+        # Hapus kolom lama dari df asli untuk menghindari duplikasi saat merge
+        df_final = df.drop(columns=stat_cols, errors='ignore')
+
+        # Hanya merge kolom kunci (DEPTH) dan kolom hasil
+        if 'DEPTH' in processed_df.columns:
+            df_final = pd.merge(
+                df_final,
+                processed_df[['DEPTH'] + stat_cols],
+                on='DEPTH',
+                how='left'
+            )
+        else:
+            print(
+                "Error: Kolom 'DEPTH' tidak ditemukan di hasil proses, tidak dapat menggabungkan.")
+            return df
+
+        return df_final
+
     except Exception as e:
-        print(f"Error in process_rgbe_rpbe: {str(e)}")
+        print(f"Error dalam process_rgbe_rpbe: {str(e)}")
         raise e
+
 
 def plot_rgbe_rpbe(df):
     """
-    Create RGBE-RPBE visualization plot
+    Membuat plot visualisasi RGBE-RPBE.
     """
-    df_marker = extract_markers_with_mean_depth(df)
-    df_well_marker = df.copy()
-    df_marker_rgbe = extract_markers_customize(df, 'RGBE')
-    df_marker_rpbe = extract_markers_customize(df, 'RPBE')
-    df_well_marker_rgbe = df.copy()
-    df_well_marker_rpbe = df.copy()
-    df_well_marker_iqual = df.copy()
-    df_marker_iqual = extract_markers_customize(df, 'IQUAL')
-    
-    # Normalize crossovers
-    df = normalize_xover(df, 'NPHI', 'RHOB')
-    df = normalize_xover(df, 'RT', 'RHOB')
-    df = normalize_xover(df, 'RT', 'GR')
-
-    # Define plot sequence
-    sequence = ['MARKER', 'GR', 'RT', 'VSH', 'NPHI_RHOB', 'IQUAL', 'RT_GR', 'RGBE', 'RGBE_TEXT', 'RT_PHIE', 'RPBE', 'RPBE_TEXT']
-    plot_sequence = {i+1: v for i, v in enumerate(sequence)}
-
-    # Calculate ratios for subplot widths
-    ratio_plots_seq = [ratio_plots[key] for key in plot_sequence.values()]
-
-    # Create subplot
-    subplot_col = len(plot_sequence.keys())
-    fig = make_subplots(
-        rows=1, cols=subplot_col,
-        shared_yaxes=True,
-        column_widths=ratio_plots_seq,
-        horizontal_spacing=0.0
-    )
-
-    # Initialize counters and axes
-    counter = 0
-    axes = {i: [] for i in plot_sequence.values()}
-
-    # Plot each component
-    for n_seq, col in plot_sequence.items():
-        if col == 'GR':
-            fig, axes = plot_line(df, fig, axes, base_key='GR', n_seq=n_seq, col=col, label=col)
-        elif col == 'RT':
-            fig, axes = plot_line(df, fig, axes, base_key='RT', n_seq=n_seq, col=col, label=col)
-        elif col == 'VSH':
-            fig, axes = plot_line(df, fig, axes, base_key='VSH', n_seq=n_seq, col=col, label=col)
-        elif col == 'NPHI_RHOB':
-            fig, axes, counter = plot_xover_log_normal(df, fig, axes, col, n_seq, counter, n_plots=subplot_col,
-                                                     y_color='rgba(0,0,0,0)', n_color='yellow', type=2, exclude_crossover=False)
-        elif col == 'RT_GR':
-            fig, axes, counter = plot_xover_log_normal(df, fig, axes, col, n_seq, counter, n_plots=subplot_col,
-                                                     y_color='limegreen', n_color='lightgray', type=1, exclude_crossover=False)
-        elif col == 'RT_PHIE':
-            fig, axes, counter = plot_two_features_simple(df, fig, axes, col, n_seq, counter, n_plots=subplot_col, log_scale=True)
-        elif col == 'RGBE':
-            fig, axes = plot_flag(df_well_marker_rgbe, fig, axes, col, n_seq)
-        elif col == 'RPBE':
-            fig, axes = plot_flag(df_well_marker_rpbe, fig, axes, col, n_seq)
-        elif col == 'RGBE_TEXT':
-            fig, axes = plot_text_values(df_marker_rgbe, df_well_marker_rgbe['DEPTH'].max(), fig, axes, col, n_seq)
-        elif col == 'RPBE_TEXT':
-            fig, axes = plot_text_values(df_marker_rpbe, df_well_marker_rpbe['DEPTH'].max(), fig, axes, col, n_seq)
-        elif col == 'IQUAL':
-            fig, axes = plot_flag(df_well_marker_iqual, fig, axes, 'IQUAL', n_seq)
-            fig, axes = plot_texts_marker(df_marker_iqual, df_well_marker_iqual['DEPTH'].max(), fig, axes, col, n_seq)
-        elif col == 'MARKER':
-            fig, axes = plot_flag(df_well_marker, fig, axes, col, n_seq)
-            fig, axes = plot_texts_marker(df_marker, df_well_marker['DEPTH'].max(), fig, axes, col, n_seq)
-
-    # Apply layouts
-    fig = layout_range_all_axis(fig, axes, plot_sequence)
-
-    # Update figure layout
-    fig.update_layout(
-        margin=dict(l=20, r=20, t=40, b=20),
-        height=1800,
-        paper_bgcolor='white',
-        plot_bgcolor='white',
-        showlegend=False,
-        hovermode='y unified',
-        hoverdistance=-1,
-        title_text="RGBE - RPBE",
-        title_x=0.5,
-        modebar_remove=['lasso', 'autoscale', 'zoom', 'zoomin', 'zoomout', 'pan', 'select']
-    )
-
-    # Update axes
-    fig.update_yaxes(
-        showspikes=True,
-        range=[df['DEPTH'].max(), df['DEPTH'].min()]
-    )
-    fig.update_traces(yaxis='y')
-
-    # Apply final layouts
-    fig = layout_draw_lines(fig, ratio_plots_seq, df, xgrid_intv=0)
-    fig = layout_axis(fig, axes, ratio_plots_seq, plot_sequence)
-
+    sequence_rgbe = ['MARKER', 'GR', 'RT', 'NPHI_RHOB', 'VSH', 'PHIE',
+                     'IQUAL', 'RGBE_TEXT', 'RGBE', 'RPBE_TEXT', 'RPBE']
+    fig = main_plot(df, sequence_rgbe, title="RGBE Selected Well")
     return fig
