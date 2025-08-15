@@ -33,6 +33,7 @@ try:
     from standardwebappv1.services.vsh_dn import calculate_vsh_dn
     from standardwebappv1.services.histogram import plot_histogram
     from standardwebappv1.services.crossplot import generate_crossplot
+    from standardwebappv1.services.data_processing import trim_data_auto
     from standardwebappv1.services.plotting_service import (
         extract_markers_with_mean_depth,
         normalize_xover,
@@ -176,6 +177,77 @@ except ImportError as e:
         res.loc[mask, out_col] = vsh_dn[mask]
         return res
 
+    # Fallback porosity calculation (density method)
+    def calculate_porosity(df, params=None, target_intervals=None, target_zones=None):
+        params = params or {}
+        rho_ma = float(params.get('RHO_MA', 2.65))
+        rho_fl = float(params.get('RHO_FL', 1.0))
+        rhob_col = params.get('RHOB', 'RHOB')
+        out_col = params.get('PHIE', 'PHIE')
+        if rhob_col not in df.columns:
+            return df.copy()
+        res = df.copy()
+        rhob = pd.to_numeric(res[rhob_col], errors='coerce')
+        phie = (rho_ma - rhob) / max(1e-6, (rho_ma - rho_fl))
+        phie = phie.clip(0, 1)
+        mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
+        res.loc[mask, out_col] = phie[mask]
+        # Also set PHIT as PHIE if absent
+        if 'PHIT' not in res.columns:
+            res.loc[mask, 'PHIT'] = res.loc[mask, out_col]
+        # Den variants common in plotting_service
+        if 'PHIE_DEN' not in res.columns:
+            res.loc[mask, 'PHIE_DEN'] = res.loc[mask, out_col]
+        if 'PHIT_DEN' not in res.columns:
+            res.loc[mask, 'PHIT_DEN'] = res.loc[mask, 'PHIT']
+        return res
+
+    # Fallback SW (Archie)
+    def calculate_sw(df, params=None, target_intervals=None, target_zones=None):
+        params = params or {}
+        rw = float(params.get('rw', 0.1))
+        a = float(params.get('a', 1.0))
+        m = float(params.get('m', 2.0))
+        n = float(params.get('n', 2.0))
+        rt_col = params.get('RT', 'RT')
+        phie_col = params.get('PHIE', 'PHIE')
+        out_col = params.get('SW', 'SW')
+        if rt_col not in df.columns or phie_col not in df.columns:
+            return df.copy()
+        res = df.copy()
+        rt = pd.to_numeric(res[rt_col], errors='coerce')
+        phie = pd.to_numeric(res[phie_col], errors='coerce')
+        with np.errstate(divide='ignore', invalid='ignore'):
+            sw = ((a * rw) / (rt * (phie ** m))) ** (1.0 / n)
+        sw = sw.clip(0, 1)
+        mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
+        res.loc[mask, out_col] = sw[mask]
+        # Alias expected by plotting_service
+        if 'SWE_INDO' not in res.columns:
+            res.loc[mask, 'SWE_INDO'] = res.loc[mask, out_col]
+        return res
+
+    # Fallback RWA producing three columns used by plotting_service
+    def calculate_rwa(df, params=None, target_intervals=None, target_zones=None):
+        params = params or {}
+        rt_col = params.get('RT', 'RT')
+        phie_col = params.get('PHIE', 'PHIE')
+        a = float(params.get('a', 1.0))
+        m = float(params.get('m', 2.0))
+        # Simple Archie-based apparent Rw approximation: Rw_app ≈ RT * PHIE^m / a
+        res = df.copy()
+        if rt_col in res.columns and phie_col in res.columns:
+            rt = pd.to_numeric(res[rt_col], errors='coerce')
+            phie = pd.to_numeric(res[phie_col], errors='coerce').clip(lower=1e-6)
+            rwa_val = (rt * (phie ** m)) / max(1e-6, a)
+        else:
+            # Default to NaN series of correct length
+            rwa_val = pd.Series(np.nan, index=res.index)
+        mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
+        for col in ['RWA_FULL', 'RWA_SIMPLE', 'RWA_TAR']:
+            res.loc[mask, col] = rwa_val[mask]
+        return res
+
 class WellLogAnalysis:
     def __init__(self, project_key=None):
         """Initialize with optional project key and auto-load fix_pass_qc dataset"""
@@ -188,6 +260,7 @@ class WellLogAnalysis:
         # Track selection coming from UI
         self.selected_intervals = []
         self.selected_zones = []
+        self.selected_wells = []
 
         # Auto-load the fix_pass_qc dataset
         self.auto_load_default_dataset()
@@ -692,6 +765,11 @@ class WellLogAnalysis:
             
             # Make a copy of current data
             df = self.current_well_data.copy()
+            # Apply well filtering if selection exists
+            if getattr(self, 'selected_wells', None):
+                well_col = next((c for c in ['WELL_NAME','WELL','Well','well','WELLNAME'] if c in df.columns), None)
+                if well_col:
+                    df = df[df[well_col].isin(self.selected_wells)]
             
             # Run calculation based on type
             if calculation_type == "vsh":
@@ -720,6 +798,8 @@ class WellLogAnalysis:
                 result_df = self._run_rwa_calculation(df, processed_params)
             elif calculation_type == "normalization":
                 result_df = self._run_interval_normalization(df, processed_params)
+            elif calculation_type == "trim_data":
+                result_df = self._run_trim_data_calculation(df, processed_params)
             else:
                 return {"status": "error", "message": f"Unknown calculation type: {calculation_type}"}
             
@@ -734,6 +814,71 @@ class WellLogAnalysis:
             }
         except Exception as e:
             return {"status": "error", "message": f"Error running calculation: {str(e)}"}
+
+    def _run_trim_data_calculation(self, df, params):
+        """Trim data by depth range, intervals, or quality filter.
+        params keys (from UI):
+          - start_depth: float
+          - end_depth: float
+          - method: 'depth_range' | 'interval_based' | 'quality_filter'
+          - required_columns: optional list for quality filter
+        Uses self.selected_intervals and self.selected_wells where relevant.
+        """
+        try:
+            method = (params or {}).get('method', 'depth_range')
+            start_depth = params.get('start_depth')
+            end_depth = params.get('end_depth')
+            required_cols = params.get('required_columns') or ['GR','RT','NPHI','RHOB']
+
+            # Determine depth column
+            depth_col = 'DEPTH' if 'DEPTH' in df.columns else ('DEPT' if 'DEPT' in df.columns else None)
+            if not depth_col:
+                raise ValueError("No DEPTH/DEPT column in dataset")
+
+            out = df.copy()
+            if method == 'depth_range':
+                # numeric conversion
+                if start_depth is None and end_depth is None:
+                    raise ValueError("Please provide start_depth/end_depth for depth_range method")
+                if start_depth is not None:
+                    start_depth = float(start_depth)
+                if end_depth is not None:
+                    end_depth = float(end_depth)
+                if start_depth is not None and end_depth is not None and start_depth > end_depth:
+                    start_depth, end_depth = end_depth, start_depth
+                if start_depth is not None:
+                    out = out[out[depth_col] >= start_depth]
+                if end_depth is not None:
+                    out = out[out[depth_col] <= end_depth]
+            elif method == 'interval_based':
+                intervals = self.selected_intervals or params.get('intervals') or []
+                if not intervals:
+                    raise ValueError("No intervals selected for interval_based method")
+                marker_col = next((c for c in ['MARKER','Marker','FORMATION','Formation'] if c in out.columns), None)
+                if not marker_col:
+                    raise ValueError("No marker column found for interval_based method")
+                out = out[out[marker_col].isin(intervals)]
+            elif method == 'quality_filter':
+                # Keep continuous block between first and last valid rows across required columns
+                valid_ranges = []
+                for col in required_cols:
+                    if col in out.columns:
+                        series = pd.to_numeric(out[col], errors='coerce')
+                        idx = out[(series != -999.0) & (~series.isna())].index
+                        if len(idx) > 0:
+                            valid_ranges.append((idx.min(), idx.max()))
+                if valid_ranges:
+                    start = min(s for s, _ in valid_ranges)
+                    end = max(e for _, e in valid_ranges)
+                    out = out.loc[start:end]
+            else:
+                raise ValueError(f"Unknown trim method: {method}")
+
+            # Keep sorted by depth
+            out = out.sort_values(depth_col)
+            return out
+        except Exception as e:
+            raise Exception(f"Trim Data error: {str(e)}")
     
     def _run_vsh_calculation(self, df, params):
         """Run VSH calculation"""
@@ -1332,15 +1477,18 @@ def run_calculation_endpoint():
         output_dataset = data.get('output_dataset')
         selected_intervals = data.get('selected_intervals', [])
         selected_zones = data.get('selected_zones', [])
-        
+        selected_wells = data.get('selected_wells', [])
+
         analysis = get_analysis_instance()
-        
+
         # Update selected intervals if provided
         if selected_intervals:
             analysis.selected_intervals = selected_intervals
         if selected_zones:
             analysis.selected_zones = selected_zones
-        
+        if selected_wells:
+            analysis.selected_wells = selected_wells
+
         result = analysis.run_calculation(calculation_type, params, output_dataset)
         return json.dumps(result)
     except Exception as e:
@@ -1386,6 +1534,38 @@ def get_dataset_info():
         analysis = get_analysis_instance()
         result = analysis.get_dataset_info()
         return json.dumps(result)
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
+
+# -----------------------------
+# Data Prep helper endpoints used by app.js
+# -----------------------------
+@app.route('/get_data_prep_files')
+def get_data_prep_files():
+    try:
+        analysis = get_analysis_instance()
+        files = []
+        if analysis.current_dataset:
+            files.append(analysis.current_dataset)
+        else:
+            ds = find_raw_data_dataset()
+            if ds:
+                files.append(ds)
+        return json.dumps({"status": "success", "files": files})
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
+
+@app.route('/get_data_prep_columns', methods=['POST'])
+def get_data_prep_columns():
+    try:
+        data = request.get_json() or {}
+        files = data.get('files') or []
+        analysis = get_analysis_instance()
+        dataset_name = files[0] if files else (analysis.current_dataset or find_raw_data_dataset())
+        if not dataset_name:
+            return json.dumps({"status": "error", "message": "No dataset available"})
+        df = dataiku.Dataset(dataset_name).get_dataframe()
+        return json.dumps({"status": "success", "columns": df.columns.tolist()})
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
 
