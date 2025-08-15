@@ -1107,6 +1107,23 @@ def _scan_structures_folder():
         total_structures = 0
         if not os.path.isdir(root):
             return {"fields": [], "total_fields": 0, "total_structures": 0}
+        # Try to get current dataset wells to enrich structures with availability info
+        analysis = None
+        try:
+            analysis = get_analysis_instance()
+        except Exception:
+            analysis = None
+        current_df = getattr(analysis, 'current_well_data', None) if analysis else None
+        well_col = None
+        if current_df is not None and isinstance(current_df, pd.DataFrame) and not current_df.empty:
+            for c in ['WELL_NAME', 'WELL', 'Well', 'well']:
+                if c in current_df.columns:
+                    well_col = c
+                    break
+        # Simple mapping from structure name to well name prefix (extend as needed)
+        structure_to_prefix = {
+            'abab': 'abb',  # ABAB structure maps to ABB well prefix (e.g., ABB-036)
+        }
         for fname in sorted(os.listdir(root)):
             fpath = os.path.join(root, fname)
             if not os.path.isdir(fpath):
@@ -1116,7 +1133,8 @@ def _scan_structures_folder():
                 if entry.lower().endswith('.xlsx'):
                     web_path = f"/structures/{fname}/{entry}"
                     structure_name = os.path.splitext(entry)[0]
-                    structures.append({
+                    # Default structure info
+                    info = {
                         "structure_name": structure_name,
                         "field_name": fname.capitalize(),
                         "file_path": web_path,
@@ -1125,7 +1143,20 @@ def _scan_structures_folder():
                         "total_records": 0,
                         "columns": [],
                         "intervals": []
-                    })
+                    }
+                    # If we have a loaded dataset, try to detect wells for this structure
+                    if current_df is not None and well_col is not None:
+                        key = structure_name.lower()
+                        prefix = structure_to_prefix.get(key)
+                        if prefix:
+                            # Case-insensitive startswith or token match (e.g., ABB-)
+                            wells_series = current_df[well_col].astype(str)
+                            mask = wells_series.str.upper().str.startswith(prefix.upper()) | wells_series.str.upper().str.contains(rf"\b{prefix.upper()}-", regex=True)
+                            wells = sorted(wells_series[mask].unique().tolist())
+                            if wells:
+                                info["wells"] = wells
+                                info["wells_count"] = len(wells)
+                    structures.append(info)
             if structures:
                 total_structures += len(structures)
                 fields.append({
@@ -1158,6 +1189,30 @@ def get_structures_index():
             if os.path.isfile(p):
                 with open(p, 'r', encoding='utf-8') as f:
                     data = json.load(f)
+                # Optionally enrich with wells availability if dataset is loaded
+                try:
+                    analysis = get_analysis_instance()
+                    df = getattr(analysis, 'current_well_data', None)
+                    well_col = None
+                    if isinstance(df, pd.DataFrame) and not df.empty:
+                        for c in ['WELL_NAME', 'WELL', 'Well', 'well']:
+                            if c in df.columns:
+                                well_col = c
+                                break
+                    if well_col:
+                        # Apply same simple mapping for ABAB -> ABB
+                        for field in data.get('fields', []):
+                            for struct in field.get('structures', []):
+                                sname = str(struct.get('structure_name', '')).lower()
+                                if sname == 'abab':
+                                    wells_series = df[well_col].astype(str)
+                                    mask = wells_series.str.upper().str.startswith('ABB') | wells_series.str.upper().str.contains(r"\bABB-", regex=True)
+                                    wells = sorted(wells_series[mask].unique().tolist())
+                                    if wells:
+                                        struct['wells'] = wells
+                                        struct['wells_count'] = len(wells)
+                except Exception:
+                    pass
                 return json.dumps({"status": "success", "source": p, "data": data})
         return json.dumps({"status": "error", "message": "index.json not found"})
     except Exception as e:
