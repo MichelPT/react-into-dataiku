@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<<<<<<< HEAD
     <title>Well Log Analysis - Data Platform</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
@@ -374,3 +375,152 @@
     <script src="app.js"></script>
 </body>
 </html>
+=======
+    <title>Data Platform</title>
+    <link rel="stylesheet" href="style-simple.css">
+</head>
+<body>
+    <div id="app-container">
+        <div id="loading" style="display: block;">
+            <h2>Loading Data Platform...</h2>
+            <div class="spinner"></div>
+        </div>
+        
+        <div id="error" style="display: none; color: red; padding: 20px;">
+            <h3>Error Loading Application</h3>
+            <p id="error-message"></p>
+            <button onclick="retryLoad()">Retry</button>
+        </div>
+        
+        <!-- Next.js content will be loaded here -->
+        <div id="nextjs-app" style="display: none;"></div>
+    </div>
+
+    <!-- Load app.js for frontend logic -->
+    <script src="app-simple.js"></script>
+    
+    <script>
+        console.log('Dataiku Webapp Starting...');
+        
+        // Global app state
+        window.DataikuApp = {
+            loaded: false,
+            error: null,
+            backendUrl: window.location.origin + '/webapps/webappv1/backend'
+        };
+        
+        // Show/hide sections
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('nextjs-app').style.display = 'none';
+        }
+        
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('nextjs-app').style.display = 'none';
+            document.getElementById('error-message').textContent = message;
+            console.error('App Error:', message);
+        }
+        
+        function showApp() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('nextjs-app').style.display = 'block';
+            window.DataikuApp.loaded = true;
+            console.log('App loaded successfully');
+        }
+        
+        // Load Next.js application
+        function loadNextJsApp() {
+            console.log('Loading Next.js from resources/out/...');
+            
+            const container = document.getElementById('nextjs-app');
+            
+            // Fetch and inject the Next.js index.html
+            fetch('../../resources/out/index.html')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Failed to load: ${response.status} ${response.statusText}`);
+                    }
+                    return response.text();
+                })
+                .then(html => {
+                    console.log('Next.js HTML loaded, length:', html.length);
+                    
+                    // Simple direct injection
+                    container.innerHTML = html;
+                    
+                    // Load the main CSS
+                    loadNextJsCSS();
+                    
+                    // Show the app
+                    showApp();
+                })
+                .catch(error => {
+                    console.error('Failed to load Next.js:', error);
+                    showError(`Failed to load application: ${error.message}`);
+                });
+        }
+        
+        // Load Next.js CSS
+        function loadNextJsCSS() {
+            const cssPath = '../../resources/out/_next/static/css/421e6f55fb360b43.css';
+            
+            // Remove existing Next.js CSS
+            document.querySelectorAll('link[href*="_next"]').forEach(link => link.remove());
+            
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = cssPath;
+            
+            link.onload = () => console.log('✓ Next.js CSS loaded');
+            link.onerror = () => console.warn('⚠ Next.js CSS failed to load');
+            
+            document.head.appendChild(link);
+        }
+        
+        // Connect to backend
+        function connectBackend() {
+            console.log('Connecting to backend...');
+            
+            fetch(window.DataikuApp.backendUrl + '/status')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Backend connected:', data);
+                    window.DataikuApp.backend = data;
+                })
+                .catch(error => {
+                    console.warn('Backend connection failed:', error);
+                });
+        }
+        
+        // Retry function
+        function retryLoad() {
+            showLoading();
+            setTimeout(loadNextJsApp, 1000);
+        }
+        
+        // Initialize application
+        function initApp() {
+            console.log('Initializing Dataiku webapp...');
+            showLoading();
+            
+            // Connect to backend first
+            connectBackend();
+            
+            // Then load Next.js app
+            setTimeout(loadNextJsApp, 1000);
+        }
+        
+        // Start the app when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+    </script>
+</body>
+</html>
+>>>>>>> 2b731181d46adad96dd6e19e6fe143592fd3604d

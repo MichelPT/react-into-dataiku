@@ -1,0 +1,133 @@
+<div id="container" style="width: 100%; height: 100vh; font-family: Arial, sans-serif;">
+    <div id="header" style="background: #f0f8ff; padding: 15px; border-bottom: 1px solid #ccc;">
+        <h2 style="margin: 0;">Next.js in Dataiku (Direct Style Injection)</h2>
+        <div id="status" style="margin-top: 5px; font-size: 14px;">Ready</div>
+    </div>
+    
+    <div id="controls" style="padding: 10px; background: #f8f8f8; border-bottom: 1px solid #ddd;">
+        <button onclick="loadWithStyles()" style="padding: 8px 15px; margin: 5px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Load Next.js + Inject CSS</button>
+        <button onclick="loadSimple()" style="padding: 8px 15px; margin: 5px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Load HTML Only</button>
+        <button onclick="clearContent()" style="padding: 8px 15px; margin: 5px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear</button>
+    </div>
+    
+    <div id="content" style="flex: 1; overflow: auto; background: white;">
+        <div style="padding: 20px; text-align: center; color: #666;">
+            <p>Click "Load Next.js + Inject CSS" to load the application with proper styling</p>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateStatus(msg) {
+    document.getElementById('status').textContent = msg;
+    console.log('Status:', msg);
+}
+
+function clearContent() {
+    document.getElementById('content').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;"><p>Content cleared</p></div>';
+    updateStatus('Content cleared');
+}
+
+function loadSimple() {
+    updateStatus('Loading HTML only...');
+    
+    fetch('../../resources/out/index.html')
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('content').innerHTML = html;
+            updateStatus('HTML loaded (no styling)');
+        })
+        .catch(error => {
+            document.getElementById('content').innerHTML = `<div style="padding: 20px; color: red;">Error: ${error.message}</div>`;
+            updateStatus('Error loading HTML');
+        });
+}
+
+function loadWithStyles() {
+    updateStatus('Loading with CSS injection...');
+    
+    fetch('../../resources/out/index.html')
+        .then(response => response.text())
+        .then(html => {
+            // Step 1: Inject the HTML
+            document.getElementById('content').innerHTML = html;
+            updateStatus('HTML injected, now loading CSS...');
+            
+            // Step 2: Load CSS file directly
+            loadCSSFile('../../resources/out/_next/static/css/421e6f55fb360b43.css')
+                .then(() => {
+                    updateStatus('✓ CSS loaded successfully! App should be styled now.');
+                })
+                .catch(error => {
+                    console.error('CSS loading failed:', error);
+                    updateStatus('HTML loaded, but CSS failed to load');
+                    
+                    // Try to load JS files anyway
+                    loadJavaScriptFiles();
+                });
+        })
+        .catch(error => {
+            document.getElementById('content').innerHTML = `<div style="padding: 20px; color: red;">Error loading HTML: ${error.message}</div>`;
+            updateStatus('Error loading HTML');
+        });
+}
+
+function loadCSSFile(cssUrl) {
+    return new Promise((resolve, reject) => {
+        // Remove existing CSS to avoid conflicts
+        document.querySelectorAll('link[href*="_next"]').forEach(link => link.remove());
+        
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = cssUrl;
+        
+        link.onload = () => {
+            console.log('✓ CSS loaded:', cssUrl);
+            resolve();
+        };
+        
+        link.onerror = () => {
+            console.error('✗ CSS failed:', cssUrl);
+            reject(new Error('CSS failed to load: ' + cssUrl));
+        };
+        
+        document.head.appendChild(link);
+        console.log('CSS link added to head:', cssUrl);
+    });
+}
+
+function loadJavaScriptFiles() {
+    updateStatus('Loading JavaScript files...');
+    
+    const jsFiles = [
+        '../../resources/out/_next/static/chunks/polyfills-42372ed130431b0a.js',
+        '../../resources/out/_next/static/chunks/webpack-d78ff41bb74ba1c2.js',
+        '../../resources/out/_next/static/chunks/main-app-74f9775d5c0237de.js'
+    ];
+    
+    let loadedCount = 0;
+    
+    jsFiles.forEach(jsUrl => {
+        const script = document.createElement('script');
+        script.src = jsUrl;
+        script.async = true;
+        
+        script.onload = () => {
+            loadedCount++;
+            console.log(`✓ JS loaded (${loadedCount}/${jsFiles.length}):`, jsUrl);
+            if (loadedCount === jsFiles.length) {
+                updateStatus(`✓ All ${jsFiles.length} JavaScript files loaded`);
+            }
+        };
+        
+        script.onerror = () => {
+            console.error('✗ JS failed:', jsUrl);
+        };
+        
+        document.head.appendChild(script);
+    });
+}
+
+// Auto-start with simple load
+updateStatus('Ready - Click buttons to test different loading methods');
+</script>
