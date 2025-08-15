@@ -1,4 +1,7 @@
-// Global Application State - Enhanced
+/**
+ * Global Application State - Enhanced
+ * Manages the state for the entire application, including selections and data context.
+ */
 var appState = {
     selectedWells: [],
     selectedIntervals: [],
@@ -11,14 +14,16 @@ var appState = {
     availableWells: [],
     availableIntervals: [],
     plotType: 'default',
-    currentStructure: null,
-    selectedFilePath: null, // Added for file-based plots
-    plotFigure: { data: [], layout: {} }, // Added for plot state
-    error: null, // Added for error handling
-    wellColumns: {} // Added for well columns
+    currentStructure: null, // IMPORTANT: Will hold the context of the selected structure
+    selectedFilePath: null,
+    plotFigure: { data: [], layout: {} },
+    error: null,
+    wellColumns: {}
 };
 
-// Mock data untuk testing ketika backend tidak tersedia
+/**
+ * Mock data for testing when the backend is not available.
+ */
 var mockData = {
     wells: ['WELL-001', 'WELL-002', 'WELL-003', 'WELL-004', 'WELL-005'],
     markers: ['MARKER-A', 'MARKER-B', 'MARKER-C', 'MARKER-D'],
@@ -63,7 +68,9 @@ var mockData = {
     }
 };
 
-// Structures Mock Data - Updated with complete data
+/**
+ * Structures Mock Data - The main database for fields and structures.
+ */
 var structuresData = {
     fields: [
         {
@@ -79,13 +86,7 @@ var structuresData = {
                     total_records: 1200,
                     columns: ["DEPTH", "GR", "NPHI", "RHOB", "RT"],
                     intervals: ["ABAB-TOP", "ABAB-MID", "ABAB-BOTTOM", "ABAB-RESERVOIR"],
-                    data_types: {
-                        "DEPTH": "float64",
-                        "GR": "float64", 
-                        "NPHI": "float64",
-                        "RHOB": "float64",
-                        "RT": "float64"
-                    },
+                    data_types: { "DEPTH": "float64", "GR": "float64", "NPHI": "float64", "RHOB": "float64", "RT": "float64" },
                     statistics: {
                         "GR": { count: 1200, mean: 75.5, min: 10.2, max: 150.8 },
                         "NPHI": { count: 1200, mean: 0.25, min: 0.05, max: 0.45 },
@@ -101,12 +102,7 @@ var structuresData = {
                     total_records: 850,
                     columns: ["DEPTH", "GR", "NPHI", "RHOB"],
                     intervals: ["BNG-UPPER", "BNG-LOWER", "BNG-MAIN"],
-                    data_types: {
-                        "DEPTH": "float64",
-                        "GR": "float64",
-                        "NPHI": "float64", 
-                        "RHOB": "float64"
-                    },
+                    data_types: { "DEPTH": "float64", "GR": "float64", "NPHI": "float64", "RHOB": "float64" },
                     statistics: {
                         "GR": { count: 850, mean: 68.2, min: 15.1, max: 145.3 },
                         "NPHI": { count: 850, mean: 0.22, min: 0.08, max: 0.42 }
@@ -121,14 +117,7 @@ var structuresData = {
                     total_records: 1600,
                     columns: ["DEPTH", "GR", "NPHI", "RHOB", "RT", "SP"],
                     intervals: ["DEWA-A", "DEWA-B", "DEWA-C", "DEWA-RESERVOIR", "DEWA-SEAL"],
-                    data_types: {
-                        "DEPTH": "float64",
-                        "GR": "float64",
-                        "NPHI": "float64",
-                        "RHOB": "float64",
-                        "RT": "float64",
-                        "SP": "float64"
-                    },
+                    data_types: { "DEPTH": "float64", "GR": "float64", "NPHI": "float64", "RHOB": "float64", "RT": "float64", "SP": "float64" },
                     statistics: {
                         "GR": { count: 1600, mean: 82.1, min: 12.5, max: 165.2 },
                         "RT": { count: 1600, mean: 15.8, min: 0.5, max: 250.0 }
@@ -143,16 +132,8 @@ var structuresData = {
                     total_records: 980,
                     columns: ["DEPTH", "GR", "NPHI", "RHOB", "RT"],
                     intervals: ["RAJA-TOP", "RAJA-MIDDLE", "RAJA-BOTTOM"],
-                    data_types: {
-                        "DEPTH": "float64",
-                        "GR": "float64",
-                        "NPHI": "float64",
-                        "RHOB": "float64",
-                        "RT": "float64"
-                    },
-                    statistics: {
-                        "GR": { count: 980, mean: 71.3, min: 18.7, max: 142.9 }
-                    }
+                    data_types: { "DEPTH": "float64", "GR": "float64", "NPHI": "float64", "RHOB": "float64", "RT": "float64" },
+                    statistics: { "GR": { count: 980, mean: 71.3, min: 18.7, max: 142.9 } }
                 }
             ]
         },
@@ -169,17 +150,8 @@ var structuresData = {
                     total_records: 2100,
                     columns: ["DEPTH", "GR", "NPHI", "RHOB", "RT", "SP"],
                     intervals: ["BLB-ZONE-1", "BLB-ZONE-2", "BLB-ZONE-3", "BLB-MAIN"],
-                    data_types: {
-                        "DEPTH": "float64",
-                        "GR": "float64",
-                        "NPHI": "float64",
-                        "RHOB": "float64",
-                        "RT": "float64",
-                        "SP": "float64"
-                    },
-                    statistics: {
-                        "GR": { count: 2100, mean: 78.9, min: 8.3, max: 158.7 }
-                    }
+                    data_types: { "DEPTH": "float64", "GR": "float64", "NPHI": "float64", "RHOB": "float64", "RT": "float64", "SP": "float64" },
+                    statistics: { "GR": { count: 2100, mean: 78.9, min: 8.3, max: 158.7 } }
                 },
                 {
                     structure_name: "Karangan",
@@ -189,7 +161,9 @@ var structuresData = {
                     wells: ["LIM-KRG-001", "LIM-KRG-002", "LIM-KRG-003", "LIM-KRG-004", "LIM-KRG-005", "LIM-KRG-006", "LIM-KRG-007"],
                     total_records: 750,
                     columns: ["DEPTH", "GR", "NPHI", "RHOB"],
-                    intervals: ["KRG-UPPER", "KRG-LOWER"]
+                    intervals: ["KRG-UPPER", "KRG-LOWER"],
+                    data_types: {},
+                    statistics: {}
                 },
                 {
                     structure_name: "Limau Barat",
@@ -199,7 +173,9 @@ var structuresData = {
                     wells: ["LIM-LB-001", "LIM-LB-002", "LIM-LB-003", "LIM-LB-004", "LIM-LB-005", "LIM-LB-006", "LIM-LB-007", "LIM-LB-008", "LIM-LB-009", "LIM-LB-010", "LIM-LB-011", "LIM-LB-012", "LIM-LB-013", "LIM-LB-014", "LIM-LB-015", "LIM-LB-016", "LIM-LB-017", "LIM-LB-018", "LIM-LB-019", "LIM-LB-020", "LIM-LB-021", "LIM-LB-022"],
                     total_records: 2800,
                     columns: ["DEPTH", "GR", "NPHI", "RHOB", "RT", "SP", "CALI"],
-                    intervals: ["LB-A", "LB-B", "LB-C", "LB-D", "LB-MAIN"]
+                    intervals: ["LB-A", "LB-B", "LB-C", "LB-D", "LB-MAIN"],
+                    data_types: {},
+                    statistics: {}
                 },
                 {
                     structure_name: "Limau Tengah",
@@ -209,7 +185,9 @@ var structuresData = {
                     wells: ["LIM-LT-001", "LIM-LT-002", "LIM-LT-003", "LIM-LT-004", "LIM-LT-005", "LIM-LT-006", "LIM-LT-007", "LIM-LT-008", "LIM-LT-009", "LIM-LT-010", "LIM-LT-011", "LIM-LT-012", "LIM-LT-013", "LIM-LT-014", "LIM-LT-015", "LIM-LT-016"],
                     total_records: 1950,
                     columns: ["DEPTH", "GR", "NPHI", "RHOB", "RT"],
-                    intervals: ["LT-ZONE-1", "LT-ZONE-2", "LT-ZONE-3"]
+                    intervals: ["LT-ZONE-1", "LT-ZONE-2", "LT-ZONE-3"],
+                    data_types: {},
+                    statistics: {}
                 },
                 {
                     structure_name: "Tanjung Miring Barat",
@@ -219,13 +197,19 @@ var structuresData = {
                     wells: ["LIM-TMB-001", "LIM-TMB-002", "LIM-TMB-003", "LIM-TMB-004", "LIM-TMB-005", "LIM-TMB-006", "LIM-TMB-007", "LIM-TMB-008", "LIM-TMB-009", "LIM-TMB-010", "LIM-TMB-011", "LIM-TMB-012", "LIM-TMB-013", "LIM-TMB-014"],
                     total_records: 1650,
                     columns: ["DEPTH", "GR", "NPHI", "RHOB", "RT", "SP"],
-                    intervals: ["TMB-TOP", "TMB-MIDDLE", "TMB-BOTTOM"]
+                    intervals: ["TMB-TOP", "TMB-MIDDLE", "TMB-BOTTOM"],
+                    data_types: {},
+                    statistics: {}
                 }
             ]
         }
     ],
-    total_fields: 2,
-    total_structures: 7
+    summary: {
+        total_fields: 2,
+        total_structures: 9,
+        total_wells: 385,
+        total_records: 47500
+    }
 };
 
 // Structures State
@@ -419,10 +403,10 @@ function handleStructureSelect(structureName) {
 function renderStructureDetails(structure) {
     var detailsTitle = document.getElementById('detailsTitle');
     var structureDetails = document.getElementById('structureDetails');
-    
+
     detailsTitle.textContent = 'Details for "' + structure.structure_name + '"';
-    
-    var detailsHTML = 
+
+    var detailsHTML =
         '<div class="details-sections">' +
             // Basic Information
             '<div class="detail-section">' +
@@ -450,50 +434,50 @@ function renderStructureDetails(structure) {
                     '</div>' +
                 '</div>' +
             '</div>';
-    
+
     // Wells section
     if (structure.wells && structure.wells.length > 0) {
-        detailsHTML += 
+        detailsHTML +=
             '<div class="detail-section">' +
                 '<h3>Wells (' + structure.wells_count + ')</h3>' +
                 '<div class="wells-grid">';
-        
+
         structure.wells.forEach(function(well) {
             detailsHTML += '<div class="well-item">' + well + '</div>';
         });
-        
+
         detailsHTML += '</div></div>';
     }
-    
+
     // Columns section
-    detailsHTML += 
+    detailsHTML +=
         '<div class="detail-section">' +
             '<h3>Available Columns (' + structure.columns.length + ')</h3>' +
             '<div class="columns-grid">';
-    
+
     structure.columns.forEach(function(column) {
         var dataType = structure.data_types && structure.data_types[column] ? structure.data_types[column] : 'Unknown';
-        detailsHTML += 
+        detailsHTML +=
             '<div class="column-item">' +
                 '<div class="column-name">' + column + '</div>' +
                 '<div class="column-type">Type: ' + dataType + '</div>' +
             '</div>';
     });
-    
+
     detailsHTML += '</div></div>';
-    
+
     // Statistics section
     if (structure.statistics && Object.keys(structure.statistics).length > 0) {
-        detailsHTML += 
+        detailsHTML +=
             '<div class="detail-section">' +
                 '<h3>Column Statistics</h3>' +
                 '<div class="statistics-grid">';
-        
+
         Object.entries(structure.statistics).forEach(function(entry) {
             var column = entry[0];
             var stats = entry[1];
-            
-            detailsHTML += 
+
+            detailsHTML +=
                 '<div class="statistic-item">' +
                     '<h4>' + column + '</h4>' +
                     '<div class="statistic-details">' +
@@ -501,92 +485,98 @@ function renderStructureDetails(structure) {
                             '<span>Count:</span>' +
                             '<span>' + stats.count + '</span>' +
                         '</div>';
-            
+
             if (stats.mean !== null && stats.mean !== undefined) {
-                detailsHTML += 
+                detailsHTML +=
                     '<div class="statistic-row">' +
                         '<span>Mean:</span>' +
                         '<span>' + stats.mean.toFixed(2) + '</span>' +
                     '</div>';
             }
-            
+
             if (stats.min !== null && stats.min !== undefined) {
-                detailsHTML += 
+                detailsHTML +=
                     '<div class="statistic-row">' +
                         '<span>Min:</span>' +
                         '<span>' + stats.min + '</span>' +
                     '</div>';
             }
-            
+
             if (stats.max !== null && stats.max !== undefined) {
-                detailsHTML += 
+                detailsHTML +=
                     '<div class="statistic-row">' +
                         '<span>Max:</span>' +
                         '<span>' + stats.max + '</span>' +
                     '</div>';
             }
-            
+
             detailsHTML += '</div></div>';
         });
-        
+
         detailsHTML += '</div></div>';
     }
-    
+
     // Navigation button
-    detailsHTML += 
+    detailsHTML +=
         '<div class="detail-section">' +
             '<button class="btn-primary" onclick="navigateToDashboard()" style="width: 100%; padding: 1rem; font-size: 1rem;">' +
                 'Go to Dashboard for Analysis' +
             '</button>' +
         '</div>';
-    
+
     detailsHTML += '</div>';
-    
+
     structureDetails.innerHTML = detailsHTML;
 }
 
+/**
+ * [MODIFIED] Navigates from the structures page to the main dashboard.
+ * This function now passes the selected structure's context to the main app state.
+ */
 function navigateToDashboard() {
-    console.log('🚀 Navigating to dashboard from structures...');
-    
+    console.log('🚀 Navigating to dashboard from structures page...');
+
     if (structuresState.structureDetails) {
-        // Load wells data dari structure yang dipilih ke dalam appState
+        // 1. Load data from the selected structure into the main appState
         appState.availableWells = structuresState.structureDetails.wells || [];
-        appState.selectedWells = []; // Reset selection
-        appState.availableIntervals = []; // Will be loaded when wells are selected
+        appState.availableIntervals = structuresState.structureDetails.intervals || [];
+        appState.selectedWells = []; // Reset previous selections
         appState.selectedIntervals = [];
-        
-        // Store structure context for backend calls
+
+        // 2. Store the entire structure object as the current context
         appState.currentStructure = {
             fieldName: structuresState.selectedField,
             structureName: structuresState.selectedStructure,
-            wells: structuresState.structureDetails.wells,
-            filePath: structuresState.structureDetails.file_path,
-            columns: structuresState.structureDetails.columns
+            ...structuresState.structureDetails // Copy all details like wells, file_path, columns etc.
         };
-        
-        // Switch to dashboard
+
+        console.log('✅ Dashboard context set to:', appState.currentStructure);
+
+        // 3. Switch the page view to the dashboard
         showPage('dashboard');
         handleNavigation('/dashboard');
-        
-        // Initialize dashboard dengan data dari structure
+
+        // 4. Initialize the dashboard with the new data from the structure
+        // Use a short timeout to ensure the DOM is updated before rendering lists/plots
         setTimeout(function() {
             renderWellList(appState.availableWells);
-            clearIntervals();
+            // Intervals are already loaded, so we can render them directly
+            renderIntervalList(appState.availableIntervals);
             updateBadges();
-            clearPlot();
-            
+            clearPlot(); // Clear any previous plot
+
             showSuccess('Dashboard loaded with ' + appState.availableWells.length + ' wells from ' + structuresState.structureDetails.structure_name);
         }, 100);
-        
+
     } else {
-        console.error('🚀 No structure details available for navigation');
+        console.error('❌ No structure details available for navigation.');
         showError('No structure selected. Please select a structure first.');
     }
 }
 
 function showEmptyStructuresState() {
     var structuresList = document.getElementById('structuresList');
-    structuresList.innerHTML = 
+    structuresList.innerHTML =
         '<div class="empty-state-container">' +
             '<div class="empty-state-content">' +
                 '<svg class="empty-state-icon" viewBox="0 0 24 24" fill="currentColor">' +
@@ -600,7 +590,7 @@ function showEmptyStructuresState() {
 
 function showEmptyDetailsState() {
     var structureDetails = document.getElementById('structureDetails');
-    structureDetails.innerHTML = 
+    structureDetails.innerHTML =
         '<div class="empty-state-container">' +
             '<div class="empty-state-content">' +
                 '<svg class="empty-state-icon" viewBox="0 0 24 24" fill="currentColor">' +
@@ -615,7 +605,7 @@ function showEmptyDetailsState() {
 // Navigation Functions
 function handleNavigation(path) {
     console.log('Navigating to:', path);
-    
+
     // Update active states
     var navButtons = document.querySelectorAll('.nav-btn, .mobile-nav-btn');
     navButtons.forEach(function(btn) {
@@ -624,10 +614,10 @@ function handleNavigation(path) {
             btn.classList.add('active');
         }
     });
-    
+
     // Close mobile menu
     closeMobileMenu();
-    
+
     // Handle different routes
     switch(path) {
         case '/structures':
@@ -671,7 +661,7 @@ function setupNavigation() {
             }
         });
     });
-    
+
     // Mobile navigation
     var mobileNavButtons = document.querySelectorAll('.mobile-nav-btn');
     mobileNavButtons.forEach(function(button) {
@@ -682,20 +672,20 @@ function setupNavigation() {
             }
         });
     });
-    
+
     // Mobile menu toggle
     var mobileMenuBtn = document.getElementById('mobileMenuBtn');
     var mobileMenuClose = document.getElementById('mobileMenuClose');
     var mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
-    
+
     if (mobileMenuBtn) {
         mobileMenuBtn.addEventListener('click', openMobileMenu);
     }
-    
+
     if (mobileMenuClose) {
         mobileMenuClose.addEventListener('click', closeMobileMenu);
     }
-    
+
     if (mobileMenuOverlay) {
         mobileMenuOverlay.addEventListener('click', function(e) {
             if (e.target === mobileMenuOverlay) {
@@ -726,24 +716,24 @@ function setupDropdowns() {
         button.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            
+
             var moduleName = button.getAttribute('data-module');
             var dropdownContent = document.querySelector('.dropdown-content[data-parent="' + moduleName + '"]');
-            
+
             if (dropdownContent) {
                 var isHidden = dropdownContent.classList.contains('hidden');
-                
+
                 // Close all other dropdowns
                 var allDropdowns = document.querySelectorAll('.dropdown-content');
                 allDropdowns.forEach(function(dropdown) {
                     dropdown.classList.add('hidden');
                 });
-                
+
                 var allDropdownBtns = document.querySelectorAll('.dropdown-btn');
                 allDropdownBtns.forEach(function(btn) {
                     btn.classList.remove('expanded');
                 });
-                
+
                 // Toggle current dropdown
                 if (isHidden) {
                     dropdownContent.classList.remove('hidden');
@@ -755,7 +745,7 @@ function setupDropdowns() {
             }
         });
     });
-    
+
     // Handle sub-module clicks
     var subModuleButtons = document.querySelectorAll('.sub-module-btn');
     subModuleButtons.forEach(function(button) {
@@ -767,7 +757,7 @@ function setupDropdowns() {
                     btn.classList.remove('active');
                 });
                 button.classList.add('active');
-                
+
                 loadModule(moduleName);
             }
         });
@@ -780,19 +770,19 @@ function updateBadges() {
     var intervalsBadge = document.getElementById('intervalsBadge');
     var selectedWellsCount = document.getElementById('selectedWellsCount');
     var selectedIntervalsCount = document.getElementById('selectedIntervalsCount');
-    
+
     if (wellsBadge) {
         wellsBadge.textContent = appState.selectedWells.length + '/' + appState.availableWells.length;
     }
-    
+
     if (intervalsBadge) {
         intervalsBadge.textContent = appState.selectedIntervals.length + '/' + appState.availableIntervals.length;
     }
-    
+
     if (selectedWellsCount) {
         selectedWellsCount.textContent = appState.selectedWells.length;
     }
-    
+
     if (selectedIntervalsCount) {
         selectedIntervalsCount.textContent = appState.selectedIntervals.length;
     }
@@ -826,38 +816,38 @@ function setupAnalysisTools() {
 // Improved fetchJson with better error handling and fallback
 function fetchJson(endpoint, options) {
     options = options || {};
-    
+
     var defaultOptions = {
         headers: {
             'Content-Type': 'application/json',
         },
         credentials: 'include'
     };
-    
+
     // Merge options
     var finalOptions = {
         method: options.method || 'GET',
         headers: Object.assign({}, defaultOptions.headers, options.headers || {}),
         credentials: defaultOptions.credentials
     };
-    
+
     if (options.body) {
         finalOptions.body = options.body;
     }
-    
+
     console.log('Making API call to:', endpoint, 'with options:', finalOptions);
-    
+
     return fetch(endpoint, finalOptions)
         .then(function(response) {
             console.log('Response status:', response.status, 'OK:', response.ok);
-            
+
             // If response is not OK (e.g., 404, 500), try to use mock data
             if (!response.ok) {
                 console.warn('Server responded with status ' + response.status + ' for ' + endpoint + '. Attempting to use mock data.');
                 // For 404 or other server errors, directly return mock data
-                return getMockResponse(endpoint, options); 
+                return getMockResponse(endpoint, options);
             }
-            
+
             // If response is OK, parse JSON
             return response.text().then(function(text) {
                 console.log('Response text:', text.substring(0, 200) + '...');
@@ -871,13 +861,13 @@ function fetchJson(endpoint, options) {
         })
         .catch(function(error) {
             console.error('Fetch error for', endpoint, ':', error);
-            
+
             // This catch block is primarily for network errors (e.g., server unreachable)
             if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
                 console.warn('Backend not available (network error), using mock data for:', endpoint);
                 return getMockResponse(endpoint, options);
             }
-            
+
             throw error; // Re-throw other unexpected errors
         });
 }
@@ -885,7 +875,7 @@ function fetchJson(endpoint, options) {
 // Mock response generator - Updated to match actual backend
 function getMockResponse(endpoint, options) {
     console.log('Generating mock response for:', endpoint);
-    
+
     switch (endpoint) {
         case '/first_api_call':
             return {
@@ -899,14 +889,14 @@ function getMockResponse(endpoint, options) {
                 well_count: mockData.wells.length,
                 total_rows: 1000
             };
-            
+
         case '/get_wells':
             return {
                 status: 'success',
                 wells: mockData.wells,
                 count: mockData.wells.length
             };
-            
+
         case '/get_markers':
             // Return structure-specific intervals if we have structure context
             if (appState.currentStructure) {
@@ -924,7 +914,7 @@ function getMockResponse(endpoint, options) {
                 markers: mockData.markers,
                 count: mockData.markers.length
             };
-            
+
         case '/get_well_plot':
             var requestData = options.body ? JSON.parse(options.body) : {};
             return {
@@ -932,7 +922,7 @@ function getMockResponse(endpoint, options) {
                 figure: mockData.plotData,
                 well_name: requestData.well_name || 'MOCK-WELL'
             };
-            
+
         case '/select_dataset':
             return {
                 status: 'success',
@@ -943,12 +933,12 @@ function getMockResponse(endpoint, options) {
                 total_rows: 1000,
                 message: 'Mock dataset selected successfully'
             };
-            
+
         case '/get_calculation_params':
             var requestData = options.body ? JSON.parse(options.body) : {};
             var calculationType = requestData.calculation_type;
             return getMockCalculationParams(calculationType);
-            
+
         case '/run_calculation_endpoint':
             var requestData = options.body ? JSON.parse(options.body) : {};
             return {
@@ -957,7 +947,7 @@ function getMockResponse(endpoint, options) {
                 calculation_type: requestData.calculation_type,
                 rows_processed: 1000
             };
-            
+
         case '/get_plot_for_calculation':
             var requestData = options.body ? JSON.parse(options.body) : {};
             return {
@@ -965,7 +955,7 @@ function getMockResponse(endpoint, options) {
                 figure: mockData.plotData,
                 calculation_type: requestData.calculation_type
             };
-            
+
         case '/get_dataset_info':
             return {
                 status: 'success',
@@ -978,13 +968,13 @@ function getMockResponse(endpoint, options) {
                     depth_range: { min: 3000, max: 4000 }
                 }
             };
-            
+
         case '/get_available_columns':
             return {
                 status: 'success',
                 columns: ['WELL_NAME', 'DEPTH', 'GR', 'RT', 'NPHI', 'RHOB', 'MARKER', 'VSH_GR', 'PHIE', 'SW']
             };
-            
+
         case '/validate_calculation':
             var requestData = options.body ? JSON.parse(options.body) : {};
             return {
@@ -992,7 +982,7 @@ function getMockResponse(endpoint, options) {
                 message: 'All required columns available for ' + requestData.calculation_type,
                 required_columns: getRequiredColumns(requestData.calculation_type)
             };
-            
+
         case '/get_current_status':
             return {
                 status: 'success',
@@ -1004,7 +994,7 @@ function getMockResponse(endpoint, options) {
                 marker_count: mockData.markers.length,
                 total_rows: 1000
             };
-            
+
         default:
             return {
                 status: 'error',
@@ -1065,7 +1055,7 @@ function getMockCalculationParams(calculationType) {
             ]
         }
     };
-    
+
     if (calculationType && parameterDefinitions[calculationType]) {
         return {
             status: 'success',
@@ -1089,15 +1079,30 @@ function getRequiredColumns(calculationType) {
         "sw": ["RT", "PHIE"],
         "normalization": ["GR", "MARKER"]
     };
-    
+
     return requirements[calculationType] || [];
+}
+
+// Helper function untuk mencari structure data
+function findStructureData(fieldName, structureName) {
+    var field = structuresData.fields.find(function(f) {
+        return f.field_name === fieldName;
+    });
+
+    if (field) {
+        return field.structures.find(function(s) {
+            return s.structure_name === structureName;
+        });
+    }
+
+    return null;
 }
 
 // Add connection test function
 function testBackendConnection() {
     console.log('Testing backend connection...');
     updateStatus('Testing connection...');
-    
+
     // Try a simple fetch to test connectivity
     fetch('/first_api_call', {
         method: 'GET',
@@ -1143,10 +1148,10 @@ function showMessage(message, type) {
     var messageDiv = document.createElement('div');
     messageDiv.className = 'message ' + type + '-message';
     messageDiv.textContent = message;
-    
+
     // Insert at the top of main content
     mainContent.insertBefore(messageDiv, mainContent.firstChild);
-    
+
     // Auto-remove after 5 seconds
     setTimeout(function() {
         if (messageDiv.parentNode) {
@@ -1170,7 +1175,7 @@ function showWarning(message) {
 // Well Management Functions
 function loadWells() {
     showLoading();
-    
+
     fetchJson('/get_wells')
         .then(function(response) {
             if (response.status === 'success') {
@@ -1194,34 +1199,34 @@ function loadWells() {
 function renderWellList(wells) {
     var wellList = document.getElementById('wellList');
     wellList.innerHTML = '';
-    
-    if (wells.length === 0) {
-        wellList.innerHTML = '<div class="empty-state">No wells available</div>';
+
+    if (!wells || wells.length === 0) {
+        wellList.innerHTML = '<div class="empty-state">No wells available for this structure.</div>';
         return;
     }
-    
+
     wells.forEach(function(wellName) {
         var wellItem = document.createElement('div');
         wellItem.className = 'list-item';
         wellItem.setAttribute('data-id', wellName);
-        
+
         var checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = 'well-' + wellName;
         checkbox.checked = appState.selectedWells.indexOf(wellName) !== -1;
-        
+
         var label = document.createElement('label');
         label.htmlFor = 'well-' + wellName;
         label.textContent = wellName;
-        
+
         var statusDot = document.createElement('div');
         statusDot.className = 'status-dot';
         statusDot.style.display = checkbox.checked ? 'block' : 'none';
-        
+
         wellItem.appendChild(checkbox);
         wellItem.appendChild(label);
         wellItem.appendChild(statusDot);
-        
+
         // Add click event listener
         wellItem.addEventListener('click', function(e) {
             if (e.target.type !== 'checkbox') {
@@ -1229,18 +1234,19 @@ function renderWellList(wells) {
             }
             toggleWell(wellName);
         });
-        
+
         checkbox.addEventListener('change', function() {
             toggleWell(wellName);
         });
-        
+
         wellList.appendChild(wellItem);
     });
 }
 
+// FIXED: Define toggleWell function properly
 function toggleWell(wellId) {
     console.log('Toggling well:', wellId);
-    
+
     var index = appState.selectedWells.indexOf(wellId);
     if (index === -1) {
         appState.selectedWells.push(wellId);
@@ -1256,35 +1262,34 @@ function toggleWell(wellId) {
             loadWellPlot(lastWell);
         }
     }
-    
+
     updateWellSelection();
     updateIntervalsForSelectedWells();
     updateBadges();
 }
 
-// Enhanced plot loading dengan structure context
+// Enhanced plot loading with structure context
 function loadWellPlot(wellName) {
     console.log('🚀 Loading plot for well:', wellName);
-    setIsLoading(true);
-    setError(null);
-    
+    showLoading();
+
     // Prepare request data with structure context
     var requestData = {
         well_name: wellName
     };
-    
+
     // Add structure context if available
     if (appState.currentStructure) {
         requestData.structure_context = {
             field_name: appState.currentStructure.fieldName,
             structure_name: appState.currentStructure.structureName,
-            file_path: appState.currentStructure.filePath,
+            file_path: appState.currentStructure.file_path,
             wells: appState.currentStructure.wells,
             columns: appState.currentStructure.columns
         };
         console.log('🚀 Adding structure context:', requestData.structure_context);
     }
-    
+
     fetchJson('/get_well_plot', {
         method: 'POST',
         body: JSON.stringify(requestData)
@@ -1292,24 +1297,16 @@ function loadWellPlot(wellName) {
     .then(function(response) {
         console.log('🚀 Plot response received:', response);
         if (response.status === 'success' && response.figure) {
-            // Handle different response formats
-            var plotObject;
-            if (typeof response.figure === 'string') {
-                plotObject = JSON.parse(response.figure);
-            } else {
-                plotObject = response.figure;
-            }
-            
-            // Update plot state
+            var plotObject = typeof response.figure === 'string' ? JSON.parse(response.figure) : response.figure;
+
             appState.plotFigure = {
                 data: plotObject.data || [],
                 layout: plotObject.layout || {}
             };
-            
+
             createPlot(plotObject);
-            
-            var contextMsg = appState.currentStructure ? 
-                ' from ' + appState.currentStructure.structureName : '';
+
+            var contextMsg = appState.currentStructure ? ' from ' + appState.currentStructure.structureName : '';
             showSuccess('Plot loaded for well: ' + wellName + contextMsg);
         } else {
             throw new Error(response.message || 'Failed to load plot');
@@ -1317,68 +1314,11 @@ function loadWellPlot(wellName) {
     })
     .catch(function(error) {
         console.error('🚀 Error loading well plot:', error);
-        setError(error.message);
         showError('Error loading well plot: ' + error.message);
     })
     .finally(function() {
-        setIsLoading(false);
-    });
-}
-
-// Helper function untuk menentukan endpoint berdasarkan plot type
-function getPlotEndpoint(plotType) {
-    switch (plotType) {
-        case 'normalization':
-            return '/api/get-normalization-plot';
-        case 'smoothing':
-            return '/api/get-smoothing-plot';
-        case 'splicing':
-            return '/api/get-splicing-plot';
-        case 'porosity':
-            return '/api/get-porosity-plot';
-        case 'gsa':
-            return '/api/get-gsa-plot';
-        case 'vsh':
-            return '/api/get-vsh-plot';
-        case 'sw':
-            return '/api/get-sw-plot';
-        case 'rwa':
-            return '/api/get-rwa-plot';
-        case 'module2':
-            return '/api/get-module2-plot';
-        case 'rpbe-rgbe':
-            return '/api/get-rgbe-rpbe-plot';
-        case 'iqual':
-            return '/api/get-iqual';
-        case 'swgrad':
-            return '/api/get-swgrad-plot';
-        case 'dns-dnsv':
-            return '/api/get-dns-dnsv-plot';
-        case 'rt-ro':
-            return '/api/get-rt-r0-plot';
-        case 'get-module1-plot':
-            return '/api/get-module1-plot';
-        case 'default':
-        default:
-            return '/get_well_plot';
-    }
-}
-
-// Enhanced error handling functions
-function setError(message) {
-    appState.error = message;
-    if (message) {
-        showError(message);
-    }
-}
-
-function setIsLoading(loading) {
-    appState.isLoading = loading;
-    if (loading) {
-        showLoading();
-    } else {
         hideLoading();
-    }
+    });
 }
 
 function updateWellSelection() {
@@ -1387,7 +1327,7 @@ function updateWellSelection() {
         var wellId = item.getAttribute('data-id');
         var checkbox = item.querySelector('input[type="checkbox"]');
         var statusDot = item.querySelector('.status-dot');
-        
+
         if (appState.selectedWells.indexOf(wellId) !== -1) {
             item.classList.add('selected');
             if (checkbox) checkbox.checked = true;
@@ -1398,30 +1338,28 @@ function updateWellSelection() {
             if (statusDot) statusDot.style.display = 'none';
         }
     });
-    
+
     // Update select all checkbox
     var selectAllCheckbox = document.getElementById('selectAllWells');
     if (selectAllCheckbox) {
-        selectAllCheckbox.checked = appState.selectedWells.length === appState.availableWells.length;
+        selectAllCheckbox.checked = appState.selectedWells.length === appState.availableWells.length && appState.availableWells.length > 0;
     }
 }
 
 function toggleAllWells() {
     var checkbox = document.getElementById('selectAllWells');
-    
+
     if (checkbox.checked) {
-        // Select all wells
-        appState.selectedWells = appState.availableWells.slice(); // Copy array
+        appState.selectedWells = appState.availableWells.slice();
         if (appState.selectedWells.length > 0) {
             loadWellPlot(appState.selectedWells[0]);
         }
     } else {
-        // Deselect all wells
         appState.selectedWells = [];
         clearPlot();
         clearIntervals();
     }
-    
+
     updateWellSelection();
     updateIntervalsForSelectedWells();
     updateBadges();
@@ -1453,11 +1391,11 @@ function updateIntervalsForSelectedWells() {
     var requestData = {
         selected_wells: appState.selectedWells
     };
-    
+
     if (appState.currentStructure) {
         requestData.structure_context = appState.currentStructure;
     }
-    
+
     fetchJson('/get_markers', {
         method: 'POST',
         body: JSON.stringify(requestData)
@@ -1477,78 +1415,62 @@ function updateIntervalsForSelectedWells() {
     });
 }
 
-// Helper function untuk mencari structure data
-function findStructureData(fieldName, structureName) {
-    var field = structuresData.fields.find(function(f) {
-        return f.field_name === fieldName;
-    });
-    
-    if (field) {
-        return field.structures.find(function(s) {
-            return s.structure_name === structureName;
-        });
-    }
-    
-    return null;
-}
-
 function renderIntervalList(intervals) {
     var intervalList = document.getElementById('intervalList');
     intervalList.innerHTML = '';
-    
-    if (intervals.length === 0) {
-        intervalList.innerHTML = '<div class="empty-state">No intervals available</div>';
+
+    if (!intervals || intervals.length === 0) {
+        intervalList.innerHTML = '<div class="empty-state">No intervals for this structure.</div>';
         return;
     }
-    
+
     intervals.forEach(function(intervalName) {
         var intervalItem = document.createElement('div');
         intervalItem.className = 'list-item';
         intervalItem.setAttribute('data-id', intervalName);
-        
+
         var checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = 'interval-' + intervalName;
         checkbox.checked = appState.selectedIntervals.indexOf(intervalName) !== -1;
-        
+
         var label = document.createElement('label');
         label.htmlFor = 'interval-' + intervalName;
         label.textContent = intervalName;
-        
+
         var statusDot = document.createElement('div');
         statusDot.className = 'status-dot';
         statusDot.style.display = checkbox.checked ? 'block' : 'none';
-        
+
         intervalItem.appendChild(checkbox);
         intervalItem.appendChild(label);
         intervalItem.appendChild(statusDot);
-        
-        // Add click event listener
+
         intervalItem.addEventListener('click', function(e) {
             if (e.target.type !== 'checkbox') {
                 checkbox.checked = !checkbox.checked;
             }
             toggleInterval(intervalName);
         });
-        
+
         checkbox.addEventListener('change', function() {
             toggleInterval(intervalName);
         });
-        
+
         intervalList.appendChild(intervalItem);
     });
 }
 
 function toggleInterval(intervalId) {
     console.log('Toggling interval:', intervalId);
-    
+
     var index = appState.selectedIntervals.indexOf(intervalId);
     if (index === -1) {
         appState.selectedIntervals.push(intervalId);
     } else {
         appState.selectedIntervals.splice(index, 1);
     }
-    
+
     updateIntervalSelection();
     updateBadges();
 }
@@ -1559,7 +1481,7 @@ function updateIntervalSelection() {
         var intervalId = item.getAttribute('data-id');
         var checkbox = item.querySelector('input[type="checkbox"]');
         var statusDot = item.querySelector('.status-dot');
-        
+
         if (appState.selectedIntervals.indexOf(intervalId) !== -1) {
             item.classList.add('selected');
             if (checkbox) checkbox.checked = true;
@@ -1570,23 +1492,22 @@ function updateIntervalSelection() {
             if (statusDot) statusDot.style.display = 'none';
         }
     });
-    
-    // Update select all checkbox
+
     var selectAllCheckbox = document.getElementById('selectAllIntervals');
     if (selectAllCheckbox) {
-        selectAllCheckbox.checked = appState.selectedIntervals.length === appState.availableIntervals.length;
+        selectAllCheckbox.checked = appState.selectedIntervals.length === appState.availableIntervals.length && appState.availableIntervals.length > 0;
     }
 }
 
 function toggleAllIntervals() {
     var checkbox = document.getElementById('selectAllIntervals');
-    
+
     if (checkbox.checked) {
-        appState.selectedIntervals = appState.availableIntervals.slice(); // Copy array
+        appState.selectedIntervals = appState.availableIntervals.slice();
     } else {
         appState.selectedIntervals = [];
     }
-    
+
     updateIntervalSelection();
     updateBadges();
 }
@@ -1602,15 +1523,14 @@ function clearIntervals() {
 // Plot Management Functions
 function createPlot(figureData) {
     var plotArea = document.getElementById('plotArea');
-    
+
     if (!plotArea) {
         console.error('Plot area not found');
         return;
     }
-    
-    // Clear existing content
+
     plotArea.innerHTML = '';
-    
+
     try {
         var config = {
             responsive: true,
@@ -1624,7 +1544,7 @@ function createPlot(figureData) {
                 scale: 1
             }
         };
-        
+
         Plotly.newPlot(plotArea, figureData.data, figureData.layout, config);
         console.log('Plot created successfully');
     } catch (error) {
@@ -1659,29 +1579,29 @@ function getCalculationParameters(calculationType) {
 function showParameterForm(calculationType, parameters) {
     var parameterForm = document.getElementById('parameterForm');
     var parameterRows = document.getElementById('parameterRows');
-    
+
     // Clear existing parameters
     parameterRows.innerHTML = '';
-    
+
     // Set form title
     var formTitle = document.querySelector('#parameterForm .form-header h3');
     if (formTitle) {
         formTitle.textContent = parameters.title || (calculationType.toUpperCase() + ' Parameters');
     }
-    
+
     // Create parameter rows
     parameters.parameters.forEach(function(param, index) {
         var row = document.createElement('tr');
-        
+
         var cellHtml = '<td>' + (index + 1) + '</td>' +
                       '<td>' + param.label + '</td>' +
                       '<td>';
-        
+
         if (param.type === 'select') {
             cellHtml += '<select name="' + param.name + '" class="select-input">';
             param.options.forEach(function(option) {
                 var selected = option === param.default ? 'selected' : '';
-                cellHtml += '<option value="' + option + '" ' + selected + '>' + option + '" ' + selected + '>' + option + '</option>';
+                cellHtml += '<option value="' + option + '" ' + selected + '>' + option + '</option>';
             });
             cellHtml += '</select>';
         } else if (param.type === 'float' || param.type === 'int') {
@@ -1692,20 +1612,20 @@ function showParameterForm(calculationType, parameters) {
         } else {
             cellHtml += '<input type="text" name="' + param.name + '" value="' + param.default + '" class="select-input">';
         }
-        
+
         cellHtml += '</td>' +
                    '<td>' + (param.description || '') + '</td>' +
                    '<td>' + (param.unit || '') + '</td>' +
                    '<td>' + param.name + '</td>' +
                    '<td><input type="checkbox" checked></td>';
-        
+
         row.innerHTML = cellHtml;
         parameterRows.appendChild(row);
     });
-    
+
     // Show the form
     parameterForm.classList.remove('hidden');
-    
+
     // Store current calculation type
     appState.currentCalculationType = calculationType;
 }
@@ -1714,10 +1634,10 @@ function showParameterForm(calculationType, parameters) {
 function submitCalculationParameters() {
     var parameterForm = document.getElementById('parameterForm');
     var formData = new FormData(parameterForm.querySelector('form') || parameterForm);
-    
+
     var params = {};
     var inputs = parameterForm.querySelectorAll('input, select');
-    
+
     inputs.forEach(function(input) {
         if (input.name && input.type !== 'checkbox') {
             var value = input.value;
@@ -1727,26 +1647,26 @@ function submitCalculationParameters() {
             params[input.name] = value;
         }
     });
-    
+
     // Add intervals for normalization
     if (appState.currentCalculationType === 'normalization') {
         params.intervals = appState.selectedIntervals;
     }
-    
+
     console.log('🚀 Submitting calculation with params:', params);
-    
+
     var requestData = {
         calculation_type: appState.currentCalculationType,
         params: params
     };
-    
+
     // Add structure context if available
     if (appState.currentStructure) {
         requestData.structure_context = appState.currentStructure;
     }
-    
+
     setIsLoading(true);
-    
+
     fetchJson('/run_calculation_endpoint', {
         method: 'POST',
         body: JSON.stringify(requestData)
@@ -1755,7 +1675,7 @@ function submitCalculationParameters() {
         if (response.status === 'success') {
             showSuccess(response.message);
             parameterForm.classList.add('hidden');
-            
+
             // Create plot for the calculation
             return createCalculationPlot(appState.currentCalculationType);
         } else {
@@ -1770,17 +1690,34 @@ function submitCalculationParameters() {
     });
 }
 
+// Enhanced error handling functions
+function setError(message) {
+    appState.error = message;
+    if (message) {
+        showError(message);
+    }
+}
+
+function setIsLoading(loading) {
+    appState.isLoading = loading;
+    if (loading) {
+        showLoading();
+    } else {
+        hideLoading();
+    }
+}
+
 // Module Management Functions
 function loadModule(moduleName) {
     if (appState.selectedWells.length === 0) {
         showError('Please select at least one well');
         return;
     }
-    
+
     appState.currentModule = moduleName;
     showLoading();
     var wellName = appState.selectedWells[0];
-    
+
     switch (moduleName) {
         case 'log-plot':
             handleLogPlot(wellName);
@@ -1825,12 +1762,12 @@ function handleLogPlot(wellName) {
         calculation_type: 'default',
         well_name: wellName
     };
-    
+
     // Add structure context if available
     if (appState.currentStructure) {
         requestData.structure_context = appState.currentStructure;
     }
-    
+
     fetchJson('/get_plot_for_calculation', {
         method: 'POST',
         body: JSON.stringify(requestData)
@@ -1887,7 +1824,7 @@ function handleNormalization() {
         showError('Please select at least one interval for normalization');
         return;
     }
-    
+
     getCalculationParameters('normalization')
         .then(function(parameters) {
             showParameterForm('normalization', parameters);
@@ -1914,17 +1851,17 @@ function handleVshDnCalculation() {
         input_log: 'RHOB',
         output_log: 'VSH_DN'
     };
-    
+
     var requestData = {
         calculation_type: 'vsh',
         params: defaultParams
     };
-    
+
     // Add structure context if available
     if (appState.currentStructure) {
         requestData.structure_context = appState.currentStructure;
     }
-    
+
     fetchJson('/run_calculation_endpoint', {
         method: 'POST',
         body: JSON.stringify(requestData)
@@ -1953,17 +1890,17 @@ function handleSwSimandouxCalculation() {
         n: 2.0,
         method: 'simandoux'
     };
-    
+
     var requestData = {
         calculation_type: 'sw',
         params: defaultParams
     };
-    
+
     // Add structure context if available
     if (appState.currentStructure) {
         requestData.structure_context = appState.currentStructure;
     }
-    
+
     fetchJson('/run_calculation_endpoint', {
         method: 'POST',
         body: JSON.stringify(requestData)
@@ -1991,17 +1928,17 @@ function handleHistogram() {
 
 function createCalculationPlot(calculationType) {
     var wellName = appState.selectedWells.length > 0 ? appState.selectedWells[0] : null;
-    
+
     var requestData = {
         calculation_type: calculationType,
         well_name: wellName
     };
-    
+
     // Add structure context if available
     if (appState.currentStructure) {
         requestData.structure_context = appState.currentStructure;
     }
-    
+
     return fetchJson('/get_plot_for_calculation', {
         method: 'POST',
         body: JSON.stringify(requestData)
@@ -2021,7 +1958,7 @@ function createCalculationPlot(calculationType) {
 // Get current logs from plot data untuk analysis
 function getCurrentLogs() {
     console.log("Getting current logs from plot data:", appState.plotFigure.data);
-    
+
     // Filter valid log curves (type: scattergl)
     var logTraces = appState.plotFigure.data.filter(function(trace) {
         return trace.type === 'scattergl' &&
@@ -2029,20 +1966,20 @@ function getCurrentLogs() {
                !trace.name.toLowerCase().includes('xover') &&
                trace.name !== 'MARKER';
     });
-    
+
     console.log("Found log curves:", logTraces.map(function(t) { return t.name; }));
-    
+
     var logs = [];
-    
+
     for (var i = 0; i < logTraces.length; i++) {
         var trace = logTraces[i];
         if (!trace.name) continue;
-        
+
         try {
             // Get x and y data arrays
             var xData = [];
             var yData = [];
-            
+
             // Extract x values
             if (trace.x && trace.x._inputArray instanceof Float64Array) {
                 xData = Array.from(trace.x._inputArray);
@@ -2051,7 +1988,7 @@ function getCurrentLogs() {
             } else if (trace.x && Array.isArray(trace.x.data)) {
                 xData = trace.x.data;
             }
-            
+
             // Extract y values
             if (trace.y && trace.y._inputArray instanceof Float64Array) {
                 yData = Array.from(trace.y._inputArray);
@@ -2060,31 +1997,31 @@ function getCurrentLogs() {
             } else if (trace.y && Array.isArray(trace.y.data)) {
                 yData = trace.y.data;
             }
-            
+
             if (xData.length === 0 || yData.length === 0) {
                 console.log('No valid data arrays for log ' + trace.name);
                 continue;
             }
-            
+
             // Create pairs of depth (y) and value (x)
             var pairs = [];
             for (var j = 0; j < yData.length; j++) {
                 var depth = Number(yData[j]);
                 var value = xData[j];
                 var numValue = value !== undefined && value !== null ? Number(value) : null;
-                
+
                 if (!isNaN(depth) && (numValue === null || !isNaN(numValue))) {
                     pairs.push([depth, numValue]);
                 }
             }
-            
+
             if (pairs.length === 0) {
                 console.log('No valid data points found for log ' + trace.name);
                 continue;
             }
-            
+
             console.log('Processed ' + pairs.length + ' points for log ' + trace.name);
-            
+
             logs.push({
                 curveName: trace.name,
                 data: pairs,
@@ -2095,7 +2032,7 @@ function getCurrentLogs() {
             console.error('Error processing log ' + trace.name + ': ' + err);
         }
     }
-    
+
     console.log("Transformed logs:", logs);
     return logs;
 }
@@ -2103,23 +2040,18 @@ function getCurrentLogs() {
 // Application Initialization
 function initializeApp() {
     console.log('Initializing Well Log Analysis application...');
-    
-    // Check if Plotly is available
+
     if (typeof Plotly === 'undefined') {
         showError('Plotly.js is not loaded');
         return;
     }
-    
-    // Initialize structures page first
+
     initializeStructuresPage();
     showPage('structures');
-    
-    // Test backend connection
+
     testBackendConnection();
-    
-    // Initialize with timeout to allow connection test
+
     setTimeout(function() {
-        // Test backend connection for dashboard functionality
         fetchJson('/first_api_call')
             .then(function(response) {
                 console.log('Backend connection established:', response);
@@ -2129,112 +2061,82 @@ function initializeApp() {
             .catch(function(error) {
                 console.error('Failed to initialize application:', error);
                 showError('Backend connection failed - using mock data for testing');
-                
-                // Initialize with mock data for dashboard
+
                 setupEventListeners();
                 updateStatus('Ready (Mock Mode)');
             });
     }, 1000);
 }
 
-function autoLoadDefaultDataset() {
-    console.log('Auto-loading fix_pass_qc dataset...');
-    
-    return fetchJson('/select_dataset', {
-        method: 'POST',
-        body: JSON.stringify({ dataset_name: 'fix_pass_qc' })
-    })
-    .then(function(response) {
-        if (response.status === 'success') {
-            appState.availableWells = response.wells;
-            renderWellList(response.wells);
-            updateBadges();
-            showSuccess('Loaded ' + response.wells.length + ' wells from fix_pass_qc dataset');
-        } else {
-            throw new Error(response.message || 'Failed to load dataset');
-        }
-    })
-    .catch(function(error) {
-        console.error('Error auto-loading dataset:', error);
-        showError('Error loading dataset: ' + error.message);
-    });
-}
-
 function setupEventListeners() {
-    // Setup navigation
     setupNavigation();
-    
-    // Setup dropdowns
     setupDropdowns();
-    
-    // Setup plot type select
     setupPlotTypeSelect();
-    
-    // Setup analysis tools
     setupAnalysisTools();
-    
-    // Select All checkboxes
+
     var selectAllWells = document.getElementById('selectAllWells');
     if (selectAllWells) {
         selectAllWells.addEventListener('change', toggleAllWells);
     }
-    
+
     var selectAllIntervals = document.getElementById('selectAllIntervals');
     if (selectAllIntervals) {
         selectAllIntervals.addEventListener('change', toggleAllIntervals);
     }
-    
-    // Module buttons
+
     var moduleButtons = document.querySelectorAll('.module-btn:not(.dropdown-btn)');
     moduleButtons.forEach(function(button) {
         button.addEventListener('click', function() {
             var moduleName = button.getAttribute('data-module');
             if (moduleName) {
-                // Update button state
                 moduleButtons.forEach(function(btn) {
                     btn.classList.remove('active');
                 });
                 button.classList.add('active');
-                
+
                 loadModule(moduleName);
             }
         });
     });
-    
-    // Refresh button
+
     var refreshBtn = document.getElementById('refreshBtn');
     if (refreshBtn) {
-        refreshBtn.addEventListener('click', loadWells);
+        refreshBtn.addEventListener('click', function() {
+            if (appState.currentStructure) {
+                renderWellList(appState.availableWells);
+                renderIntervalList(appState.availableIntervals);
+                updateBadges();
+                showSuccess('Data refreshed successfully');
+            } else {
+                loadWells();
+            }
+        });
     }
-    
-    // Parameter form handlers
+
+    var submitParams = document.getElementById('submitParams');
+    if (submitParams) {
+        submitParams.addEventListener('click', submitCalculationParameters);
+    }
+
     var closeFormBtn = document.getElementById('closeFormBtn');
     if (closeFormBtn) {
         closeFormBtn.addEventListener('click', function() {
             document.getElementById('parameterForm').classList.add('hidden');
         });
     }
-    
+
     var cancelParams = document.getElementById('cancelParams');
     if (cancelParams) {
         cancelParams.addEventListener('click', function() {
             document.getElementById('parameterForm').classList.add('hidden');
         });
     }
-    
-    // Add to setupEventListeners function
-    var submitParams = document.getElementById('submitParams');
-    if (submitParams) {
-        submitParams.addEventListener('click', submitCalculationParameters);
-    }
-    
-    // Global error handler
+
     window.addEventListener('error', function(event) {
         console.error('Global error:', event.error);
         showError('An unexpected error occurred: ' + event.error.message);
     });
-    
-    // Handle unhandled promise rejections
+
     window.addEventListener('unhandledrejection', function(event) {
         console.error('Unhandled promise rejection:', event.reason);
         showError('An unexpected error occurred: ' + event.reason);
@@ -2244,24 +2146,13 @@ function setupEventListeners() {
 // Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', initializeApp);
 
-// Export functions for debugging (global scope)
-window.appState = appState;
-window.toggleWell = toggleWell;
-window.toggleInterval = toggleInterval;
-window.loadModule = loadModule;
-window.toggleAllWells = toggleAllWells;
-window.toggleAllIntervals = toggleAllIntervals;
-window.loadWells = loadWells;
-window.createPlot = createPlot;
-window.clearPlot = clearPlot;
-
 // Debug functions
 function debugApiCall(endpoint) {
     console.log('=== DEBUG API CALL ===');
     console.log('Endpoint:', endpoint);
     console.log('Current URL:', window.location.href);
     console.log('Base URL:', window.location.origin);
-    
+
     fetchJson(endpoint)
         .then(function(response) {
             console.log('✅ Success response:', response);
@@ -2278,16 +2169,24 @@ function showDebugInfo() {
     console.log('Plotly available:', typeof Plotly !== 'undefined');
     console.log('Selected Wells:', appState.selectedWells);
     console.log('Selected Intervals:', appState.selectedIntervals);
-    
+    console.log('Current Structure:', appState.currentStructure);
+
     // Test backend endpoints
     console.log('Testing backend endpoints...');
     debugApiCall('/first_api_call');
 }
 
-// Make debug functions available globally
+// Export functions for debugging (global scope)
+window.appState = appState;
+window.toggleWell = toggleWell;
+window.toggleInterval = toggleInterval;
+window.loadModule = loadModule;
+window.toggleAllWells = toggleAllWells;
+window.toggleAllIntervals = toggleAllIntervals;
+window.loadWells = loadWells;
+window.createPlot = createPlot;
+window.clearPlot = clearPlot;
+window.navigateToDashboard = navigateToDashboard;
 window.debugApiCall = debugApiCall;
 window.showDebugInfo = showDebugInfo;
 window.testBackendConnection = testBackendConnection;
-
-// Make navigateToDashboard available globally
-window.navigateToDashboard = navigateToDashboard;
