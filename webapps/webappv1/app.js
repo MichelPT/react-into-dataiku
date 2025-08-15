@@ -866,12 +866,12 @@ function setupAnalysisTools() {
         crossplotSelect.addEventListener('change', function(){
             var val = crossplotSelect.value;
             if (!val) return;
-            showWarning('Crossplot generation is under development for: ' + val);
-            crossplotSelect.value = '';
+            runCrossplotSidebar(val)
+                .finally(function(){ crossplotSelect.value = ''; });
         });
     }
     var histBtn = document.getElementById('histogramLink');
-    if (histBtn) histBtn.addEventListener('click', handleHistogram);
+    if (histBtn) histBtn.addEventListener('click', function(){ runHistogramSidebar(); });
 }
 
 function setupGenerateButton() {
@@ -3178,7 +3178,7 @@ function autoLoadDefaultDataset() {
                 showError(errorMessage);
                 return autoLoadFallbackDataset();
             } else {
-                errorMessage = 'Default dataset not found. Please check if raw_data_well dataset exists in your Dataiku project.';
+                errorMessage = 'Default dataset not found. Please check if fix_pass_qc dataset exists in your Dataiku project.';
             }
         }
         
@@ -3193,11 +3193,11 @@ function autoLoadDefaultDataset() {
 }
 
 function autoLoadFallbackDataset() {
-    console.log('Loading fallback dataset: raw_data_well');
+    console.log('Loading fallback dataset: fix_pass_qc');
     
     return fetchJson('/select_dataset', {
         method: 'POST',
-        body: JSON.stringify({ dataset_name: 'raw_data_well' })
+    body: JSON.stringify({ dataset_name: 'fix_pass_qc' })
     })
     .then(function(response) {
         if (response.status === 'success') {
@@ -3533,6 +3533,69 @@ function updateStatusText(message) {
     if (dataPrepStatus) {
         dataPrepStatus.textContent = message;
     }
+}
+
+// Sidebar histogram action (Dashboard)
+function runHistogramSidebar() {
+    if (appState.selectedWells.length === 0) {
+        showWarning('Please select at least one well');
+        return Promise.resolve();
+    }
+    var column = 'GR'; // heuristic default
+    setIsLoading(true);
+    updateStatusText('Generating histogram...');
+    return fetchJson('/histogram', {
+        method: 'POST',
+        body: JSON.stringify({
+            column: column,
+            bins: 30,
+            selected_wells: appState.selectedWells,
+            selected_intervals: appState.selectedIntervals,
+            selected_zones: appState.selectedZones
+        })
+    }).then(function(resp){
+        if (resp && resp.status === 'success' && resp.figure) {
+            displayCalculationPlot(resp.figure, 'Histogram ' + column);
+        } else {
+            showError((resp && resp.message) || 'Histogram failed');
+        }
+    }).catch(function(err){
+        showError('Histogram error: ' + (err && err.message ? err.message : err));
+    }).finally(function(){ setIsLoading(false); updateStatusText('Ready'); });
+}
+
+// Sidebar crossplot action (Dashboard)
+function runCrossplotSidebar(kind) {
+    if (appState.selectedWells.length === 0) {
+        showWarning('Please select at least one well');
+        return Promise.resolve();
+    }
+    var x = null, y = null;
+    if (kind === 'rt_rhob') { x = 'RT'; y = 'RHOB'; }
+    else if (kind === 'nphi_rhob') { x = 'NPHI'; y = 'RHOB'; }
+    else if (kind === 'rt_gr') { x = 'RT'; y = 'GR'; }
+    else { showWarning('Unknown crossplot'); return Promise.resolve(); }
+
+    setIsLoading(true);
+    updateStatusText('Generating crossplot...');
+    return fetchJson('/crossplot', {
+        method: 'POST',
+        body: JSON.stringify({
+            x: x,
+            y: y,
+            selected_wells: appState.selectedWells,
+            selected_intervals: appState.selectedIntervals,
+            selected_zones: appState.selectedZones
+        })
+    }).then(function(resp){
+        if (resp && resp.status === 'success' && resp.figure) {
+            displayCalculationPlot(resp.figure, 'Crossplot ' + x + ' vs ' + y);
+        } else {
+            showError((resp && resp.message) || 'Crossplot failed');
+        }
+    }).catch(function(err){
+        showError('Crossplot error: ' + (err && err.message ? err.message : err));
+    }).finally(function(){ setIsLoading(false); updateStatusText('Ready'); });
 }
 
 function showDashboardDebugInfo() {

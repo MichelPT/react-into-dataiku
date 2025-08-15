@@ -31,6 +31,8 @@ try:
     from standardwebappv1.services.sw import calculate_sw
     from standardwebappv1.services.rwa import calculate_rwa
     from standardwebappv1.services.vsh_dn import calculate_vsh_dn
+    from standardwebappv1.services.histogram import plot_histogram
+    from standardwebappv1.services.crossplot import generate_crossplot
     from standardwebappv1.services.plotting_service import (
         extract_markers_with_mean_depth,
         normalize_xover,
@@ -108,6 +110,72 @@ except ImportError as e:
     def plot_smoothing(df=None, df_marker=None, df_well_marker=None):
         return plot_log_default(df)
 
+    # Fallback histogram and crossplot generators
+    def plot_histogram(df: pd.DataFrame, log_column: str, n_bins: int):
+        import plotly.graph_objects as go
+        s = pd.to_numeric(df.get(log_column), errors='coerce').dropna()
+        if s.empty:
+            return plot_log_default(df)
+        hist_y, hist_x = np.histogram(s, bins=n_bins, density=False)
+        fig = go.Figure()
+        fig.add_bar(x=hist_x[:-1], y=hist_y, name=f"Hist {log_column}")
+        fig.update_layout(title=f"Histogram: {log_column}")
+        return fig
+
+    def generate_crossplot(df, x_col, y_col, *args, **kwargs):
+        import plotly.express as px
+        d = df[[c for c in [x_col, y_col] if c in df.columns]].dropna()
+        if d.empty:
+            return plot_log_default(df)
+        fig = px.scatter(d, x=x_col, y=y_col, height=600)
+        fig.update_layout(title=f"Crossplot {x_col} vs {y_col}")
+        return fig
+
+    # Minimal calculation fallbacks
+    def _apply_interval_zone_filter(df, target_intervals=None, target_zones=None):
+        mask = pd.Series(True, index=df.index)
+        if target_intervals and 'MARKER' in df.columns:
+            mask &= df['MARKER'].isin(target_intervals)
+        if target_zones is not None:
+            for zc in ['ZONE', 'ZONES', 'ZONE_NAME', 'Zone', 'zone']:
+                if zc in df.columns:
+                    mask &= df[zc].isin(target_zones)
+                    break
+        return mask
+
+    def calculate_vsh_from_gr(df, gr_log='GR', gr_ma=30.0, gr_sh=120.0, output_col='VSH_GR', target_intervals=None, target_zones=None):
+        if gr_log not in df.columns:
+            raise ValueError(f"Input log {gr_log} not found")
+        res = df.copy()
+        igr = (pd.to_numeric(res[gr_log], errors='coerce') - float(gr_ma)) / max(1e-6, (float(gr_sh) - float(gr_ma)))
+        vsh = igr.clip(0, 1)
+        mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
+        res.loc[mask, output_col] = vsh[mask]
+        return res
+
+    def calculate_vsh_dn(df, params=None, target_intervals=None, target_zones=None):
+        params = params or {}
+        nphi_col = params.get('NPHI', 'NPHI')
+        rhob_col = params.get('RHOB', 'RHOB')
+        out_col = params.get('output_log', 'VSH_DN')
+        nphi_ma = float(params.get('NPHI_MA', -0.02))
+        nphi_sh = float(params.get('NPHI_SH', 0.4))
+        rho_ma = float(params.get('RHO_MA', 2.65))
+        rho_sh = float(params.get('RHO_SH', 2.3))
+        if nphi_col not in df.columns or rhob_col not in df.columns:
+            raise ValueError("NPHI and RHOB required for VSH-DN")
+        res = df.copy()
+        nphi = pd.to_numeric(res[nphi_col], errors='coerce')
+        rhob = pd.to_numeric(res[rhob_col], errors='coerce')
+        # Simple normalized blend toward shale signature (high NPHI, low RHOB)
+        nphi_part = (nphi - nphi_ma) / max(1e-6, (nphi_sh - nphi_ma))
+        rhob_part = (rho_ma - rhob) / max(1e-6, (rho_ma - rho_sh))
+        vsh_dn = 0.5 * (nphi_part + rhob_part)
+        vsh_dn = vsh_dn.clip(0, 1)
+        mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
+        res.loc[mask, out_col] = vsh_dn[mask]
+        return res
+
 class WellLogAnalysis:
     def __init__(self, project_key=None):
         """Initialize with optional project key and auto-load fix_pass_qc dataset"""
@@ -165,7 +233,7 @@ class WellLogAnalysis:
         return new_df
     
     def auto_load_default_dataset(self):
-        """Automatically load the raw_data_well dataset on initialization"""
+        """Automatically load the fix_pass_qc dataset on initialization"""
         try:
             # Prefer explicit fix_pass_qc first as requested
             dataset_name = "fix_pass_qc"
@@ -173,7 +241,7 @@ class WellLogAnalysis:
             if result.get("status") == "success":
                 print(f"Successfully auto-loaded dataset: {dataset_name}")
             else:
-                # If raw_data_well not found, try to find any dataset with 'raw' and 'well' in name
+                # If fix_pass_qc not found, try to find any dataset with 'raw' and 'well' in name
                 try:
                     available_datasets = self.get_available_datasets()
                     if available_datasets.get("status") == "success":
@@ -322,11 +390,15 @@ class WellLogAnalysis:
             # Note: selected zones are passed at endpoint level (see get_well_plot)
             if hasattr(self, '_tmp_selected_zones'):
                 zones = getattr(self, '_tmp_selected_zones') or []
-                if zones and 'ZONE' in well_data.columns:
-                    print(f"Filtering data by selected zones: {zones}")
-                    original_count2 = len(well_data)
-                    well_data = well_data[well_data['ZONE'].isin(zones)]
-                    print(f"After zone filtering: {len(well_data)} rows (was {original_count2})")
+                if zones:
+                    # Detect zone column among common variants
+                    zone_cols = ['ZONE', 'ZONES', 'ZONE_NAME', 'Zone', 'zone']
+                    zone_col = next((zc for zc in zone_cols if zc in well_data.columns), None)
+                    if zone_col:
+                        print(f"Filtering data by selected zones in column '{zone_col}': {zones}")
+                        original_count2 = len(well_data)
+                        well_data = well_data[well_data[zone_col].isin(zones)]
+                        print(f"After zone filtering: {len(well_data)} rows (was {original_count2})")
             
                 if well_data.empty:
                     available_intervals = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]['MARKER'].unique().tolist()
@@ -346,12 +418,8 @@ class WellLogAnalysis:
             df_marker = extract_markers_with_mean_depth(well_data)
             well_data_normalized = self._ensure_crossplot_norms(well_data)
         
-            # Create plot with interval information
-            fig = plot_log_default(
-                df=well_data_normalized,
-                df_marker=df_marker,
-                df_well_marker=well_data_normalized
-            )
+            # Create plot with interval information (plotting_service signature)
+            fig = plot_log_default(well_data_normalized)
         
             if selected_intervals and len(selected_intervals) > 0:
                 current_title = fig.layout.title.text if fig.layout.title else f"Well Log - {well_name}"
@@ -852,16 +920,10 @@ class WellLogAnalysis:
     def _create_default_log_plot(self, df):
         """Create default log plot"""
         try:
-            # Extract markers and ensure cross-plot normalized columns exist
-            df_marker = extract_markers_with_mean_depth(df)
+            # Ensure cross-plot normalized columns exist
             df_normalized = self._ensure_crossplot_norms(df)
-            
             # Create plot
-            fig = plot_log_default(
-                df=df_normalized,
-                df_marker=df_marker,
-                df_well_marker=df_normalized
-            )
+            fig = plot_log_default(df_normalized)
             
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
@@ -873,8 +935,7 @@ class WellLogAnalysis:
             vsh_col = 'VSH_LINEAR' if 'VSH_LINEAR' in df.columns else ('VSH_GR' if 'VSH_GR' in df.columns else None)
             if not vsh_col:
                 return {"status": "error", "message": "No VSH data found"}
-            df_marker = extract_markers_with_mean_depth(df)
-            fig = plot_vsh_linear(df=df, df_marker=df_marker, df_well_marker=df)
+            fig = plot_vsh_linear(df)
             
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
@@ -886,8 +947,7 @@ class WellLogAnalysis:
             required_cols = ['VSH', 'PHIE', 'PHIT', 'PHIE_DEN', 'PHIT_DEN']
             if not all(col in df.columns for col in required_cols):
                 return {"status": "error", "message": "Missing required porosity data"}
-            df_marker = extract_markers_with_mean_depth(df)
-            fig = plot_phie_den(df=df, df_marker=df_marker, df_well_marker=df)
+            fig = plot_phie_den(df)
             
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
@@ -910,8 +970,7 @@ class WellLogAnalysis:
         try:
             if 'GR_NORM' not in df.columns:
                 return {"status": "error", "message": "No normalization data found"}
-            df_marker = extract_markers_with_mean_depth(df)
-            fig = plot_normalization(df=df, df_marker=df_marker, df_well_marker=df)
+            fig = plot_normalization(df)
             
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
@@ -922,8 +981,7 @@ class WellLogAnalysis:
         try:
             if 'SWE_INDO' not in df.columns and 'SW' not in df.columns:
                 return {"status": "error", "message": "Missing water saturation data"}
-            df_marker = extract_markers_with_mean_depth(df)
-            fig = plot_sw_indo(df=df, df_marker=df_marker, df_well_marker=df)
+            fig = plot_sw_indo(df)
             
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
@@ -935,8 +993,7 @@ class WellLogAnalysis:
             required_cols = ['RWA_FULL', 'RWA_SIMPLE', 'RWA_TAR']
             if not all(col in df.columns for col in required_cols):
                 return {"status": "error", "message": "Missing RWA data"}
-            df_marker = extract_markers_with_mean_depth(df)
-            fig = plot_rwa_indo(df=df, df_marker=df_marker, df_well_marker=df)
+            fig = plot_rwa_indo(df)
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
             return {"status": "error", "message": f"Error creating RWA plot: {str(e)}"}
@@ -947,8 +1004,7 @@ class WellLogAnalysis:
             required_cols = ['GR', 'GR_MovingAvg_5', 'GR_MovingAvg_10']
             if not all(col in df.columns for col in required_cols):
                 return {"status": "error", "message": "Missing smoothing data"}
-            df_marker = extract_markers_with_mean_depth(df)
-            fig = plot_smoothing(df=df, df_marker=df_marker, df_well_marker=df)
+            fig = plot_smoothing(df, extract_markers_with_mean_depth(df), df)
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
             return {"status": "error", "message": f"Error creating smoothing plot: {str(e)}"}
@@ -971,7 +1027,7 @@ def find_raw_data_dataset(structure_name=None):
         
         print(f"Available datasets in project: {dataset_names}")
         
-        # If structure name provided, look for structure-specific dataset first
+    # If structure name provided, look for structure-specific dataset first
         if structure_name:
             structure_lower = structure_name.lower()
             
@@ -982,7 +1038,7 @@ def find_raw_data_dataset(structure_name=None):
                     print(f"Found structure-specific dataset: {name}")
                     return name
             
-            # Priority 2: raw_data_well_<structure>
+            # Priority 2: raw_data_well_<structure> (legacy naming)
             target_name = f'raw_data_well_{structure_lower}'
             for name in dataset_names:
                 if name.lower() == target_name:
@@ -1404,7 +1460,7 @@ def vsh_calculation_endpoint():
         # Prefer the currently loaded dataset; else find one (prioritize fix_pass_qc)
         raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
+            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'fix_pass_qc' or a similar well log dataset."})
 
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
@@ -1489,7 +1545,7 @@ def porosity_calculation_endpoint():
         analysis = get_analysis_instance()
         raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
+            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'fix_pass_qc' or a similar well log dataset."})
 
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
@@ -1536,7 +1592,7 @@ def sw_calculation_endpoint():
         analysis = get_analysis_instance()
         raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
+            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'fix_pass_qc' or a similar well log dataset."})
 
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
@@ -1590,7 +1646,7 @@ def rwa_calculation_endpoint():
         analysis = get_analysis_instance()
         raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'raw_data_well' or similar."})
+            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'fix_pass_qc' or a similar well log dataset."})
 
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
@@ -1622,3 +1678,118 @@ def rwa_calculation_endpoint():
     except Exception as e:
         traceback.print_exc()
         return json.dumps({"success": False, "error": str(e)})
+
+# -----------------------------
+# Analysis endpoints: histogram and crossplot
+# -----------------------------
+@app.route('/histogram', methods=['POST'])
+def histogram_endpoint():
+    """Generate a histogram for a specified column with optional filters."""
+    try:
+        data = request.get_json() or {}
+        log_column = data.get('column') or data.get('log_column')
+        n_bins = int(data.get('bins', 30))
+        selected_wells = data.get('selected_wells', [])
+        selected_intervals = data.get('selected_intervals', [])
+        selected_zones = data.get('selected_zones', [])
+
+        if not log_column:
+            return json.dumps({"status": "error", "message": "Missing 'column' parameter"})
+
+        analysis = get_analysis_instance()
+        raw_data_name = analysis.current_dataset or find_raw_data_dataset()
+        if not raw_data_name:
+            return json.dumps({"status": "error", "message": "No dataset available"})
+
+        df = dataiku.Dataset(raw_data_name).get_dataframe()
+
+        # Filter wells
+        if selected_wells:
+            for col in ['WELL', 'WELL_NAME', 'Well', 'well']:
+                if col in df.columns:
+                    df = df[df[col].isin(selected_wells)]
+                    break
+        # Filter intervals
+        if selected_intervals and 'MARKER' in df.columns:
+            df = df[df['MARKER'].isin(selected_intervals)]
+        # Filter zones
+        if selected_zones:
+            for zc in ['ZONE', 'ZONES', 'ZONE_NAME', 'Zone', 'zone']:
+                if zc in df.columns:
+                    df = df[df[zc].isin(selected_zones)]
+                    break
+
+        fig = plot_histogram(df, log_column, n_bins)
+        return json.dumps({"status": "success", "figure": fig.to_dict()})
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"status": "error", "message": str(e)})
+
+
+@app.route('/crossplot', methods=['POST'])
+def crossplot_endpoint():
+    """Generate a crossplot for two columns; supports special NPHI-RHOB overlays."""
+    try:
+        data = request.get_json() or {}
+        x_col = data.get('x') or data.get('x_col')
+        y_col = data.get('y') or data.get('y_col')
+        nbins = int(data.get('bins', 25))
+        # Optional model params used by service for special overlays
+        gr_ma = float(data.get('gr_ma', 30))
+        gr_sh = float(data.get('gr_sh', 120))
+        rho_ma = float(data.get('rho_ma', 2.65))
+        rho_sh = float(data.get('rho_sh', 2.3))
+        nphi_ma = float(data.get('nphi_ma', 0.0))
+        nphi_sh = float(data.get('nphi_sh', 0.4))
+        prcnt_qz = float(data.get('prcnt_qz', 10))
+        prcnt_wtr = float(data.get('prcnt_wtr', 10))
+
+        selected_wells = data.get('selected_wells', [])
+        selected_intervals = data.get('selected_intervals', [])
+        selected_zones = data.get('selected_zones', [])
+
+        if not x_col or not y_col:
+            return json.dumps({"status": "error", "message": "Missing x or y column"})
+
+        analysis = get_analysis_instance()
+        raw_data_name = analysis.current_dataset or find_raw_data_dataset()
+        if not raw_data_name:
+            return json.dumps({"status": "error", "message": "No dataset available"})
+
+        df = dataiku.Dataset(raw_data_name).get_dataframe()
+
+        # Filter wells
+        if selected_wells:
+            for col in ['WELL', 'WELL_NAME', 'Well', 'well']:
+                if col in df.columns:
+                    df = df[df[col].isin(selected_wells)]
+                    break
+        # Filter intervals
+        if selected_intervals and 'MARKER' in df.columns:
+            df = df[df['MARKER'].isin(selected_intervals)]
+        # Filter zones
+        if selected_zones:
+            for zc in ['ZONE', 'ZONES', 'ZONE_NAME', 'Zone', 'zone']:
+                if zc in df.columns:
+                    df = df[df[zc].isin(selected_zones)]
+                    break
+
+        fig = generate_crossplot(
+            df=df,
+            x_col=x_col,
+            y_col=y_col,
+            gr_ma=gr_ma,
+            gr_sh=gr_sh,
+            rho_ma=rho_ma,
+            rho_sh=rho_sh,
+            nphi_ma=nphi_ma,
+            nphi_sh=nphi_sh,
+            prcnt_qz=prcnt_qz,
+            prcnt_wtr=prcnt_wtr,
+            selected_intervals=selected_intervals,
+            nbins=nbins
+        )
+        return json.dumps({"status": "success", "figure": fig.to_dict()})
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"status": "error", "message": str(e)})
