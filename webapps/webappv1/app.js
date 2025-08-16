@@ -121,6 +121,7 @@ function showPage(pageName) {
     var structuresPage = document.getElementById('structuresPage');
     var dashboardPage = document.getElementById('dashboardPage');
     var dataPreparation = document.getElementById('dataPreparationPage');
+    var uploadFilePage = document.getElementById('uploadFilePage');
 
     if (pageName === 'structures') {
         if (structuresPage) structuresPage.classList.remove('hidden');
@@ -132,16 +133,26 @@ function showPage(pageName) {
         if (structuresPage) structuresPage.classList.add('hidden');
         if (dashboardPage) dashboardPage.classList.remove('hidden');
         if (dataPreparation) dataPreparation.classList.add('hidden');
+        if (uploadFilePage) uploadFilePage.classList.add('hidden');
         currentPage = 'dashboard';
         appState.currentView = 'dashboard';
     } else if (pageName === 'data-preparation') {
         if (structuresPage) structuresPage.classList.add('hidden');
         if (dashboardPage) dashboardPage.classList.add('hidden');
         if (dataPreparation) dataPreparation.classList.remove('hidden');
+        if (uploadFilePage) uploadFilePage.classList.add('hidden');
         currentPage = 'data-preparation';
         appState.currentView = 'dataPrep';
         // Initialize data prep page when shown
         initializeDataPrepPage();
+    } else if (pageName === 'upload') {
+        if (structuresPage) structuresPage.classList.add('hidden');
+        if (dashboardPage) dashboardPage.classList.add('hidden');
+        if (dataPreparation) dataPreparation.classList.add('hidden');
+        if (uploadFilePage) uploadFilePage.classList.remove('hidden');
+        currentPage = 'upload';
+        appState.currentView = 'upload';
+        initializeUploadPage();
     }
 }
 
@@ -664,9 +675,88 @@ function handleNavigation(path) {
                     });
             }
             break;
+        case '/upload':
+            showPage('upload');
+            showMessage('Upload page loaded', 'success');
+            break;
         default:
             showMessage('Page not implemented: ' + path, 'warning');
+            break;
     }
+}
+
+// Upload Page Handlers
+function initializeUploadPage() {
+    var form = document.getElementById('uploadForm');
+    var input = document.getElementById('fileInput');
+    var statusEl = document.getElementById('uploadStatus');
+    var previewEl = document.getElementById('uploadPreview');
+
+    if (!form || !input) return;
+
+    // reset state when entering page
+    if (statusEl) statusEl.textContent = '';
+    if (previewEl) previewEl.innerHTML = '<div class="empty-state">No file uploaded yet</div>';
+
+    form.onsubmit = function(e){
+        e.preventDefault();
+        var file = input.files && input.files[0];
+        if (!file) { showMessage('Please select a file', 'warning'); return; }
+
+        if (statusEl) statusEl.innerHTML = '<div class="loading-state">Parsing file...</div>';
+        showLoading();
+
+        var ext = (file.name.split('.').pop() || '').toLowerCase();
+        if (ext !== 'csv') {
+            if (statusEl) statusEl.innerHTML = '<div class="warning">XLSX not supported in-browser. Please upload CSV.</div>';
+            hideLoading();
+            return;
+        }
+
+        // Parse CSV via PapaParse (loaded in HTML)
+        try {
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results){
+                    hideLoading();
+                    if (statusEl) statusEl.textContent = 'Parsed ' + results.data.length + ' rows.';
+                    renderUploadPreview(results.meta.fields || [], results.data || []);
+                },
+                error: function(err){
+                    hideLoading();
+                    if (statusEl) statusEl.innerHTML = '<div class="error">Failed parsing CSV: ' + (err && err.message ? err.message : String(err)) + '</div>';
+                }
+            });
+        } catch (err){
+            hideLoading();
+            if (statusEl) statusEl.innerHTML = '<div class="error">Unexpected error: ' + (err && err.message ? err.message : String(err)) + '</div>';
+        }
+    };
+}
+
+function renderUploadPreview(headers, rows) {
+    var previewEl = document.getElementById('uploadPreview');
+    if (!previewEl) return;
+    if (!headers || headers.length === 0) {
+        previewEl.innerHTML = '<div class="empty-state">No headers detected</div>';
+        return;
+    }
+    var maxRows = Math.min(rows.length, 500);
+    var thead = '<thead><tr>' + headers.map(function(h){ return '<th>'+escapeHtml(String(h))+'</th>'; }).join('') + '</tr></thead>';
+    var tbody = '<tbody>' + rows.slice(0, maxRows).map(function(row){
+        return '<tr>' + headers.map(function(h){ var v = row[h]; return '<td>'+escapeHtml(v==null?'' : String(v))+'</td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody>';
+    previewEl.innerHTML = '<div class="table-wrapper"><table class="min-w-full">' + thead + tbody + '</table>' + (rows.length>maxRows?'<div class="muted p-2">Showing first '+maxRows+' of '+rows.length+' rows</div>':'') + '</div>';
+}
+
+function escapeHtml(s){
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function setupNavigation() {

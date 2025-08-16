@@ -6,6 +6,8 @@
     <title>Well Log Analysis - Data Platform</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+    <!-- CSV parser for Upload page -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 <body>
     <!-- Universal Header -->
@@ -14,6 +16,12 @@
             <div class="header-content">
                 <!-- Desktop Navigation -->
                 <nav class="desktop-nav">
+                    <button class="nav-btn" data-path="/upload">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M5,20h14a1,1 0 0,0 1-1v-6h-2v5H6v-5H4v6a1,1 0 0,0 1,1M11,4v7H8l4,4l4-4h-3V4h-2Z"/>
+                        </svg>
+                        <span>Upload</span>
+                    </button>
                     <button class="nav-btn active" data-path="/structures">
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M10 4H4c-1.11 0-2 .89-2 2v6c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm10 0h-6c-1.11 0-2 .89-2 2v6c0 1.11.89 2 2 2h6c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zM4 18h6c1.11 0 2-.89 2-2v-6c0-1.11-.89-2-2-2H4c-1.11 0-2 .89-2 2v6c0 1.11.89 2 2 2zm16 0h-6c-1.11 0-2-.89-2 2v-6c0-1.11.89-2 2-2h6c1.11 0 2 .89 2 2v6c0 1.11-.89 2-2 2z"/>
@@ -32,6 +40,7 @@
                         </svg>
                         <span>Dashboard</span>
                     </button>
+                    
                 </nav>
                 <!-- Mobile Menu Button -->
                 <button class="mobile-menu-btn" id="mobileMenuBtn">
@@ -74,6 +83,12 @@
                         <path d="M13,3V9H21V3M13,21H21V11H13M3,21H11V15H3M3,13H11V3H3V13Z"/>
                     </svg>
                     <span>Dashboard</span>
+                </button>
+                <button class="mobile-nav-btn" data-path="/upload">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M5,20h14a1,1 0 0,0 1-1v-6h-2v5H6v-5H4v6a1,1 0 0,0 1,1M11,4v7H8l4,4l4-4h-3V4h-2Z"/>
+                    </svg>
+                    <span>Upload</span>
                 </button>
             </nav>
         </div>
@@ -623,6 +638,27 @@
                     </div>
                 </div>
             </aside>
+        </div>
+    </div>
+
+    <!-- Upload File Page -->
+    <div id="uploadFilePage" class="page-container hidden">
+        <div class="upload-layout">
+            <div class="upload-header">
+                <h2>Upload Well Logs</h2>
+                <p class="muted">Supported: CSV (recommended). XLSX not supported in-browser.</p>
+            </div>
+            <div class="upload-content">
+                <form id="uploadForm" class="upload-form">
+                    <label class="file-input-label" for="fileInput">Select file</label>
+                    <input type="file" id="fileInput" accept=".csv,.xlsx" required>
+                    <button type="submit" class="primary-btn">Upload & Preview</button>
+                </form>
+                <div id="uploadStatus" class="upload-status"></div>
+                <div id="uploadPreview" class="upload-preview">
+                    <div class="empty-state">No file uploaded yet</div>
+                </div>
+            </div>
         </div>
     </div>
 
