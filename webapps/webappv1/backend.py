@@ -1142,7 +1142,7 @@ class WellLogAnalysis:
         if 'RHOB' in df.columns:
             fig.add_trace(go.Scatter(x=pd.to_numeric(df['RHOB'], errors='coerce'), y=y, mode='lines', name='RHOB', line=dict(color='#9467bd', dash='solid')), row=1, col=4)
         if 'NPHI' in df.columns:
-            fig.add_trace(go.Scatter(x=pd.to_numeric(df['NPHI'], errors='coerce'), y=y, mode='lines', name='NPHI', line=dict(color='#ff7f0e', dash='dash')), row=1, col=4)
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['NPHI'], errors='coerce'), y=y, mode='lines', name='NPHI', line=dict(color='#ff7f0e', dash='solid')), row=1, col=4)
 
         # Reverse depth axis and tidy layout
         dmin, dmax = float(y.min()), float(y.max())
@@ -1159,11 +1159,9 @@ class WellLogAnalysis:
     def _create_vsh_plot(self, df):
         """Create VSH plot"""
         try:
-            vsh_col = 'VSH_LINEAR' if 'VSH_LINEAR' in df.columns else ('VSH_GR' if 'VSH_GR' in df.columns else None)
-            if not vsh_col:
-                return {"status": "error", "message": "No VSH data found"}
-            fig = plot_vsh_linear(df)
-            
+            # Show in the same dashboard layout for consistency
+            df_normalized = self._ensure_crossplot_norms(df)
+            fig = self._plot_dashboard_log(df_normalized)
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
             return {"status": "error", "message": f"Error creating VSH plot: {str(e)}"}
@@ -1171,11 +1169,9 @@ class WellLogAnalysis:
     def _create_porosity_plot(self, df):
         """Create porosity plot"""
         try:
-            required_cols = ['VSH', 'PHIE', 'PHIT', 'PHIE_DEN', 'PHIT_DEN']
-            if not all(col in df.columns for col in required_cols):
-                return {"status": "error", "message": "Missing required porosity data"}
-            fig = plot_phie_den(df)
-            
+            # Render using the unified dashboard layout
+            df_normalized = self._ensure_crossplot_norms(df)
+            fig = self._plot_dashboard_log(df_normalized)
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
             return {"status": "error", "message": f"Error creating porosity plot: {str(e)}"}
@@ -1206,10 +1202,9 @@ class WellLogAnalysis:
     def _create_sw_plot(self, df):
         """Create water saturation plot"""
         try:
-            if 'SWE_INDO' not in df.columns and 'SW' not in df.columns:
-                return {"status": "error", "message": "Missing water saturation data"}
-            fig = plot_sw_indo(df)
-            
+            # Use the unified dashboard layout
+            df_normalized = self._ensure_crossplot_norms(df)
+            fig = self._plot_dashboard_log(df_normalized)
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
             return {"status": "error", "message": f"Error creating SW plot: {str(e)}"}
@@ -1217,10 +1212,9 @@ class WellLogAnalysis:
     def _create_rwa_plot(self, df):
         """Create RWA plot"""
         try:
-            required_cols = ['RWA_FULL', 'RWA_SIMPLE', 'RWA_TAR']
-            if not all(col in df.columns for col in required_cols):
-                return {"status": "error", "message": "Missing RWA data"}
-            fig = plot_rwa_indo(df)
+            # Use the unified dashboard layout
+            df_normalized = self._ensure_crossplot_norms(df)
+            fig = self._plot_dashboard_log(df_normalized)
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
             return {"status": "error", "message": f"Error creating RWA plot: {str(e)}"}
