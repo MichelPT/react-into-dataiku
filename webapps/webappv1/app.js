@@ -172,17 +172,39 @@ function loadStructuresFromFolder() {
     var tried = [];
     function tryNext() {
         if (candidates.length === 0) {
-            // Try backend endpoint before giving up
+            // Try backend endpoint(s) before giving up
             return fetchJson('/get_structures_index')
                 .then(function(resp){
                     if (resp && resp.status === 'success' && resp.data && Array.isArray(resp.data.fields)) {
                         structuresData = resp.data;
-                        console.log('Loaded structures via backend endpoint fallback');
+                        console.log('Loaded structures via backend index endpoint');
                         return true;
                     }
-                    return false;
+                    // Fallback to live scan
+                    return fetchJson('/scan_structures')
+                        .then(function(resp2){
+                            if (resp2 && resp2.status === 'success' && Array.isArray(resp2.fields)) {
+                                structuresData = resp2;
+                                console.log('Loaded structures via backend scan fallback');
+                                return true;
+                            }
+                            return false;
+                        })
+                        .catch(function(){ return false; });
                 })
-                .catch(function(){ return false; });
+                .catch(function(){
+                    // If index endpoint fails, try scan directly
+                    return fetchJson('/scan_structures')
+                        .then(function(resp2){
+                            if (resp2 && resp2.status === 'success' && Array.isArray(resp2.fields)) {
+                                structuresData = resp2;
+                                console.log('Loaded structures via backend scan fallback');
+                                return true;
+                            }
+                            return false;
+                        })
+                        .catch(function(){ return false; });
+                });
         }
         var url = candidates.shift();
         tried.push(url);
@@ -524,6 +546,8 @@ function navigateToDashboard() {
 
         // Minimal structure context
         appState.currentStructure = {
+            // Ensure a unified name field is present for downstream usage
+            name: info.name || info.structureName || info.structure_name,
             fieldName: info.fieldName,
             structureName: info.structureName,
             filePath: info.filePath,
@@ -598,7 +622,8 @@ function handleNavigation(path) {
                 if (savedStructure) {
                     var structureInfo = JSON.parse(savedStructure);
                     appState.currentStructure = {
-                        name: structureInfo.structureName,
+            // Normalize name property for consistency
+            name: structureInfo.name || structureInfo.structureName || structureInfo.structure_name,
                         fieldName: structureInfo.fieldName,
                         structureName: structureInfo.structureName,
                         filePath: structureInfo.filePath,
@@ -610,7 +635,7 @@ function handleNavigation(path) {
             
             // Auto-load dataset based on selected structure
             if (appState.currentStructure) {
-                console.log('Auto-loading dataset for structure:', appState.currentStructure.name);
+        console.log('Auto-loading dataset for structure:', appState.currentStructure.name);
                 autoLoadDefaultDataset()
                     .then(function() {
                         showSuccess('Dashboard loaded with data from ' + appState.currentStructure.structureName + ' structure');
@@ -3119,23 +3144,11 @@ function initializeApp() {
 }
 
 function autoLoadDefaultDataset() {
-    // Check if user has selected a structure from structures page
+    // In this project only fix_pass_qc exists; always prefer it.
     var selectedStructure = appState.currentStructure;
-    var datasetName = 'fix_pass_qc'; // default dataset
+    var datasetName = 'fix_pass_qc';
     var payload = { dataset_name: datasetName };
-    
-    if (selectedStructure && selectedStructure.name) {
-        // Create dataset name based on selected structure
-        // e.g., "Adera" -> "raw_well_data_adera"
-        datasetName = 'fix_pass_qc_' + selectedStructure.name.toLowerCase();
-        payload = {
-            dataset_name: datasetName,
-            structure_name: selectedStructure.name
-        };
-        console.log('Auto-loading dataset for structure:', selectedStructure.name, '- Dataset:', datasetName);
-    } else {
-        console.log('Auto-loading default fix_pass_qc dataset...');
-    }
+    console.log('Auto-loading default dataset:', datasetName, selectedStructure && selectedStructure.name ? '(structure: ' + selectedStructure.name + ')' : '');
     
     return fetchJson('/select_dataset', {
         method: 'POST',
@@ -3143,9 +3156,15 @@ function autoLoadDefaultDataset() {
     })
     .then(function(response) {
         if (response.status === 'success') {
-            appState.availableWells = response.wells;
+            var wells = response.wells || [];
+            // If a structure context exists, filter wells to that structure's list
+            if (appState.currentStructure && Array.isArray(appState.currentStructure.wells) && appState.currentStructure.wells.length > 0) {
+                var setW = new Set(appState.currentStructure.wells);
+                wells = wells.filter(function(w){ return setW.has(w); });
+            }
+            appState.availableWells = wells;
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
-            renderWellList(response.wells);
+            renderWellList(wells);
             
             // Also load intervals after dataset is selected
             if (response.markers && response.markers.length > 0) {
@@ -3160,8 +3179,8 @@ function autoLoadDefaultDataset() {
             updateBadges();
             
             var successMessage = selectedStructure 
-                ? 'Loaded ' + response.wells.length + ' wells from ' + selectedStructure.name + ' structure (' + response.dataset_name + ')'
-                : 'Loaded ' + response.wells.length + ' wells from ' + response.dataset_name + ' dataset';
+                ? 'Loaded ' + wells.length + ' wells from ' + (selectedStructure.name || selectedStructure.structureName) + ' (' + response.dataset_name + ')'
+                : 'Loaded ' + wells.length + ' wells from ' + response.dataset_name + ' dataset';
             showSuccess(successMessage);
         } else {
             throw new Error(response.message || 'Failed to load dataset');
