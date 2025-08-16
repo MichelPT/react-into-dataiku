@@ -1078,10 +1078,16 @@ function loadWells() {
     fetchJson('/get_wells')
         .then(function(response) {
             if (response.status === 'success') {
-                appState.availableWells = response.wells;
-                renderWellList(response.wells);
+                var wells = response.wells || [];
+                // Apply same structure-based filtering as initial load
+                if (appState.currentStructure && Array.isArray(appState.currentStructure.wells) && appState.currentStructure.wells.length > 0) {
+                    var allow = new Set(appState.currentStructure.wells);
+                    wells = wells.filter(function(w){ return allow.has(w); });
+                }
+                appState.availableWells = wells;
+                renderWellList(wells);
                 updateBadges();
-                showSuccess('Loaded ' + response.wells.length + ' wells');
+                showSuccess('Loaded ' + wells.length + ' wells');
             } else {
                 throw new Error(response.message || 'Failed to load wells');
             }
@@ -2361,9 +2367,19 @@ function submitCalculationParameters() {
         handleWaterResistivityCalculation(finalParams);
     } else {
         // For other calculations, use the generic calculation endpoint
+        // Map params for services when needed (e.g., RGSA expects GR/RES keys)
+        var mappedParams = Object.assign({}, finalParams);
+        if (calculationType === 'rgsa') {
+            if (mappedParams.GR_COLUMN && !mappedParams.GR) {
+                mappedParams.GR = mappedParams.GR_COLUMN;
+            }
+            if (mappedParams.RT_COLUMN && !mappedParams.RES) {
+                mappedParams.RES = mappedParams.RT_COLUMN;
+            }
+        }
         var payload = {
             calculation_type: calculationType,
-            params: finalParams,
+            params: mappedParams,
             selected_intervals: appState.selectedIntervals,
             selected_wells: appState.selectedWells
         };
@@ -2565,16 +2581,13 @@ function handleSWIndonesiaCalculation(params) {
     var payload = {
         method: 'sw_indonesia',
         parameters: {
-            a: parseFloat(params.a) || 1.0,
-            m: parseFloat(params.m) || 2.0,
-            n: parseFloat(params.n) || 2.0,
-            rws: parseFloat(params.rws) || 0.529,
-            rwt: parseFloat(params.rwt) || 227,
-            rt_sh: parseFloat(params.rt_sh) || 2.2,
-            rt_log: params.rt_log || 'RT',
-            phie_log: params.phie_log || 'PHIE',
-            vsh_log: params.vsh_log || 'VSH',
-            ftemp_log: params.ftemp_log || 'FTEMP'
+            A: parseFloat(params.A || params.a) || 1.0,
+            M: parseFloat(params.M || params.m) || 2.0,
+            N: parseFloat(params.N || params.n) || 2.0,
+            RWS: parseFloat(params.RWS || params.rws) || 0.529,
+            RWT: parseFloat(params.RWT || params.rwt) || 227,
+            RT_SH: parseFloat(params.RT_SH || params.rt_sh) || 2.2,
+            FTEMP: parseFloat(params.FTEMP || params.ftemp) || 80
         },
         selected_wells: appState.selectedWells,
         selected_intervals: appState.selectedIntervals
@@ -2589,13 +2602,8 @@ function handleSWIndonesiaCalculation(params) {
         if (data.status === 'success' || data.success === true) {
             showSuccess('SW Indonesia calculation completed successfully!');
             document.getElementById('parameterForm').classList.add('hidden');
-            
-            // Display calculation results as plot
-            if (data.plot_data) {
-                displayCalculationPlot(data.plot_data, 'SW Indonesia Calculation Results');
-            } else {
-                refreshCurrentPlot();
-            }
+            // Show updated SW plot
+            createCalculationPlot('sw');
         } else {
             throw new Error(data.message || data.error || 'Calculation failed');
         }
@@ -2796,10 +2804,11 @@ function openPorosityCalculationForm() {
 }
 
 function openSwCalculationForm() {
-    getCalculationParameters('sw')
+    // Default to Indonesia method params and calculation type
+    getCalculationParameters('sw-indonesia')
         .then(function(parameters) {
             hideLoading(); // Hide loading when showing parameter form
-            showParameterForm('sw', parameters);
+            showParameterForm('sw-indonesia', parameters);
         })
         .catch(function(error) {
             hideLoading(); // Hide loading on error
