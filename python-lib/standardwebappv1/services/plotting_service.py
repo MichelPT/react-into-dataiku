@@ -363,7 +363,7 @@ range_col = {
     'GR_SM': [[0, 250]],
     'GR_MovingAvg_5': [[0, 250]],
     'GR_MovingAvg_10': [[0, 250]],
-    'RT': [[0.2, 2000]],
+    'RT': [[0.02, 2000]],
     'RT_RO': [[0.02, 2000], [0.02, 2000]],
     'X_RT_RO': [[0, 4]],
     'NPHI_RHOB_NON_NORM': [[0.6, 0], [1.71, 2.71]],
@@ -1606,7 +1606,7 @@ def plot_xover_thres_dual(df_well, fig, axes, key, n_seq, counter,
                     above_thres_color,
                     below_thres_color,
                     n_color
-                ),
+                ), 
                 xaxis='x'+str(n_seq),
                 yaxis='y'+str(n_seq),
                 hoverinfo="skip"
@@ -3035,33 +3035,71 @@ def normalize_xover(df_well, log_1, log_2):
 # @title
 
 
-def plot_log_default(df):
-    """
-    Creates a default well log plot that dynamically includes or excludes ZONE based on data availability.
+def plot_log_default(df, df_marker, df_well_marker):
+    sequence = ['MARKER', 'GR', 'RT_RHOB', 'NPHI_RHOB']
+    plot_sequence = {i+1: v for i, v in enumerate(sequence)}
+    print(plot_sequence)
 
-    Parameters:
-    -----------
-    df : pandas.DataFrame
-        DataFrame containing well log data
+    ratio_plots_seq = []
+    for key in plot_sequence.values():
+        ratio_plots_seq.append(ratio_plots[key])
 
-    Returns:
-    --------
-    plotly.graph_objects.Figure
-        The generated well log plot
-    """
-    # Define the base sequence with all potential tracks
-    marker_zone_sequence = ['ZONE', 'MARKER']
+    subplot_col = len(plot_sequence.keys())
 
-    # Filter the sequence to include only columns that exist in the DataFrame
-    filtered_sequence = [
-        col for col in marker_zone_sequence if col in df.columns]
+    fig = make_subplots(
+        rows=1, cols=subplot_col,
+        shared_yaxes=True,
+        column_widths=ratio_plots_seq,
+        horizontal_spacing=0.0
+    )
 
-    # Create a flat list by extending filtered_sequence with other track names
-    sequence_default = filtered_sequence + ['GR', 'RT', 'NPHI_RHOB']
+    counter = 0
+    axes = {}
+    for i in plot_sequence.values():
+        axes[i] = []
 
-    # Create the plot with the filtered sequence
-    fig = main_plot(df, sequence=sequence_default,
-                    title="Plot Well Log Selected", height_plot=1600)
+    for n_seq, col in plot_sequence.items():
+        if col == 'GR':
+            fig, axes = plot_line(
+                df, fig, axes, base_key='GR', n_seq=n_seq, col=col, label=col)
+        elif col == 'RT':
+            fig, axes = plot_line(
+                df, fig, axes, base_key='RT', n_seq=n_seq, col=col, label=col)
+        elif col == 'NPHI_RHOB':
+            fig, axes, counter = plot_xover_log_normal(
+                df, fig, axes, col, n_seq, counter, n_plots=subplot_col, y_color='rgba(0,0,0,0)', n_color='yellow', type=2, exclude_crossover=False)
+        elif col == 'RT_RHOB':
+            fig, axes, counter = plot_xover_log_normal(
+                df, fig, axes, col, n_seq, counter, n_plots=subplot_col, y_color='limegreen', n_color='lightgray', type=1, exclude_crossover=False)
+        elif col in ['X_RT_RO', 'X_RWA_RW', 'X_RT_F', 'X_RT_RHOB']:
+            fig, axes, counter = plot_xover_thres(
+                df, fig, axes, col, n_seq, counter=counter)
+        elif col == 'MARKER':
+            fig, axes = plot_flag(df_well_marker, fig, axes, col, n_seq)
+            fig, axes = plot_texts_marker(
+                df_marker, df_well_marker['DEPTH'].max(), fig, axes, col, n_seq)
+
+    fig = layout_range_all_axis(fig, axes, plot_sequence)
+
+    fig.update_layout(
+        margin=dict(l=20, r=20, t=40, b=20), height=1500,
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        showlegend=False,
+        hovermode='y unified', hoverdistance=-1,
+        title_text="Well Log Selected",
+        title_x=0.5,
+        modebar_remove=['lasso', 'autoscale', 'zoom',
+                        'zoomin', 'zoomout', 'pan', 'select']
+    )
+
+    fig.update_yaxes(showspikes=True,  # tickangle=90,
+                     range=[df[depth].max(), df[depth].min()])
+    fig.update_traces(yaxis='y')
+
+    fig = layout_draw_lines(fig, ratio_plots_seq, df, xgrid_intv=0)
+
+    fig = layout_axis(fig, axes, ratio_plots_seq, plot_sequence)
     return fig
 
 
