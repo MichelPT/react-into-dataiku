@@ -160,48 +160,47 @@ function initializeStructuresPage() {
         });
 }
 
-// Load structures definition from /data/structures/index.json (served statically)
+// Load structures definition, preferring backend dataset (fix_pass_qc) then falling back to static JSON
 function loadStructuresFromFolder() {
-    // Candidate static paths (relative + absolute variants) then backend endpoint
-    var candidates = [
-        'data/structures/index.json',
-        'structures/index.json',
-        '/webapps/webappv1/data/structures/index.json',
-        '/webapps/webappv1/structures/index.json'
-    ];
-    var tried = [];
-    function tryNext() {
-        if (candidates.length === 0) {
-            // Try backend endpoint before giving up
-            return fetchJson('/get_structures_index')
-                .then(function(resp){
-                    if (resp && resp.status === 'success' && resp.data && Array.isArray(resp.data.fields)) {
-                        structuresData = resp.data;
-                        console.log('Loaded structures via backend endpoint fallback');
+    // 1) Try backend first (dataset-driven from fix_pass_qc)
+    return fetchJson('/get_structures_index')
+        .then(function(resp){
+            if (resp && resp.status === 'success' && resp.data && Array.isArray(resp.data.fields)) {
+                structuresData = resp.data;
+                console.log('Loaded structures via backend (dataset)');
+                return true;
+            }
+            // 2) Fallback to static files
+            return tryStaticStructures();
+        })
+        .catch(function(){
+            return tryStaticStructures();
+        });
+
+    function tryStaticStructures() {
+        var candidates = [
+            'data/structures/index.json',
+            'structures/index.json',
+            '/webapps/webappv1/data/structures/index.json',
+            '/webapps/webappv1/structures/index.json'
+        ];
+        function tryNext() {
+            if (candidates.length === 0) return false;
+            var url = candidates.shift();
+            return fetch(url, { cache: 'no-cache' })
+                .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
+                .then(function(json){
+                    if (json && json.fields && Array.isArray(json.fields)) {
+                        structuresData = json;
+                        console.log('Loaded structures from', url);
                         return true;
                     }
-                    return false;
+                    return tryNext();
                 })
-                .catch(function(){ return false; });
+                .catch(function(){ return tryNext(); });
         }
-        var url = candidates.shift();
-        tried.push(url);
-        return fetch(url, { cache: 'no-cache' })
-            .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
-            .then(function(json){
-                if (json && json.fields && Array.isArray(json.fields)) {
-                    structuresData = json;
-                    console.log('Loaded structures from', url);
-                    return true;
-                }
-                return tryNext();
-            })
-            .catch(function(err){
-                console.warn('Fail path', url, '-', err.message || err);
-                return tryNext();
-            });
+        return tryNext();
     }
-    return tryNext();
 }
 // Original fields/structures rendering
 function renderFieldsList() {

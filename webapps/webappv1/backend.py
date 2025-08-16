@@ -1402,6 +1402,72 @@ def scan_structures():
 def get_structures_index():
     try:
         base_dir = os.path.dirname(__file__)
+
+        # 1) Prefer dataset-driven index from fix_pass_qc if available
+        try:
+            analysis = get_analysis_instance()
+            df = getattr(analysis, 'current_well_data', None)
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                # Required columns present?
+                required_cols = ['STRUKTUR', 'WELL_NAME']
+                missing = [c for c in required_cols if c not in df.columns]
+                if not missing:
+                    export_cols = ['STRUKTUR', 'WELL_NAME', 'DEPTH', 'CALI', 'SP', 'GR', 'RT', 'NPHI', 'RHOB', 'MARKER']
+                    present_cols = [c for c in export_cols if c in df.columns]
+
+                    structures_index = []
+                    root = os.path.join(base_dir, 'structures', 'Dataset')
+                    os.makedirs(root, exist_ok=True)
+
+                    for struktur in sorted(df['STRUKTUR'].dropna().astype(str).unique().tolist()):
+                        sdf = df[df['STRUKTUR'].astype(str) == struktur]
+                        wells = sorted(sdf['WELL_NAME'].dropna().astype(str).unique().tolist())
+                        total_records = int(len(sdf))
+                        intervals = []
+                        if 'MARKER' in sdf.columns:
+                            intervals = sorted(sdf['MARKER'].dropna().astype(str).unique().tolist())
+
+                        # Write per-structure Excel for reference/download
+                        safe_name = ''.join(ch for ch in struktur if ch.isalnum() or ch in (' ', '_', '-', '.')).strip().replace(' ', '_')
+                        file_name = f"{safe_name}.xlsx"
+                        file_fs_path = os.path.join(root, file_name)
+                        try:
+                            if present_cols:
+                                sdf.loc[:, present_cols].to_excel(file_fs_path, index=False)
+                            else:
+                                sdf.to_excel(file_fs_path, index=False)
+                        except Exception as save_err:
+                            print(f"Warning: failed to write structure file for {struktur}: {save_err}")
+                            file_name = None
+
+                        web_file_path = f"/structures/Dataset/{file_name}" if file_name else None
+
+                        structures_index.append({
+                            "structure_name": struktur,
+                            "field_name": "Dataset",
+                            "file_path": web_file_path,
+                            "wells_count": len(wells),
+                            "wells": wells,
+                            "total_records": total_records,
+                            "columns": present_cols if present_cols else df.columns.tolist(),
+                            "intervals": intervals
+                        })
+
+                    data = {
+                        "fields": [{
+                            "field_name": "Dataset",
+                            "structures_count": len(structures_index),
+                            "structures": structures_index
+                        }],
+                        "total_fields": 1,
+                        "total_structures": len(structures_index)
+                    }
+                    return json.dumps({"status": "success", "source": "dataset", "data": data})
+        except Exception as build_err:
+            # If dataset build fails, fall back to static files
+            print(f"Dataset-driven structures build failed: {build_err}")
+
+        # 2) Fallback: use static index.json if present
         candidates = [
             os.path.join(base_dir, 'data', 'structures', 'index.json'),
             os.path.join(base_dir, 'structures', 'index.json')
@@ -1410,7 +1476,7 @@ def get_structures_index():
             if os.path.isfile(p):
                 with open(p, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                # Optionally enrich with wells availability if dataset is loaded
+                # Enrich with wells availability for ABAB if dataset is loaded
                 try:
                     analysis = get_analysis_instance()
                     df = getattr(analysis, 'current_well_data', None)
@@ -1421,7 +1487,6 @@ def get_structures_index():
                                 well_col = c
                                 break
                     if well_col:
-                        # Apply same simple mapping for ABAB -> ABB
                         for field in data.get('fields', []):
                             for struct in field.get('structures', []):
                                 sname = str(struct.get('structure_name', '')).lower()
@@ -1435,7 +1500,9 @@ def get_structures_index():
                 except Exception:
                     pass
                 return json.dumps({"status": "success", "source": p, "data": data})
-        return json.dumps({"status": "error", "message": "index.json not found"})
+
+        # 3) Neither dataset nor static available
+        return json.dumps({"status": "error", "message": "No structures index available (dataset missing required columns and no static index.json found)."})
     except Exception as e:
         traceback.print_exc()
         return json.dumps({"status": "error", "message": str(e)})
@@ -1456,7 +1523,7 @@ def select_dataset():
     """API endpoint to select a dataset"""
     try:
         data = request.get_json()
-        dataset_name = data.get('dataset_name')
+        dataset_name = data.get('fix_pass_qc')
         structure_name = data.get('structure_name')  # Optional structure name
         
         print(f"Dataset selection request - dataset_name: {dataset_name}, structure_name: {structure_name}")
