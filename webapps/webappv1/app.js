@@ -147,8 +147,21 @@ function showPage(pageName) {
 
 function initializeStructuresPage() {
     console.log('Initializing structures page...');
+    // Tampilkan loading saat mengambil dataset structures
+    try {
+        var structuresListEl = document.getElementById('structuresList');
+        var fieldsListEl = document.getElementById('fieldsList');
+        if (structuresListEl) {
+            structuresListEl.innerHTML = '<div class="loading-state">Loading structures from dataset...</div>';
+        }
+        if (fieldsListEl) {
+            fieldsListEl.innerHTML = '<div class="loading-state">Loading fields...</div>';
+        }
+        showLoading();
+    } catch (e) { /* no-op */ }
+
     // Try loading structures from local data first
-    loadStructuresFromFolder()
+    return loadStructuresFromFolder()
         .then(function(loaded) {
             if (!loaded) {
                 // Fallback to embedded manifest
@@ -157,6 +170,10 @@ function initializeStructuresPage() {
             renderFieldsList();
             showEmptyStructuresState();
             showEmptyDetailsState();
+        })
+        .finally(function(){
+            // Sembunyikan loading setelah data siap
+            try { hideLoading(); } catch (e) { /* no-op */ }
         });
 }
 

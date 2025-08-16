@@ -305,6 +305,27 @@ class WellLogAnalysis:
                 new_df['GR_NORM_RT'] = self._normalize_series(new_df['GR'])
         return new_df
     
+    def _local_csv_path(self, name='fix_pass_qc.csv'):
+        """Resolve a local CSV path relative to this backend file.
+        backend.py is at webapps/webappv1/backend.py; CSV is at dataiku_native/<name>.
+        """
+        base_dir = os.path.dirname(__file__)
+        csv_path = os.path.normpath(os.path.join(base_dir, '..', '..', name))
+        return csv_path
+
+    def _load_local_fix_pass_qc(self):
+        """Load fix_pass_qc.csv if present locally; return DataFrame or None."""
+        try:
+            csv_path = self._local_csv_path('fix_pass_qc.csv')
+            if os.path.isfile(csv_path):
+                df = pd.read_csv(csv_path)
+                self.current_dataset = 'fix_pass_qc (csv)'
+                self.current_well_data = df
+                return df
+        except Exception as e:
+            print(f"Failed loading local fix_pass_qc.csv: {e}")
+        return None
+    
     def auto_load_default_dataset(self):
         """Automatically load the fix_pass_qc dataset on initialization"""
         try:
@@ -350,14 +371,22 @@ class WellLogAnalysis:
     def get_available_datasets(self):
         """Get list of available datasets in the project"""
         try:
-            if self.project:
-                datasets = self.project.list_datasets()
-                self.available_datasets = [ds['name'] for ds in datasets]
-            else:
-                # For standalone usage, get all datasets
-                client = dataiku.api_client()
-                datasets = client.list_datasets()
-                self.available_datasets = [ds['name'] for ds in datasets]
+            self.available_datasets = []
+            try:
+                if self.project:
+                    datasets = self.project.list_datasets()
+                    self.available_datasets = [ds['name'] for ds in datasets]
+                else:
+                    # For standalone usage, get all datasets via API client
+                    client = dataiku.api_client()
+                    datasets = client.list_datasets()
+                    self.available_datasets = [ds['name'] for ds in datasets]
+            except Exception as _:
+                # Ignore Dataiku API errors in local mode
+                pass
+            # Ensure fix_pass_qc appears if local CSV exists
+            if os.path.isfile(self._local_csv_path('fix_pass_qc.csv')) and 'fix_pass_qc' not in [d.lower() for d in self.available_datasets]:
+                self.available_datasets.append('fix_pass_qc')
             
             return {
                 "status": "success",
@@ -370,12 +399,28 @@ class WellLogAnalysis:
     def select_dataset(self, dataset_name):
         """Select a dataset and load its basic info"""
         try:
-            dataset = dataiku.Dataset(dataset_name)
-            df = dataset.get_dataframe()
+            df = None
+            # Try Dataiku dataset first
+            try:
+                dataset = dataiku.Dataset(dataset_name)
+                df = dataset.get_dataframe()
+                self.current_dataset = dataset_name
+                self.current_well_data = df
+            except Exception as di_err:
+                print(f"Dataiku load failed for {dataset_name}: {di_err}")
+                # Fallback to local CSV if requesting fix_pass_qc
+                if str(dataset_name).lower() == 'fix_pass_qc':
+                    df = self._load_local_fix_pass_qc()
+                    if df is None:
+                        raise
+                else:
+                    raise
             
-            # Store current dataset info
-            self.current_dataset = dataset_name
-            self.current_well_data = df
+            # Store current dataset info if not already set by fallback
+            if self.current_dataset is None:
+                self.current_dataset = dataset_name
+            if self.current_well_data is None:
+                self.current_well_data = df
             
             # Get basic info - check for different well column names
             wells = []
@@ -409,6 +454,9 @@ class WellLogAnalysis:
                 user_msg = f"Dataset '{dataset_name}' does not exist in the project. Please check the dataset name or create the dataset first."
             elif 'unable to fetch schema' in error_msg.lower():
                 user_msg = f"Unable to access dataset '{dataset_name}'. The dataset may not exist or you may not have permission to access it."
+            elif os.path.isfile(self._local_csv_path('fix_pass_qc.csv')) and str(dataset_name).lower() == 'fix_pass_qc':
+                # Provide local CSV hint
+                user_msg = "Loaded local CSV for fix_pass_qc failed unexpectedly. Please verify fix_pass_qc.csv format."
             else:
                 user_msg = f"Error accessing dataset '{dataset_name}': {error_msg}"
             
