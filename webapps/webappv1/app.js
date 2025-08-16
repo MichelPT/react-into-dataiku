@@ -475,10 +475,10 @@ function renderStructureDetails(structure) {
         detailsHTML += '</div></div>';
     }
     
-    // Navigation button
+    // Navigation button (bind with JS to avoid CSP issues)
     detailsHTML += 
         '<div class="detail-section">' +
-            '<button class="btn-primary" onclick="navigateToDashboard()" style="width: 100%; padding: 1rem; font-size: 1rem;">' +
+            '<button id="goToDashboardBtn" class="btn-primary" type="button" style="width: 100%; padding: 1rem; font-size: 1rem;">' +
                 'Go to Dashboard for Analysis' +
             '</button>' +
         '</div>';
@@ -486,6 +486,19 @@ function renderStructureDetails(structure) {
     detailsHTML += '</div>';
     
     structureDetails.innerHTML = detailsHTML;
+
+    // Bind click handler programmatically
+    var goBtn = structureDetails.querySelector('#goToDashboardBtn');
+    if (goBtn) {
+        goBtn.addEventListener('click', function() {
+            try {
+                navigateToDashboard();
+            } catch (e) {
+                console.error('Failed to navigate to dashboard:', e);
+                showError('Failed to navigate to dashboard: ' + e.message);
+            }
+        });
+    }
 }
 
 // Lightweight details panel for CSV-driven structures

@@ -490,9 +490,9 @@ class WellLogAnalysis:
             # Extract markers and ensure cross-plot normalized columns exist
             df_marker = extract_markers_with_mean_depth(well_data)
             well_data_normalized = self._ensure_crossplot_norms(well_data)
-        
-            # Create plot with interval information (plotting_service signature)
-            fig = plot_log_default(well_data_normalized)
+
+            # Create dashboard plot with Marker, GR, RT, and combined RHOB+NPHI
+            fig = self._plot_dashboard_log(well_data_normalized)
         
             if selected_intervals and len(selected_intervals) > 0:
                 current_title = fig.layout.title.text if fig.layout.title else f"Well Log - {well_name}"
@@ -1067,12 +1067,87 @@ class WellLogAnalysis:
         try:
             # Ensure cross-plot normalized columns exist
             df_normalized = self._ensure_crossplot_norms(df)
-            # Create plot
-            fig = plot_log_default(df_normalized)
+            # Create dashboard-style plot
+            fig = self._plot_dashboard_log(df_normalized)
             
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
             return {"status": "error", "message": f"Error creating default plot: {str(e)}"}
+
+    def _plot_dashboard_log(self, df):
+        """Render Marker, GR, RT, and combined RHOB+NPHI tracks.
+        - Track 1: Marker labels along depth (if MARKER exists), otherwise just depth reference
+        - Track 2: GR curve
+        - Track 3: RT curve (log scale if values positive)
+        - Track 4: RHOB and NPHI in the same track as two lines
+        """
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        # Prepare depth and available logs
+        depth_col = 'DEPTH' if 'DEPTH' in df.columns else ('DEPT' if 'DEPT' in df.columns else None)
+        if depth_col is None:
+            # Fallback to existing default if no depth
+            return plot_log_default(df)
+
+        y = pd.to_numeric(df[depth_col], errors='coerce')
+        # Build subplots: 4 columns
+        fig = make_subplots(
+            rows=1, cols=4,
+            subplot_titles=('Marker', 'GR', 'RT', 'RHOB & NPHI'),
+            shared_yaxes=True,
+            horizontal_spacing=0.02
+        )
+
+        # Track 1: Marker annotations or placeholder
+        if 'MARKER' in df.columns:
+            try:
+                markers_df = extract_markers_with_mean_depth(df)
+            except Exception:
+                markers_df = df[['MARKER', depth_col]].dropna().groupby('MARKER', as_index=False)[depth_col].mean()
+            # Draw faint vertical baseline plus text labels
+            fig.add_trace(
+                go.Scatter(x=[0, 0], y=[y.min(), y.max()], mode='lines', line=dict(color='lightgray'), showlegend=False),
+                row=1, col=1
+            )
+            for _, r in markers_df.iterrows():
+                d = r[depth_col]
+                name = str(r['MARKER'])
+                fig.add_trace(
+                    go.Scatter(x=[0], y=[d], mode='markers+text', text=[name],
+                                textposition='middle right', marker=dict(size=6), showlegend=False),
+                    row=1, col=1
+                )
+        else:
+            # Just add depth baseline
+            fig.add_trace(go.Scatter(x=[0, 0], y=[y.min(), y.max()], mode='lines', showlegend=False), row=1, col=1)
+
+        # Track 2: GR
+        if 'GR' in df.columns:
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['GR'], errors='coerce'), y=y, mode='lines', name='GR', line=dict(color='#2ca02c')), row=1, col=2)
+
+        # Track 3: RT
+        if 'RT' in df.columns:
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['RT'], errors='coerce'), y=y, mode='lines', name='RT', line=dict(color='#1f77b4')), row=1, col=3)
+            # Apply log-x on RT track when positive
+            try:
+                if pd.to_numeric(df['RT'], errors='coerce').gt(0).any():
+                    fig.update_xaxes(type='log', row=1, col=3)
+            except Exception:
+                pass
+
+        # Track 4: RHOB + NPHI combined
+        if 'RHOB' in df.columns:
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['RHOB'], errors='coerce'), y=y, mode='lines', name='RHOB', line=dict(color='#9467bd')), row=1, col=4)
+        if 'NPHI' in df.columns:
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['NPHI'], errors='coerce'), y=y, mode='lines', name='NPHI', line=dict(color='#ff7f0e', dash='dash')), row=1, col=4)
+
+        # Reverse depth axis and tidy layout
+        dmin, dmax = float(y.min()), float(y.max())
+        pad = (dmax - dmin) * 0.02 if dmax > dmin else 0
+        fig.update_yaxes(autorange='reversed', range=[dmax + pad, dmin - pad])
+        fig.update_layout(height=800, title='Well Log Dashboard', legend_orientation='h', legend_yanchor='bottom', legend_y=1.02)
+        return fig
     
     def _create_vsh_plot(self, df):
         """Create VSH plot"""
