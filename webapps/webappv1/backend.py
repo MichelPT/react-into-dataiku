@@ -497,11 +497,13 @@ class WellLogAnalysis:
             if selected_intervals and len(selected_intervals) > 0:
                 current_title = fig.layout.title.text if fig.layout.title else f"Well Log - {well_name}"
                 interval_info = f" (Intervals: {', '.join(selected_intervals)})"
-                fig.update_layout(title=current_title + interval_info)
+                new_title = (current_title or "") + interval_info
+                fig.update_layout(title={"text": new_title, "x": 0.5, "xanchor": "center", "y": 0.98, "yanchor": "top", "pad": {"b": 10}})
             
                 if 'DEPTH' in well_data_normalized.columns:
                     depth_range = f" | Depth: {well_data_normalized['DEPTH'].min():.1f} - {well_data_normalized['DEPTH'].max():.1f} ft"
-                    fig.update_layout(title=fig.layout.title.text + depth_range)
+                    combined_title = (fig.layout.title.text or "") + depth_range
+                    fig.update_layout(title={"text": combined_title, "x": 0.5, "xanchor": "center", "y": 0.98, "yanchor": "top", "pad": {"b": 10}})
         
             return {
                 "status": "success",
@@ -1091,10 +1093,10 @@ class WellLogAnalysis:
             return plot_log_default(df)
 
         y = pd.to_numeric(df[depth_col], errors='coerce')
-        # Build subplots: 4 columns (Marker, GR, RT_RHOB, NPHI_RHOB)
+        # Build subplots: 4 columns
         fig = make_subplots(
             rows=1, cols=4,
-            subplot_titles=('Marker', 'GR', 'RT & RHOB', 'NPHI & RHOB'),
+            subplot_titles=('Marker', 'GR', 'RT', 'RHOB & NPHI'),
             shared_yaxes=True,
             horizontal_spacing=0.02
         )
@@ -1126,56 +1128,32 @@ class WellLogAnalysis:
         if 'GR' in df.columns:
             fig.add_trace(go.Scatter(x=pd.to_numeric(df['GR'], errors='coerce'), y=y, mode='lines', name='GR', line=dict(color='#2ca02c')), row=1, col=2)
 
-        # Track 3: RT with overlay RHOB (RT_RHOB)
-        # Base axis x3: RT (log scale)
+        # Track 3: RT
         if 'RT' in df.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=pd.to_numeric(df['RT'], errors='coerce'), y=y,
-                    mode='lines', name='RT', line=dict(color='tomato')
-                ), row=1, col=3
-            )
-            fig.update_xaxes(type='log', row=1, col=3, range=[-1.7, 3.3])  # ~log10(0.02) to log10(2000)
-        # Overlay axis for RHOB in same panel (xaxis5 overlaying x3)
-        if 'RHOB' in df.columns:
-            # Add RHOB trace anchored to overlay axis that we'll define below
-            fig.add_trace(
-                go.Scatter(
-                    x=pd.to_numeric(df['RHOB'], errors='coerce'), y=y,
-                    mode='lines', name='RHOB', line=dict(color='black'), xaxis='x5', yaxis='y3'
-                )
-            )
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['RT'], errors='coerce'), y=y, mode='lines', name='RT', line=dict(color='#1f77b4')), row=1, col=3)
+            # Apply log-x on RT track when positive
+            try:
+                if pd.to_numeric(df['RT'], errors='coerce').gt(0).any():
+                    fig.update_xaxes(type='log', row=1, col=3)
+            except Exception:
+                pass
 
-        # Track 4: NPHI with overlay RHOB (NPHI_RHOB)
-        # Base axis x4: NPHI (range approx [0.6, 0])
-        if 'NPHI' in df.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=pd.to_numeric(df['NPHI'], errors='coerce'), y=y,
-                    mode='lines', name='NPHI', line=dict(color='royalblue')
-                ), row=1, col=4
-            )
-            fig.update_xaxes(row=1, col=4, range=[0.6, 0])
-        # Overlay axis for RHOB in same panel (xaxis6 overlaying x4)
+        # Track 4: RHOB + NPHI combined
         if 'RHOB' in df.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=pd.to_numeric(df['RHOB'], errors='coerce'), y=y,
-                    mode='lines', name='RHOB', line=dict(color='black'), xaxis='x6', yaxis='y4'
-                )
-            )
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['RHOB'], errors='coerce'), y=y, mode='lines', name='RHOB', line=dict(color='#9467bd', dash='solid')), row=1, col=4)
+        if 'NPHI' in df.columns:
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['NPHI'], errors='coerce'), y=y, mode='lines', name='NPHI', line=dict(color='#ff7f0e', dash='dash')), row=1, col=4)
 
         # Reverse depth axis and tidy layout
         dmin, dmax = float(y.min()), float(y.max())
         pad = (dmax - dmin) * 0.02 if dmax > dmin else 0
         fig.update_yaxes(autorange='reversed', range=[dmax + pad, dmin - pad])
-        # Define overlay x-axes for RHOB on panels 3 and 4
-        # xaxis5 overlays x3 (panel 3), anchors y3; range typical RHOB [1.71,2.71]
         fig.update_layout(
-            xaxis5=dict(overlaying='x3', side='top', anchor='y3', range=[1.71, 2.71], showgrid=False, ticks='outside'),
-            xaxis6=dict(overlaying='x4', side='top', anchor='y4', range=[1.71, 2.71], showgrid=False, ticks='outside')
+            height=820,
+            margin=dict(t=80, b=90, l=60, r=20),
+            title={"text": "Well Log Dashboard", "x": 0.5, "xanchor": "center", "y": 0.98, "yanchor": "top", "pad": {"b": 12}},
+            legend_orientation='h', legend_yanchor='top', legend_y=-0.12
         )
-        fig.update_layout(height=900, title='Well Log Dashboard', legend_orientation='h', legend_yanchor='bottom', legend_y=1.02)
         return fig
     
     def _create_vsh_plot(self, df):
