@@ -1844,8 +1844,51 @@ def sw_calculation_endpoint():
                 df = df[df[well_col].isin(selected_wells)]
 
         if method == 'sw_indonesia':
-            # SW Indonesia calculation
-            result_df = calculate_sw(df, parameters, target_intervals=selected_intervals, target_zones=None)
+            # Normalize incoming params to service schema (uppercase keys)
+            svc_params = {
+                'A': float(parameters.get('A') or parameters.get('a') or 1.0),
+                'M': float(parameters.get('M') or parameters.get('m') or 2.0),
+                'N': float(parameters.get('N') or parameters.get('n') or 2.0),
+                'RWS': float(parameters.get('RWS') or parameters.get('rws') or 0.529),
+                'RWT': float(parameters.get('RWT') or parameters.get('rwt') or 227),
+                'RT_SH': float(parameters.get('RT_SH') or parameters.get('rt_sh') or 2.2),
+            }
+            # Derive FTEMP: prefer explicit numeric; else try median of a provided column name; fallback default 80
+            ftemp_value = parameters.get('FTEMP') or parameters.get('ftemp')
+            if ftemp_value is None:
+                ftemp_col = parameters.get('ftemp_log') or 'FTEMP'
+                if ftemp_col in df.columns:
+                    try:
+                        ftemp_value = float(pd.to_numeric(df[ftemp_col], errors='coerce').median())
+                    except Exception:
+                        ftemp_value = None
+            svc_params['FTEMP'] = float(ftemp_value) if ftemp_value is not None else 80.0
+
+            # Ensure minimal required columns exist for service calculation (PHIE, VSH, RT, GR)
+            # PHIE from density if missing
+            if 'PHIE' not in df.columns and 'RHOB' in df.columns:
+                try:
+                    rho_ma = float(parameters.get('RHO_MA', 2.65))
+                    rho_fl = float(parameters.get('RHO_FL', 1.0))
+                    rhob = pd.to_numeric(df['RHOB'], errors='coerce')
+                    phie = (rho_ma - rhob) / max(1e-6, (rho_ma - rho_fl))
+                    df['PHIE'] = phie.clip(0, 1)
+                except Exception:
+                    pass
+            # VSH from GR quantiles if missing
+            if 'VSH' not in df.columns and 'GR' in df.columns:
+                try:
+                    gr = pd.to_numeric(df['GR'], errors='coerce')
+                    gr_ma = gr.quantile(0.05)
+                    gr_sh = gr.quantile(0.95)
+                    if gr_sh > gr_ma:
+                        vsh = (gr - gr_ma) / max(1e-6, (gr_sh - gr_ma))
+                        df['VSH'] = vsh.clip(0, 1)
+                except Exception:
+                    pass
+
+            # SW Indonesia calculation using service
+            result_df = calculate_sw(df, svc_params, target_intervals=selected_intervals, target_zones=None)
         elif method == 'sw_simandoux':
             # SW Simandoux calculation (placeholder - implement when needed)
             # result_df = calculate_sw_simandoux(df, parameters)
