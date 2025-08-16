@@ -2810,15 +2810,15 @@ def main_plot(df, sequence=[], title="", height_plot=1600):
             fig, axes, counter = plot_two_features_simple(
                 df, fig, axes, col, n_seq, counter, n_plots=subplot_col, log_scale=True)
         elif col == 'RGBE':
-            # fig,axes = plot_flag(df_well_marker_rgbe,fig,axes,col,n_seq)
-            # fig, axes, counter = plot_xover_thres_dual(df, fig, axes, col, n_seq, counter,above_thres_color="darkgreen", below_thres_color="lightblue")
-            fig, axes, counter = plot_xover_bar_horizontal(
-                df, fig, axes, col, n_seq, counter)
+            fig,axes = plot_flag(df_well_marker_rgbe,fig,axes,col,n_seq)
+            fig, axes, counter = plot_xover_thres_dual(df, fig, axes, col, n_seq, counter,above_thres_color="darkgreen", below_thres_color="lightblue")
+            # fig, axes, counter = plot_xover_bar_horizontal(
+            #     df, fig, axes, col, n_seq, counter)
         elif col == 'RPBE':
-            # fig,axes = plot_flag(df_well_marker_rpbe,fig,axes,col,n_seq)
-            # fig, axes, counter = plot_xover_thres_dual(df, fig, axes, col, n_seq, counter,above_thres_color="lightblue", below_thres_color="darkgreen")
-            fig, axes, counter = plot_xover_bar_horizontal(
-                df, fig, axes, col, n_seq, counter)
+            fig,axes = plot_flag(df_well_marker_rpbe,fig,axes,col,n_seq)
+            fig, axes, counter = plot_xover_thres_dual(df, fig, axes, col, n_seq, counter,above_thres_color="lightblue", below_thres_color="darkgreen")
+            # fig, axes, counter = plot_xover_bar_horizontal(
+            #     df, fig, axes, col, n_seq, counter)
 
         elif col == 'RGBE_TEXT':
             fig, axes = plot_text_values(
