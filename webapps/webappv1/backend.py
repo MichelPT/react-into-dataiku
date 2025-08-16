@@ -1161,7 +1161,7 @@ class WellLogAnalysis:
             fig.add_trace(
                 go.Scatter(
                     x=pd.to_numeric(df['RHOB'], errors='coerce'), y=y,
-                    mode='lines', name='RHOB', line=dict(color='black', dash='dash'), xaxis='x6', yaxis='y4'
+                    mode='lines', name='RHOB', line=dict(color='black'), xaxis='x6', yaxis='y4'
                 )
             )
 
