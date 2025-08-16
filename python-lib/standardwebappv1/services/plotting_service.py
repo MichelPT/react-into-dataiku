@@ -2667,7 +2667,23 @@ def rgb_to_hex(rgb):
 # @title
 
 
-def main_plot(df, sequence=[], title="", height_plot=1600):
+def main_plot(
+    df,
+    sequence=None,
+    title="",
+    height_plot=1600,
+    *,
+    exclude_marker=False,
+    exclude_xpt=False,
+    exclude_perm=False,
+    exclude_crossover=False,
+    xgrid_intv=0,
+    df_xpt=None,
+    df_well_marker=None,
+    df_marker=None,
+):
+    if sequence is None:
+        sequence = []
     # Zona RGSA-NGSA-DGSA
     zona_mapping = {
         'Zona Prospek Kuat': 3,
@@ -2713,6 +2729,20 @@ def main_plot(df, sequence=[], title="", height_plot=1600):
         elif seq == 'RT_RO':
             df = df.rename(columns={'R0': 'RO'})
 
+    # Optionally filter out tracks per request (keeps compatibility with existing callers)
+    if sequence:
+        seq_set = list(sequence)
+        if exclude_marker and 'MARKER' in seq_set:
+            seq_set = [s for s in seq_set if s != 'MARKER']
+        if exclude_xpt and 'XPT' in seq_set:
+            seq_set = [s for s in seq_set if s != 'XPT']
+        if exclude_perm and 'PERM' in seq_set:
+            seq_set = [s for s in seq_set if s != 'PERM']
+        if exclude_crossover:
+            to_drop = {'X_RT_RO', 'X_RWA_RW', 'X_RT_F', 'X_RT_RHOB'}
+            seq_set = [s for s in seq_set if s not in to_drop]
+        sequence = seq_set
+
     plot_sequence = {i+1: v for i, v in enumerate(sequence)}
     print(plot_sequence)
 
@@ -2756,9 +2786,11 @@ def main_plot(df, sequence=[], title="", height_plot=1600):
 
         # VSHALE
         elif col == 'VSH_LINEAR':
-            # fig, axes = plot_line(df, fig, axes, base_key='VSH_LINEAR', n_seq=n_seq, col=col, label=col)
-            fig, axes, counter = plot_xover_thres_dual(
-                df, fig, axes, col, n_seq, counter)
+            # Follow notebook: prefer simple line when excluding crossover; keep enhanced dual when allowed
+            if exclude_crossover:
+                fig, axes = plot_line(df, fig, axes, base_key='VSH_LINEAR', n_seq=n_seq, col=col, label=col)
+            else:
+                fig, axes, counter = plot_xover_thres_dual(df, fig, axes, col, n_seq, counter)
 
         elif col == 'VSH_GR_DN':
             fig, axes, counter = plot_two_features_simple(df, fig, axes, 'VSH_GR_DN', n_seq,
@@ -2774,15 +2806,24 @@ def main_plot(df, sequence=[], title="", height_plot=1600):
             fig, axes, counter = plot_xover_thres_dual(
                 df, fig, axes, col, n_seq, counter, above_thres_color="yellow", below_thres_color="green")
         elif col == 'PHIE_PHIT':
-            fig, axes, counter = plot_xover_log_normal(df, fig, axes, col, n_seq,
-                                                       counter, n_plots=subplot_col,
-                                                       y_color='limegreen', n_color='lightgray', type=1, exclude_crossover=False)
+            # Follow notebook: use fill-to-zero presentation for PHIE/PHIT pair
+            fig, axes, counter = plot_n_fill_x_to_zero(
+                df, fig, axes, col, n_seq, counter=counter, n_plots=subplot_col)
 
         # SWE INDONESIA
         elif col == 'SW':
-            # fig, axes = plot_line(df, fig, axes, base_key='SW', n_seq=n_seq, col=col, label=col)
-            fig, axes, counter = plot_xover_thres_dual(
-                df, fig, axes, col, n_seq, counter, above_thres_color="rgba(250,0,0,0)", below_thres_color="lightgrey")
+            # Use simple line when excluding crossover; otherwise keep enhanced dual-threshold style
+            if exclude_crossover:
+                fig, axes = plot_line(df, fig, axes, base_key='SW', n_seq=n_seq, col=col, label=col)
+            else:
+                fig, axes, counter = plot_xover_thres_dual(
+                    df, fig, axes, col, n_seq, counter, above_thres_color="rgba(250,0,0,0)", below_thres_color="lightgrey")
+        elif col == 'PERM':
+            # Notebook uses log scale for PERM
+            fig, axes = plot_line(df, fig, axes, base_key='PERM', n_seq=n_seq, type='log', col='PERM', label='PERM')
+        elif col == 'VCL':
+            # Notebook uses fill-to-zero for VCL style tracks
+            fig, axes = plot_fill_x_to_zero(df, fig, axes, 'VCL', n_seq, index=0)
 
         # RWA
         elif col == 'RWA':
@@ -2810,15 +2851,15 @@ def main_plot(df, sequence=[], title="", height_plot=1600):
             fig, axes, counter = plot_two_features_simple(
                 df, fig, axes, col, n_seq, counter, n_plots=subplot_col, log_scale=True)
         elif col == 'RGBE':
-            fig,axes = plot_flag(df_well_marker_rgbe,fig,axes,col,n_seq)
-            fig, axes, counter = plot_xover_thres_dual(df, fig, axes, col, n_seq, counter,above_thres_color="darkgreen", below_thres_color="lightblue")
-            # fig, axes, counter = plot_xover_bar_horizontal(
-            #     df, fig, axes, col, n_seq, counter)
+            # fig,axes = plot_flag(df_well_marker_rgbe,fig,axes,col,n_seq)
+            # fig, axes, counter = plot_xover_thres_dual(df, fig, axes, col, n_seq, counter,above_thres_color="darkgreen", below_thres_color="lightblue")
+            fig, axes, counter = plot_xover_bar_horizontal(
+                df, fig, axes, col, n_seq, counter)
         elif col == 'RPBE':
-            fig,axes = plot_flag(df_well_marker_rpbe,fig,axes,col,n_seq)
-            fig, axes, counter = plot_xover_thres_dual(df, fig, axes, col, n_seq, counter,above_thres_color="lightblue", below_thres_color="darkgreen")
-            # fig, axes, counter = plot_xover_bar_horizontal(
-            #     df, fig, axes, col, n_seq, counter)
+            # fig,axes = plot_flag(df_well_marker_rpbe,fig,axes,col,n_seq)
+            # fig, axes, counter = plot_xover_thres_dual(df, fig, axes, col, n_seq, counter,above_thres_color="lightblue", below_thres_color="darkgreen")
+            fig, axes, counter = plot_xover_bar_horizontal(
+                df, fig, axes, col, n_seq, counter)
 
         elif col == 'RGBE_TEXT':
             fig, axes = plot_text_values(
@@ -2937,7 +2978,8 @@ def main_plot(df, sequence=[], title="", height_plot=1600):
                      range=[df[depth].max(), df[depth].min()])
     fig.update_traces(yaxis='y')
 
-    fig = layout_draw_lines(fig, ratio_plots_seq, df, xgrid_intv=0)
+    # Draw header/main divider and optional horizontal grid based on xgrid_intv
+    fig = layout_draw_lines(fig, ratio_plots_seq, df, xgrid_intv=xgrid_intv)
 
     fig = layout_axis(fig, axes, ratio_plots_seq, plot_sequence)
 
