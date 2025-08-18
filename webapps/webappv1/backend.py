@@ -405,26 +405,12 @@ class WellLogAnalysis:
     def auto_load_default_dataset(self):
         """Automatically load the fix_pass_qc dataset on initialization"""
         try:
-            # 1) If dataset_files folder exists (structures or wells), enable folder mode first
-            try:
-                base_dir = os.path.dirname(__file__)
-                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
-                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
-                print(f"Auto-load: dataset_files struct dir: {dsf_struct} exists={os.path.isdir(dsf_struct)}; wells dir: {dsf_wells} exists={os.path.isdir(dsf_wells)}")
-                if os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells):
-                    result = self.select_dataset('dataset_files')
-                    if result.get("status") == "success":
-                        print("Successfully auto-loaded dataset: dataset_files (folder)")
-                        return
-            except Exception as e:
-                print(f"Dataset_files folder mode auto-select failed: {e}")
-
-            # 2) Prefer local dataset_files CSVs
+            # Prefer local dataset_files CSVs first (aligns with folder-driven mode)
             if self._load_dataset_files_csv() is not None:
                 print("Successfully auto-loaded dataset: dataset_files (csv)")
                 return
 
-            # 3) Prefer a Dataiku dataset named 'dataset_files' if present
+            # Next prefer a Dataiku dataset named 'dataset_files' if present
             try:
                 available_datasets = self.get_available_datasets()
                 if available_datasets.get("status") == "success":
@@ -437,6 +423,19 @@ class WellLogAnalysis:
                             return
             except Exception as e:
                 print(f"Dataset_files selection attempt failed: {e}")
+
+            # If dataset_files folder exists (structures or wells), enable folder mode
+            try:
+                base_dir = os.path.dirname(__file__)
+                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
+                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
+                if os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells):
+                    result = self.select_dataset('dataset_files')
+                    if result.get("status") == "success":
+                        print("Successfully auto-loaded dataset: dataset_files (folder)")
+                        return
+            except Exception as e:
+                print(f"Dataset_files folder mode auto-select failed: {e}")
 
             # Then try explicit fix_pass_qc
             dataset_name = "fix_pass_qc"
@@ -486,16 +485,6 @@ class WellLogAnalysis:
             # Ensure fix_pass_qc appears if local CSV exists
             if os.path.isfile(self._local_csv_path('fix_pass_qc.csv')) and 'fix_pass_qc' not in [d.lower() for d in self.available_datasets]:
                 self.available_datasets.append('fix_pass_qc')
-            # Ensure dataset_files appears if folder exists (structures or wells)
-            try:
-                base_dir = os.path.dirname(__file__)
-                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
-                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
-                lower_names = [d.lower() for d in self.available_datasets]
-                if (os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells)) and 'dataset_files' not in lower_names:
-                    self.available_datasets.append('dataset_files')
-            except Exception:
-                pass
             
             return {
                 "status": "success",
@@ -655,17 +644,19 @@ class WellLogAnalysis:
             # Note: selected zones are passed at endpoint level (see get_well_plot)
             if hasattr(self, '_tmp_selected_zones'):
                 zones = getattr(self, '_tmp_selected_zones') or []
-                # Detect zone column among common variants
-                zone_cols = ['ZONE', 'ZONES', 'ZONE_NAME', 'Zone', 'zone']
-                zone_col = next((zc for zc in zone_cols if zc in well_data.columns), None)
-                if zone_col and zones:
-                    print(f"Filtering data by selected zones in column '{zone_col}': {zones}")
-                    original_count2 = len(well_data)
-                    well_data = well_data[well_data[zone_col].isin(zones)]
-                    print(f"After zone filtering: {len(well_data)} rows (was {original_count2})")
+                if zones:
+                    # Detect zone column among common variants
+                    zone_cols = ['ZONE', 'ZONES', 'ZONE_NAME', 'Zone', 'zone']
+                    zone_col = next((zc for zc in zone_cols if zc in well_data.columns), None)
+                    if zone_col:
+                        print(f"Filtering data by selected zones in column '{zone_col}': {zones}")
+                        original_count2 = len(well_data)
+                        well_data = well_data[well_data[zone_col].isin(zones)]
+                        print(f"After zone filtering: {len(well_data)} rows (was {original_count2})")
+            
                 if well_data.empty:
-                    available_intervals = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]['MARKER'].unique().tolist() if self.current_well_data is not None and 'WELL_NAME' in self.current_well_data.columns and 'MARKER' in self.current_well_data.columns else []
-                    return {"status": "error", "message": f"No data found for well {well_name} in selected filters. Available intervals: {available_intervals}"}
+                    available_intervals = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]['MARKER'].unique().tolist()
+                    return {"status": "error", "message": f"No data found for well {well_name} in selected intervals {selected_intervals}. Available intervals: {available_intervals}"}
         
             if 'DEPTH' in well_data.columns:
                 well_data = well_data.sort_values('DEPTH')
