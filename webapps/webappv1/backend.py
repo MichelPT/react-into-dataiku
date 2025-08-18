@@ -1826,6 +1826,19 @@ def select_dataset():
             if actual_dataset:
                 dataset_name = actual_dataset
                 print(f"Found structure-specific dataset: {actual_dataset}")
+            else:
+                # Fallback: prefer dataset_files folder mode if present, else general discovery
+                base_dir = os.path.dirname(__file__)
+                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
+                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
+                if os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells):
+                    dataset_name = 'dataset_files'
+                    print("Falling back to dataset_files (folder) for structure selection")
+                else:
+                    fallback_dataset = find_raw_data_dataset()
+                    if fallback_dataset:
+                        dataset_name = fallback_dataset
+                        print(f"Falling back to discovered dataset: {fallback_dataset}")
         elif structure_name:
             # Try to find dataset for specific structure
             structure_dataset = find_raw_data_dataset(structure_name)
@@ -2005,9 +2018,12 @@ def get_data_prep_files():
     try:
         analysis = get_analysis_instance()
         files = []
-        if analysis.current_dataset:
-            files.append(analysis.current_dataset)
+        # Avoid suggesting pseudo names like 'dataset_files (folder)' for Data Prep
+        current = analysis.current_dataset or ''
+        if current and '(' not in current:
+            files.append(current)
         else:
+            # Prefer real project datasets in this order
             ds = find_raw_data_dataset()
             if ds:
                 files.append(ds)
@@ -2024,6 +2040,37 @@ def get_data_prep_columns():
         dataset_name = files[0] if files else (analysis.current_dataset or find_raw_data_dataset())
         if not dataset_name:
             return json.dumps({"status": "error", "message": "No dataset available"})
+        # If we're in folder/csv pseudo mode, infer columns from a sample CSV under dataset_files
+        if '(' in dataset_name and dataset_name.lower().startswith('dataset_files'):
+            try:
+                base_dir = os.path.dirname(__file__)
+                # Prefer a sample from global wells, else first CSV found under structures
+                candidates = []
+                wells_dir = os.path.join(base_dir, 'dataset_files', 'wells')
+                if os.path.isdir(wells_dir):
+                    for fn in os.listdir(wells_dir):
+                        if fn.lower().endswith('.csv'):
+                            candidates.append(os.path.join(wells_dir, fn))
+                if not candidates:
+                    struct_root = os.path.join(base_dir, 'dataset_files', 'structures')
+                    if os.path.isdir(struct_root):
+                        for r, _d, files_in in os.walk(struct_root):
+                            for fn in files_in:
+                                if fn.lower().endswith('.csv'):
+                                    candidates.append(os.path.join(r, fn))
+                                    if len(candidates) >= 1:
+                                        break
+                            if candidates:
+                                break
+                if candidates:
+                    sample = candidates[0]
+                    df = pd.read_csv(sample, nrows=1)
+                    return json.dumps({"status": "success", "columns": df.columns.tolist(), "source": sample})
+                else:
+                    return json.dumps({"status": "error", "message": "No CSV files found in dataset_files to infer columns"})
+            except Exception as infer_err:
+                return json.dumps({"status": "error", "message": f"Failed to infer columns from dataset_files: {infer_err}"})
+        # Otherwise use Dataiku dataset normally
         df = dataiku.Dataset(dataset_name).get_dataframe()
         return json.dumps({"status": "success", "columns": df.columns.tolist()})
     except Exception as e:
