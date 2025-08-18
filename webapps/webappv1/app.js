@@ -691,6 +691,9 @@ function initializeUploadPage() {
     var input = document.getElementById('fileInput');
     var statusEl = document.getElementById('uploadStatus');
     var previewEl = document.getElementById('uploadPreview');
+    var uploadPage = document.getElementById('uploadFilePage');
+    var dropArea = document.getElementById('dropArea') || (uploadPage ? uploadPage.querySelector('.file-drop-area') : null);
+    var fileNamePreview = document.getElementById('fileNamePreview');
 
     if (!form || !input) return;
 
@@ -698,22 +701,17 @@ function initializeUploadPage() {
     if (statusEl) statusEl.textContent = '';
     if (previewEl) previewEl.innerHTML = '<div class="empty-state">No file uploaded yet</div>';
 
-    form.onsubmit = function(e){
-        e.preventDefault();
-        var file = input.files && input.files[0];
-        if (!file) { showMessage('Please select a file', 'warning'); return; }
-
+    // helper: parse a selected/dropped file
+    function parseAndPreview(file){
+        if (!file) { showMessage('No file provided', 'warning'); return; }
+        var ext = (file.name.split('.').pop() || '').toLowerCase();
         if (statusEl) statusEl.innerHTML = '<div class="loading-state">Parsing file...</div>';
         showLoading();
-
-        var ext = (file.name.split('.').pop() || '').toLowerCase();
         if (ext !== 'csv') {
-            if (statusEl) statusEl.innerHTML = '<div class="warning">XLSX not supported in-browser. Please upload CSV.</div>';
             hideLoading();
+            if (statusEl) statusEl.innerHTML = '<div class="warning">XLSX not supported in-browser. Please upload CSV.</div>';
             return;
         }
-
-        // Parse CSV via PapaParse (loaded in HTML)
         try {
             Papa.parse(file, {
                 header: true,
@@ -732,7 +730,58 @@ function initializeUploadPage() {
             hideLoading();
             if (statusEl) statusEl.innerHTML = '<div class="error">Unexpected error: ' + (err && err.message ? err.message : String(err)) + '</div>';
         }
+    }
+
+    form.onsubmit = function(e){
+        e.preventDefault();
+        parseAndPreview(input.files && input.files[0]);
     };
+
+    // clicking label or drop area should open the file dialog
+    try {
+        var label = form.querySelector('.file-input-label');
+        if (label) {
+            label.addEventListener('click', function(ev){ ev.preventDefault(); input.click(); });
+        }
+    } catch(_){}
+
+    if (dropArea) {
+        ['dragenter','dragover'].forEach(function(evt){
+            dropArea.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); dropArea.classList.add('dragover'); });
+        });
+        ['dragleave','dragend','drop'].forEach(function(evt){
+            dropArea.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); dropArea.classList.remove('dragover'); });
+        });
+        dropArea.addEventListener('drop', function(e){
+            var files = e.dataTransfer && e.dataTransfer.files;
+            if (files && files.length > 0) {
+                if (fileNamePreview) fileNamePreview.textContent = files[0].name;
+                parseAndPreview(files[0]);
+            }
+        });
+        // Also allow clicking anywhere in the upload content to open dialog (except buttons)
+        dropArea.addEventListener('click', function(e){
+            var tag = (e.target && e.target.tagName || '').toLowerCase();
+            if (tag !== 'button' && tag !== 'input' && tag !== 'label') { input.click(); }
+        });
+        // Keyboard accessibility (Enter/Space)
+        dropArea.addEventListener('keydown', function(e){
+            var key = e.key || e.code;
+            if (key === 'Enter' || key === ' ' || key === 'Spacebar' || key === 'Space') {
+                e.preventDefault();
+                input.click();
+            }
+        });
+    }
+
+    // handle manual file selection change
+    input.addEventListener('change', function(){
+        var file = input.files && input.files[0];
+        if (file) {
+            if (statusEl) { statusEl.textContent = 'Selected: ' + file.name; }
+            if (fileNamePreview) { fileNamePreview.textContent = file.name; }
+        }
+    });
 }
 
 function renderUploadPreview(headers, rows) {
@@ -4781,3 +4830,60 @@ window.testBackendConnection = testBackendConnection;
 window.navigateToDashboard = navigateToDashboard;
 // Make navigateToDataPreparation available globally
 window.navigateToDataPreparation = navigateToDataPreparation;
+
+// === Drag & Drop Upload Area ===
+(function() {
+  var dropArea = document.getElementById('dropArea');
+  var fileInput = document.getElementById('fileInput');
+  var fileNamePreview = document.getElementById('fileNamePreview');
+
+  if (dropArea && fileInput && fileNamePreview) {
+    // Update file name preview
+    fileInput.addEventListener('change', function(e) {
+      if (fileInput.files && fileInput.files.length > 0) {
+        fileNamePreview.textContent = fileInput.files[0].name;
+      } else {
+        fileNamePreview.textContent = 'No file chosen';
+      }
+    });
+
+    // Drag events
+    dropArea.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropArea.classList.add('dragover');
+    });
+    dropArea.addEventListener('dragleave', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropArea.classList.remove('dragover');
+    });
+    dropArea.addEventListener('drop', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropArea.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        var event = new Event('change');
+        fileInput.dispatchEvent(event);
+      } else {
+        console.error('No files found in drop event');
+      }
+    });
+    // Click on area triggers file dialog (kecuali klik input file)
+    dropArea.addEventListener('click', function(e) {
+      if (e.target !== fileInput) {
+        fileInput.click();
+      }
+    });
+    // Keyboard accessibility (Enter/Space)
+    dropArea.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
+  } else {
+    console.error('Drag & drop elements not found:', {dropArea, fileInput, fileNamePreview});
+  }
+})();
