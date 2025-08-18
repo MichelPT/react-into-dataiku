@@ -3258,21 +3258,14 @@ function autoLoadDefaultDataset() {
     // Check if user has selected a structure from structures page
     var selectedStructure = appState.currentStructure;
     // Prefer folder-based dataset_files mode by default
-    var datasetName = 'dataset_files';
-    var payload = { dataset_name: datasetName };
+    var payload = { dataset_name: 'dataset_files' };
     
     if (selectedStructure && selectedStructure.name) {
-        // Create dataset name based on selected structure
-        // e.g., "Adera" -> "raw_well_data_adera"
-    // Prefer raw_well_data_<structure> discovery; backend will resolve appropriately
-    datasetName = 'raw_well_data_' + selectedStructure.name.toLowerCase();
-        payload = {
-            dataset_name: datasetName,
-            structure_name: selectedStructure.name
-        };
-        console.log('Auto-loading dataset for structure:', selectedStructure.name, '- Dataset:', datasetName);
+        // Keep using dataset_files in folder mode; include structure_name only as context
+        payload.structure_name = selectedStructure.name;
+        console.log('Auto-loading dataset_files (folder) for structure:', selectedStructure.name);
     } else {
-    console.log('Auto-loading default dataset_files (folder or dataset)...');
+        console.log('Auto-loading dataset_files (folder or dataset)...');
     }
     
     return fetchJson('/select_dataset', {
