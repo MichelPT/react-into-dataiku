@@ -362,9 +362,17 @@ class WellLogAnalysis:
                 field = structure_context.get('field_name') or structure_context.get('fieldName')
                 struct = structure_context.get('structure_name') or structure_context.get('structureName')
                 if field and struct:
+                    # Direct path first
                     p1 = os.path.join(base_dir, 'dataset_files', 'structures', str(field), str(struct), f"{well_name}.csv")
                     if os.path.isfile(p1):
                         return pd.read_csv(p1)
+                    # Recursive search within structure folder
+                    struct_root = os.path.join(base_dir, 'dataset_files', 'structures', str(field), str(struct))
+                    if os.path.isdir(struct_root):
+                        for r, _d, files in os.walk(struct_root):
+                            for fn in files:
+                                if fn.lower() == f"{well_name.lower()}.csv":
+                                    return pd.read_csv(os.path.join(r, fn))
             # 2) Fallback to global wells folder
             p2 = os.path.join(base_dir, 'dataset_files', 'wells', f"{well_name}.csv")
             if os.path.isfile(p2):
@@ -374,11 +382,13 @@ class WellLogAnalysis:
         return None
 
     def _list_wells_from_dataset_files(self):
-        """Scan dataset_files for available well CSVs and return well names (no extension)."""
+        """Scan dataset_files for available well CSVs and return well names (no extension).
+        This searches recursively under dataset_files/structures and flat under dataset_files/wells.
+        """
         wells = set()
         base_dir = os.path.dirname(__file__)
         try:
-            # 1) From structures tree
+            # 1) From structures tree (recursive search)
             root = os.path.join(base_dir, 'dataset_files', 'structures')
             if os.path.isdir(root):
                 for field_name in os.listdir(root):
@@ -389,9 +399,10 @@ class WellLogAnalysis:
                         struct_path = os.path.join(field_path, struct_name)
                         if not os.path.isdir(struct_path):
                             continue
-                        for fname in os.listdir(struct_path):
-                            if fname.lower().endswith('.csv'):
-                                wells.add(os.path.splitext(fname)[0])
+                        for r, _d, files in os.walk(struct_path):
+                            for fname in files:
+                                if fname.lower().endswith('.csv'):
+                                    wells.add(os.path.splitext(fname)[0])
             # 2) From global wells folder
             wells_dir = os.path.join(base_dir, 'dataset_files', 'wells')
             if os.path.isdir(wells_dir):
@@ -1538,12 +1549,13 @@ def _scan_structures_folder():
                     struct_key = struct_dir.lower()
                     # Preserve folder naming as provided (e.g., 'abab')
                     struct_display = struct_dir
-                    # List wells by CSV files inside the structure folder
+                    # List wells by CSV files inside the structure folder (recursive)
                     wells = []
                     try:
-                        for f in os.listdir(struct_path):
-                            if f.lower().endswith('.csv'):
-                                wells.append(os.path.splitext(f)[0])
+                        for r, _d, files in os.walk(struct_path):
+                            for f in files:
+                                if f.lower().endswith('.csv'):
+                                    wells.append(os.path.splitext(f)[0])
                     except Exception:
                         pass
                     wells = sorted(wells)
@@ -1847,6 +1859,35 @@ def get_wells():
     try:
         analysis = get_analysis_instance()
         result = analysis.get_well_list()
+        # If folder mode is active or wells are empty, try scanning dataset_files directly as a safety net
+        if (result.get('status') == 'success' and (result.get('wells') is None or len(result.get('wells')) == 0)) or \
+           ((analysis.current_dataset or '').startswith('dataset_files') and analysis.current_well_data is None):
+            base_dir = os.path.dirname(__file__)
+            wells = set()
+            try:
+                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
+                if os.path.isdir(dsf_struct):
+                    for field_name in os.listdir(dsf_struct):
+                        fpath = os.path.join(dsf_struct, field_name)
+                        if not os.path.isdir(fpath):
+                            continue
+                        for struct_name in os.listdir(fpath):
+                            spath = os.path.join(fpath, struct_name)
+                            if not os.path.isdir(spath):
+                                continue
+                            for r, _d, files in os.walk(spath):
+                                for fn in files:
+                                    if fn.lower().endswith('.csv'):
+                                        wells.add(os.path.splitext(fn)[0])
+                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
+                if os.path.isdir(dsf_wells):
+                    for fn in os.listdir(dsf_wells):
+                        if fn.lower().endswith('.csv'):
+                            wells.add(os.path.splitext(fn)[0])
+            except Exception as e:
+                print(f"Fallback scan for wells failed: {e}")
+            wells = sorted(wells)
+            return json.dumps({"status": "success", "wells": wells, "count": len(wells)})
         return json.dumps(result)
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
