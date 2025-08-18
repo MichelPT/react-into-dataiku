@@ -324,7 +324,7 @@ body {
     min-width: 0;
     background: var(--bg-white);
     margin: 16px;
-    margin-left: 0;
+    margin-left: 16px;
     border-radius: var(--radius);
     box-shadow: var(--shadow-sm);
 }
@@ -672,6 +672,8 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-wrap: wrap;
+    max-width: 100%;
 }
 
 .checkbox-controls label {
@@ -719,6 +721,11 @@ body {
 
 .list-container {
     padding: 0.75rem;
+}
+
+/* Extra spacing for select-all controls under Intervals */
+#markersSelectAll, #zonesSelectAll {
+    padding: 0.5rem 0.75rem 0;
 }
 
 .scrollable-list {
