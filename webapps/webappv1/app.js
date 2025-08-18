@@ -3302,20 +3302,22 @@ function initializeApp() {
 function autoLoadDefaultDataset() {
     // Check if user has selected a structure from structures page
     var selectedStructure = appState.currentStructure;
-    var datasetName = 'fix_pass_qc'; // default dataset
+    // Prefer folder-based dataset_files mode by default
+    var datasetName = 'dataset_files';
     var payload = { dataset_name: datasetName };
     
     if (selectedStructure && selectedStructure.name) {
         // Create dataset name based on selected structure
         // e.g., "Adera" -> "raw_well_data_adera"
-        datasetName = 'fix_pass_qc_' + selectedStructure.name.toLowerCase();
+    // Prefer raw_well_data_<structure> discovery; backend will resolve appropriately
+    datasetName = 'raw_well_data_' + selectedStructure.name.toLowerCase();
         payload = {
             dataset_name: datasetName,
             structure_name: selectedStructure.name
         };
         console.log('Auto-loading dataset for structure:', selectedStructure.name, '- Dataset:', datasetName);
     } else {
-        console.log('Auto-loading default fix_pass_qc dataset...');
+    console.log('Auto-loading default dataset_files (folder or dataset)...');
     }
     
     return fetchJson('/select_dataset', {
@@ -3374,11 +3376,11 @@ function autoLoadDefaultDataset() {
 }
 
 function autoLoadFallbackDataset() {
-    console.log('Loading fallback dataset: fix_pass_qc');
+    console.log('Loading fallback dataset: dataset_files');
     
     return fetchJson('/select_dataset', {
         method: 'POST',
-    body: JSON.stringify({ dataset_name: 'fix_pass_qc' })
+        body: JSON.stringify({ dataset_name: 'dataset_files' })
     })
     .then(function(response) {
         if (response.status === 'success') {

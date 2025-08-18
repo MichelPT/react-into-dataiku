@@ -372,6 +372,35 @@ class WellLogAnalysis:
         except Exception as e:
             print(f"Failed loading per-well CSV for {well_name}: {e}")
         return None
+
+    def _list_wells_from_dataset_files(self):
+        """Scan dataset_files for available well CSVs and return well names (no extension)."""
+        wells = set()
+        base_dir = os.path.dirname(__file__)
+        try:
+            # 1) From structures tree
+            root = os.path.join(base_dir, 'dataset_files', 'structures')
+            if os.path.isdir(root):
+                for field_name in os.listdir(root):
+                    field_path = os.path.join(root, field_name)
+                    if not os.path.isdir(field_path):
+                        continue
+                    for struct_name in os.listdir(field_path):
+                        struct_path = os.path.join(field_path, struct_name)
+                        if not os.path.isdir(struct_path):
+                            continue
+                        for fname in os.listdir(struct_path):
+                            if fname.lower().endswith('.csv'):
+                                wells.add(os.path.splitext(fname)[0])
+            # 2) From global wells folder
+            wells_dir = os.path.join(base_dir, 'dataset_files', 'wells')
+            if os.path.isdir(wells_dir):
+                for fname in os.listdir(wells_dir):
+                    if fname.lower().endswith('.csv'):
+                        wells.add(os.path.splitext(fname)[0])
+        except Exception as e:
+            print(f"Failed listing wells from dataset_files: {e}")
+        return sorted(wells)
     
     def auto_load_default_dataset(self):
         """Automatically load the fix_pass_qc dataset on initialization"""
@@ -394,6 +423,19 @@ class WellLogAnalysis:
                             return
             except Exception as e:
                 print(f"Dataset_files selection attempt failed: {e}")
+
+            # If dataset_files folder exists (structures or wells), enable folder mode
+            try:
+                base_dir = os.path.dirname(__file__)
+                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
+                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
+                if os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells):
+                    result = self.select_dataset('dataset_files')
+                    if result.get("status") == "success":
+                        print("Successfully auto-loaded dataset: dataset_files (folder)")
+                        return
+            except Exception as e:
+                print(f"Dataset_files folder mode auto-select failed: {e}")
 
             # Then try explicit fix_pass_qc
             dataset_name = "fix_pass_qc"
@@ -455,6 +497,21 @@ class WellLogAnalysis:
     def select_dataset(self, dataset_name):
         """Select a dataset and load its basic info"""
         try:
+            # Special handling: folder-based dataset
+            if str(dataset_name).lower() == 'dataset_files':
+                self.current_dataset = 'dataset_files (folder)'
+                self.current_well_data = None  # use per-well CSVs
+                wells = self._list_wells_from_dataset_files()
+                return {
+                    "status": "success",
+                    "dataset_name": self.current_dataset,
+                    "wells": wells,
+                    "markers": [],
+                    "columns": [],
+                    "total_rows": None,
+                    "message": "Using dataset_files folder mode (per-well CSVs)"
+                }
+
             df = None
             # Try Dataiku dataset first
             try:
@@ -521,6 +578,11 @@ class WellLogAnalysis:
     def get_well_list(self):
         """Get list of wells from current dataset"""
         try:
+            # Folder mode: list wells from dataset_files
+            if (self.current_dataset or '').startswith('dataset_files') and self.current_well_data is None:
+                wells = self._list_wells_from_dataset_files()
+                return {"status": "success", "wells": wells, "count": len(wells)}
+
             if self.current_well_data is None:
                 return {"status": "error", "message": "No dataset selected"}
             
@@ -1721,6 +1783,26 @@ def select_dataset():
         structure_name = (data or {}).get('structure_name')  # Optional structure name
 
         print(f"Dataset selection request - dataset_name: {dataset_name}, structure_name: {structure_name}")
+
+        # If no dataset_name provided, prefer dataset_files folder mode when present
+        if not dataset_name:
+            base_dir = os.path.dirname(__file__)
+            dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
+            dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
+            if os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells):
+                dataset_name = 'dataset_files'
+            else:
+                # If folder not available, prefer a project dataset named dataset_files, then dataset_qc
+                try:
+                    analysis = get_analysis_instance()
+                    ds_info = analysis.get_available_datasets() or {}
+                    datasets = [d.lower() for d in ds_info.get('datasets', [])]
+                    if 'dataset_files' in datasets:
+                        dataset_name = 'dataset_files'
+                    elif 'dataset_qc' in datasets:
+                        dataset_name = 'dataset_qc'
+                except Exception as _:
+                    pass
 
         analysis = get_analysis_instance()
 
