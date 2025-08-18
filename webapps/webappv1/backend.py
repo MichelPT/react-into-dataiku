@@ -326,6 +326,28 @@ class WellLogAnalysis:
             print(f"Failed loading local fix_pass_qc.csv: {e}")
         return None
 
+    def _load_dataset_files_csv(self):
+        """Load a CSV from webapp dataset_files as the working dataset (if available).
+        Preference: fix_pass_qc_13k.csv -> pass_qc.csv
+        Returns DataFrame or None.
+        """
+        base_dir = os.path.dirname(__file__)
+        candidates = [
+            os.path.join(base_dir, 'dataset_files', 'fix_pass_qc_13k.csv'),
+            os.path.join(base_dir, 'dataset_files', 'pass_qc.csv'),
+        ]
+        for p in candidates:
+            try:
+                if os.path.isfile(p):
+                    df = pd.read_csv(p)
+                    self.current_dataset = 'dataset_files (csv)'
+                    self.current_well_data = df
+                    print(f"Loaded dataset from {p} as current_well_data")
+                    return df
+            except Exception as e:
+                print(f"Failed loading {p}: {e}")
+        return None
+
     def _load_well_csv_from_dataset_files(self, well_name: str, structure_context: dict | None = None):
         """Attempt to load a single-well CSV from dataset_files based on provided context.
         Preferred order:
@@ -354,42 +376,51 @@ class WellLogAnalysis:
     def auto_load_default_dataset(self):
         """Automatically load the fix_pass_qc dataset on initialization"""
         try:
-            # Prefer explicit fix_pass_qc first as requested
+            # Prefer local dataset_files CSVs first (aligns with folder-driven mode)
+            if self._load_dataset_files_csv() is not None:
+                print("Successfully auto-loaded dataset: dataset_files (csv)")
+                return
+
+            # Next prefer a Dataiku dataset named 'dataset_files' if present
+            try:
+                available_datasets = self.get_available_datasets()
+                if available_datasets.get("status") == "success":
+                    datasets = available_datasets.get("datasets", [])
+                    dsf = [ds for ds in datasets if ds.lower() == 'dataset_files']
+                    if dsf:
+                        result = self.select_dataset(dsf[0])
+                        if result.get("status") == "success":
+                            print("Successfully auto-loaded dataset: dataset_files")
+                            return
+            except Exception as e:
+                print(f"Dataset_files selection attempt failed: {e}")
+
+            # Then try explicit fix_pass_qc
             dataset_name = "fix_pass_qc"
             result = self.select_dataset(dataset_name)
             if result.get("status") == "success":
                 print(f"Successfully auto-loaded dataset: {dataset_name}")
-            else:
-                # If fix_pass_qc not found, try to find any dataset with 'raw' and 'well' in name
-                try:
-                    available_datasets = self.get_available_datasets()
-                    if available_datasets.get("status") == "success":
-                        datasets = available_datasets.get("datasets", [])
-                        # Try exact/partial fix_pass_qc first among discovered datasets
-                        fx = [ds for ds in datasets if ds.lower() == 'fix_pass_qc']
-                        if fx:
-                            fallback_dataset = fx[0]
-                            result = self.select_dataset(fallback_dataset)
-                            if result.get("status") == "success":
-                                print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
-                            else:
-                                print(f"Failed to auto-load fallback dataset {fallback_dataset}")
+                return
+
+            # Fallback discovery
+            try:
+                available_datasets = self.get_available_datasets()
+                if available_datasets.get("status") == "success":
+                    datasets = available_datasets.get("datasets", [])
+                    raw_datasets = [ds for ds in datasets if 'raw' in ds.lower() and ('well' in ds.lower() or 'data' in ds.lower())]
+                    if raw_datasets:
+                        fallback_dataset = raw_datasets[0]
+                        result = self.select_dataset(fallback_dataset)
+                        if result.get("status") == "success":
+                            print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
                         else:
-                            raw_datasets = [ds for ds in datasets if 'raw' in ds.lower() and ('well' in ds.lower() or 'data' in ds.lower())]
-                            # Keep legacy fallback order
-                            if raw_datasets:
-                                fallback_dataset = raw_datasets[0]
-                                result = self.select_dataset(fallback_dataset)
-                                if result.get("status") == "success":
-                                    print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
-                                else:
-                                    print(f"Failed to auto-load fallback dataset {fallback_dataset}")
-                            else:
-                                print("No raw well data dataset found")
+                            print(f"Failed to auto-load fallback dataset {fallback_dataset}")
                     else:
-                        print("Failed to get available datasets for fallback")
-                except Exception as fallback_error:
-                    print(f"Error during fallback dataset loading: {str(fallback_error)}")
+                        print("No raw well data dataset found")
+                else:
+                    print("Failed to get available datasets for fallback")
+            except Exception as fallback_error:
+                print(f"Error during fallback dataset loading: {str(fallback_error)}")
         except Exception as e:
             print(f"Error auto-loading dataset: {str(e)}")
     
@@ -1361,8 +1392,10 @@ def find_raw_data_dataset(structure_name=None):
                     print(f"Found matching dataset with structure name: {name}")
                     return name
         
-        # Fallback to general dataset discovery - prioritize fix_pass_qc
+        # Fallback to general dataset discovery - prioritize dataset_files/dataset_qc, then fix_pass_qc
         search_patterns = [
+            'dataset_files',
+            'dataset_qc',
             'fix_pass_qc',
             'raw_data_well',
             'raw_well_data', 
@@ -1683,13 +1716,14 @@ def select_dataset():
     """API endpoint to select a dataset"""
     try:
         data = request.get_json()
-        dataset_name = data.get('fix_pass_qc')
-        structure_name = data.get('structure_name')  # Optional structure name
-        
+        # Accept new key 'dataset_name' first, keep backward compatibility with older 'fix_pass_qc' key
+        dataset_name = (data or {}).get('dataset_name') or (data or {}).get('fix_pass_qc')
+        structure_name = (data or {}).get('structure_name')  # Optional structure name
+
         print(f"Dataset selection request - dataset_name: {dataset_name}, structure_name: {structure_name}")
-        
+
         analysis = get_analysis_instance()
-        
+
         # If dataset_name indicates a structure pattern, try to find the actual dataset
         if dataset_name and 'raw_well_data_' in dataset_name:
             # Extract structure name from dataset_name
@@ -1710,13 +1744,13 @@ def select_dataset():
                 if fallback_dataset:
                     dataset_name = fallback_dataset
                     print(f"Using fallback dataset: {fallback_dataset}")
-        
+
         if not dataset_name:
             # Last resort: try to find any suitable dataset
             dataset_name = find_raw_data_dataset()
             if not dataset_name:
                 return json.dumps({"status": "error", "message": "No suitable dataset found in project"})
-        
+
         print(f"Final dataset selection: {dataset_name}")
         result = analysis.select_dataset(dataset_name)
         return json.dumps(result)
