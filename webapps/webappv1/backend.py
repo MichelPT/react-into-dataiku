@@ -333,8 +333,7 @@ class WellLogAnalysis:
         """
         base_dir = os.path.dirname(__file__)
         candidates = [
-            os.path.join(base_dir, 'dataset_files', 'fix_pass_qc_13k.csv'),
-            os.path.join(base_dir, 'dataset_files', 'pass_qc.csv'),
+            os.path.join(base_dir, 'dataset_files')
         ]
         for p in candidates:
             try:
@@ -388,30 +387,28 @@ class WellLogAnalysis:
         wells = set()
         base_dir = os.path.dirname(__file__)
         try:
-            # 1) From structures tree (recursive search)
-            root = os.path.join(base_dir, 'dataset_files', 'structures')
-            if os.path.isdir(root):
-                for field_name in os.listdir(root):
-                    field_path = os.path.join(root, field_name)
-                    if not os.path.isdir(field_path):
-                        continue
-                    for struct_name in os.listdir(field_path):
-                        struct_path = os.path.join(field_path, struct_name)
-                        if not os.path.isdir(struct_path):
-                            continue
-                        for r, _d, files in os.walk(struct_path):
-                            for fname in files:
-                                if fname.lower().endswith('.csv'):
-                                    wells.add(os.path.splitext(fname)[0])
-            # 2) From global wells folder
+            # 1) From structures tree (recursive search) - Diperbaiki dan disederhanakan
+            structures_dir = os.path.join(base_dir, 'dataset_files', 'structures')
+            if os.path.isdir(structures_dir):
+                # Langsung gunakan os.walk dari direktori root 'structures'.
+                # Ini akan menjelajahi semua subdirektori secara otomatis,
+                # tidak peduli seberapa dalam strukturnya.
+                for root, dirs, files in os.walk(structures_dir):
+                    for fname in files:
+                        if fname.lower().endswith('.csv'):
+                            wells.add(os.path.splitext(fname)[0])
+
+            # 2) From global wells folder (ini sudah benar, tidak perlu diubah)
             wells_dir = os.path.join(base_dir, 'dataset_files', 'wells')
             if os.path.isdir(wells_dir):
                 for fname in os.listdir(wells_dir):
                     if fname.lower().endswith('.csv'):
                         wells.add(os.path.splitext(fname)[0])
+                        
         except Exception as e:
             print(f"Failed listing wells from dataset_files: {e}")
-        return sorted(wells)
+            
+        return sorted(list(wells)) # Konversi set ke list sebelum di-sort
     
     def auto_load_default_dataset(self):
         """Automatically load the fix_pass_qc dataset on initialization"""
