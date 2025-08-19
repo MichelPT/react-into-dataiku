@@ -429,10 +429,16 @@ class WellLogAnalysis:
         Supports multi-level directory structures like: structures/adera/benuang/BNG-012.csv
         """
         wells = set()
-        base_dir = os.path.dirname(__file__)
+        
+        # Find the correct dataset_files directory
+        dataset_files_dir = self._find_dataset_files_directory()
+        if not dataset_files_dir:
+            print("❌ dataset_files directory not found")
+            return []
+            
         try:
             # 1) From structures tree (recursive search) - handles multi-level directories
-            structures_dir = os.path.join(base_dir, 'dataset_files', 'structures')
+            structures_dir = os.path.join(dataset_files_dir, 'structures')
             if os.path.isdir(structures_dir):
                 print(f"Scanning structures directory: {structures_dir}")
                 # Use os.walk to traverse all subdirectories automatically,
@@ -447,7 +453,7 @@ class WellLogAnalysis:
                             print(f"Found well: {well_name} at structures/{rel_path}")
 
             # 2) From global wells folder (flat structure)
-            wells_dir = os.path.join(base_dir, 'dataset_files', 'wells')
+            wells_dir = os.path.join(dataset_files_dir, 'wells')
             if os.path.isdir(wells_dir):
                 print(f"Scanning wells directory: {wells_dir}")
                 for fname in os.listdir(wells_dir):
@@ -458,10 +464,34 @@ class WellLogAnalysis:
                         
         except Exception as e:
             print(f"Failed listing wells from dataset_files: {e}")
+            import traceback
+            traceback.print_exc()
             
         wells_list = sorted(list(wells))  # Convert set to sorted list
         print(f"Total wells found: {len(wells_list)}")
         return wells_list
+    
+    def _find_dataset_files_directory(self):
+        """Find the correct path to dataset_files directory.
+        Returns the absolute path to dataset_files directory or None if not found.
+        """
+        base_dir = os.path.dirname(__file__)
+        
+        # Possible locations for dataset_files
+        candidates = [
+            os.path.join(base_dir, 'dataset_files'),  # Same directory as backend.py
+            os.path.join(base_dir, '..', '..', 'dataset_files'),  # Root level of project
+            os.path.join(os.path.dirname(base_dir), 'dataset_files'),  # webapps level
+        ]
+        
+        for candidate in candidates:
+            abs_path = os.path.abspath(candidate)
+            if os.path.isdir(abs_path):
+                print(f"Found dataset_files at: {abs_path}")
+                return abs_path
+        
+        print(f"dataset_files directory not found. Searched in: {candidates}")
+        return None
     
     def get_structures_hierarchy(self):
         """Get the hierarchical structure of dataset_files/structures directory.
@@ -532,12 +562,23 @@ class WellLogAnalysis:
             
             # PRIORITY 1: If dataset_files folder exists (structures or wells), enable folder mode
             try:
-                base_dir = os.path.dirname(__file__)
-                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
-                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
+                print("PRIORITY 1: Searching for dataset_files directory...")
+                dataset_files_dir = self._find_dataset_files_directory()
                 
-                struct_exists = os.path.isdir(dsf_struct)
-                wells_exists = os.path.isdir(dsf_wells)
+                if dataset_files_dir:
+                    dsf_struct = os.path.join(dataset_files_dir, 'structures')
+                    dsf_wells = os.path.join(dataset_files_dir, 'wells')
+                    
+                    struct_exists = os.path.isdir(dsf_struct)
+                    wells_exists = os.path.isdir(dsf_wells)
+                    
+                    print(f"PRIORITY 1: Using dataset_files directory: {dataset_files_dir}")
+                    print(f"  - structures directory: {dsf_struct} -> exists: {struct_exists}")
+                    print(f"  - wells directory: {dsf_wells} -> exists: {wells_exists}")
+                else:
+                    struct_exists = False
+                    wells_exists = False
+                    print("PRIORITY 1: ❌ dataset_files directory not found in any expected location")
                 
                 print(f"PRIORITY 1: Checking dataset_files directories:")
                 print(f"  - structures directory: {dsf_struct} -> exists: {struct_exists}")
@@ -545,13 +586,19 @@ class WellLogAnalysis:
                 
                 if struct_exists or wells_exists:
                     print("PRIORITY 1: Found dataset_files directories, activating folder mode...")
-                    result = self.select_dataset('dataset_files')
-                    if result.get("status") == "success":
-                        print("PRIORITY 1: ✅ Successfully auto-loaded dataset: dataset_files (folder)")
-                        print("=== AUTO LOAD DEFAULT DATASET END ===")
-                        return
-                    else:
-                        print(f"PRIORITY 1: ❌ Failed to select dataset_files folder mode: {result}")
+                    try:
+                        result = self.select_dataset('dataset_files')
+                        print(f"PRIORITY 1: select_dataset returned: {result}")
+                        if result.get("status") == "success":
+                            print("PRIORITY 1: ✅ Successfully auto-loaded dataset: dataset_files (folder)")
+                            print("=== AUTO LOAD DEFAULT DATASET END ===")
+                            return
+                        else:
+                            print(f"PRIORITY 1: ❌ Failed to select dataset_files folder mode: {result}")
+                    except Exception as select_error:
+                        print(f"PRIORITY 1: ❌ Exception during select_dataset: {select_error}")
+                        import traceback
+                        traceback.print_exc()
                 else:
                     print("PRIORITY 1: ❌ No dataset_files directories found")
             except Exception as e:
@@ -658,11 +705,32 @@ class WellLogAnalysis:
             # Special handling: folder-based dataset
             if str(dataset_name).lower() == 'dataset_files':
                 print("FOLDER MODE: Activating dataset_files folder mode...")
+                
+                # Check if folders actually exist before proceeding
+                base_dir = os.path.dirname(__file__)
+                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
+                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
+                
+                print(f"FOLDER MODE: Base directory: {base_dir}")
+                print(f"FOLDER MODE: Structures path: {dsf_struct} -> exists: {os.path.isdir(dsf_struct)}")
+                print(f"FOLDER MODE: Wells path: {dsf_wells} -> exists: {os.path.isdir(dsf_wells)}")
+                
+                if not (os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells)):
+                    error_msg = f"Neither structures nor wells directory found in {base_dir}/dataset_files"
+                    print(f"FOLDER MODE: ❌ {error_msg}")
+                    return {"status": "error", "message": error_msg}
+                
                 self.current_dataset = 'dataset_files (folder)'
                 self.current_well_data = None  # use per-well CSVs
                 print("FOLDER MODE: Listing wells from dataset_files...")
-                wells = self._list_wells_from_dataset_files()
-                print(f"FOLDER MODE: Found {len(wells)} wells")
+                
+                try:
+                    wells = self._list_wells_from_dataset_files()
+                    print(f"FOLDER MODE: Found {len(wells)} wells: {wells[:5] if len(wells) > 5 else wells}...")
+                except Exception as wells_error:
+                    print(f"FOLDER MODE: ❌ Error listing wells: {wells_error}")
+                    return {"status": "error", "message": f"Error listing wells: {str(wells_error)}"}
+                
                 result = {
                     "status": "success",
                     "dataset_name": self.current_dataset,
