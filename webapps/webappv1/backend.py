@@ -257,6 +257,7 @@ class WellLogAnalysis:
         self.current_dataset = None
         self.current_well_data = None
         self.dataset_files_manifest = None  # Store dataset folder manifest
+        self.dataset_files_folder = None    # Managed folder backing the dataset (if any)
         self.available_datasets = []
         # Track selection coming from UI
         self.selected_intervals = []
@@ -396,23 +397,25 @@ class WellLogAnalysis:
             
             if len(matching_paths) > 1:
                 print(f"Multiple files found for well {well_name}: {matching_paths['path'].tolist()}")
-                # If structure context provided, prefer matching structure path
+                # If structure context provided, prefer matching structure path (case-insensitive)
+                file_path = None
                 if structure_context:
                     field = structure_context.get('field_name') or structure_context.get('fieldName')
                     struct = structure_context.get('structure_name') or structure_context.get('structureName')
-                    
                     if field and struct:
                         structure_matches = matching_paths[
-                            matching_paths['path'].str.contains(f"/{field}/", na=False) &
-                            matching_paths['path'].str.contains(f"/{struct}/", na=False)
+                            matching_paths['path'].str.contains(fr"/{str(field)}/", na=False, case=False) &
+                            matching_paths['path'].str.contains(fr"/{str(struct)}/", na=False, case=False)
                         ]
                         if len(structure_matches) > 0:
                             file_path = structure_matches.iloc[0]['path']
-                        else:
-                            file_path = matching_paths.iloc[0]['path']
-                    else:
-                        file_path = matching_paths.iloc[0]['path']
-                else:
+                # If still ambiguous, prefer structures over wells
+                if not file_path:
+                    structures_matches = matching_paths[matching_paths['path'].str.contains('/structures/', na=False)]
+                    if len(structures_matches) > 0:
+                        file_path = structures_matches.iloc[0]['path']
+                # Fallback to first
+                if not file_path:
                     file_path = matching_paths.iloc[0]['path']
             else:
                 file_path = matching_paths.iloc[0]['path']
@@ -423,21 +426,47 @@ class WellLogAnalysis:
             # For dataset folders, files are accessible using get_dataframe() with path parameter
             # or get_download_stream() depending on Dataiku version
             try:
-                # Method 1: Try using dataset folder file access
+                # Preferred: Use the managed folder behind the dataset
+                folder = self.dataset_files_folder
+                if folder is None:
+                    # Resolve and cache it if not yet available
+                    dataset = dataiku.Dataset('dataset_files')
+                    folder = self._resolve_dataset_files_folder(dataset)
+                    self.dataset_files_folder = folder
+
+                if folder is not None:
+                    # Paths in manifest typically start with '/subdir/file'; trim leading slash for folder path
+                    rel_path = file_path[1:] if str(file_path).startswith('/') else file_path
+                    with folder.get_download_stream(rel_path) as stream:
+                        df = pd.read_csv(stream)
+                        print(f"Successfully loaded {well_name} from managed folder: {len(df)} rows")
+                        return df
+
+                # Fallback: Some Dataiku versions allow reading a partition/part by path
                 dataset = dataiku.Dataset('dataset_files')
-                
-                # Get the specific file content from dataset folder
-                # Note: Exact API depends on Dataiku version and dataset folder setup
-                # This might need adjustment based on your Dataiku environment
-                
-                # Approach: Use dataset streaming to get specific file
-                stream = dataset.get_download_stream(path=file_path)
-                df = pd.read_csv(stream)
-                print(f"Successfully loaded {well_name} from dataset folder: {len(df)} rows")
-                return df
+                try:
+                    # If supported, read only that path
+                    part_df = dataset.get_dataframe(partition=file_path)
+                    if len(part_df) > 0:
+                        print(f"Loaded {well_name} via partition read: {len(part_df)} rows")
+                        return part_df
+                except Exception as _:
+                    pass
                 
             except Exception as api_err:
                 print(f"Dataset folder API access failed for {file_path}: {api_err}")
+                # As a last resort, if Dataiku mounted the folder locally (rare), try filesystem
+                try:
+                    base_dir = os.path.dirname(__file__)
+                    local_path = os.path.join(base_dir, 'dataset_files', file_path.lstrip('/'))
+                    if os.path.isfile(local_path):
+                        print(f"Dataset folder direct access not available, reading local mount: {local_path}")
+                        return pd.read_csv(local_path)
+                    else:
+                        print("Dataset folder direct access not available, checking if file is accessible via filesystem...")
+                        print(f"File not accessible: {local_path}")
+                except Exception as fs_err:
+                    print(f"Filesystem fallback failed: {fs_err}")
                 return None
                 
         except Exception as e:
@@ -604,6 +633,41 @@ class WellLogAnalysis:
                 print(f"   ❌ Path does not exist")
         
         print("❌ dataset_files directory not found in any expected location")
+        return None
+
+    def _resolve_dataset_files_folder(self, dataset):
+        """Try to resolve the Dataiku managed folder behind a Files-in-Folder dataset.
+        Returns a dataiku.Folder instance or None.
+        """
+        try:
+            cfg = dataset.get_config()
+        except Exception as e:
+            print(f"Could not read dataset config: {e}")
+            cfg = None
+
+        folder_id = None
+        if isinstance(cfg, dict):
+            params = cfg.get('params') or {}
+            # Common keys seen in Dataiku for Files-in-Folder
+            folder_id = params.get('folderId') or params.get('folder') or params.get('managedFolderId')
+
+        if not folder_id:
+            try:
+                loc = dataset.get_location_info()
+                info = (loc or {}).get('info') or (loc or {}).get('details') or {}
+                folder_id = info.get('folderId') or info.get('folder') or info.get('managedFolderId')
+            except Exception as e:
+                print(f"Could not read dataset location info: {e}")
+
+        if folder_id:
+            try:
+                print(f"Resolved managed folder for dataset_files: {folder_id}")
+                return dataiku.Folder(folder_id)
+            except Exception as e:
+                print(f"Failed to open managed folder '{folder_id}': {e}")
+                return None
+
+        print("Could not resolve a managed folder backing 'dataset_files'")
         return None
 
     def _list_wells_from_dataset_folder(self, manifest_df):
@@ -877,6 +941,11 @@ class WellLogAnalysis:
                         self.current_dataset = 'dataset_files (Dataiku folder)'
                         self.current_well_data = None  # Use dataset folder mode
                         self.dataset_files_manifest = df  # Store the manifest for file access
+                        # Resolve and cache the managed folder backing this dataset
+                        try:
+                            self.dataset_files_folder = self._resolve_dataset_files_folder(dataset)
+                        except Exception as _:
+                            self.dataset_files_folder = None
                         
                         # List available wells from the manifest
                         try:
