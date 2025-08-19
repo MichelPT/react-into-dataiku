@@ -2074,130 +2074,8 @@ def scan_structures():
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
 
-def _build_structures_from_dataset_folder():
-    """Build structures index from dataset folder manifest if available."""
-    try:
-        analysis = get_analysis_instance()
-        
-        # Check if current dataset is dataset_files with manifest available
-        if (analysis.current_dataset or '').startswith('dataset_files') and analysis.dataset_files_manifest is not None:
-            print("Building structures index from loaded dataset folder manifest...")
-            return _build_structures_from_manifest(analysis.dataset_files_manifest)
-        
-        # Fallback: try to load dataset_files directly  
-        ds_info = analysis.get_available_datasets() or {}
-        datasets = set([d.lower() for d in ds_info.get('datasets', [])])
-        if 'dataset_files' in datasets:
-            try:
-                print("Loading dataset_files manifest to build structures index...")
-                df_idx = dataiku.Dataset('dataset_files').get_dataframe()
-                if 'path' in df_idx.columns:
-                    return _build_structures_from_manifest(df_idx)
-                else:
-                    print("dataset_files exists but no 'path' column found")
-            except Exception as ds_err:
-                print(f"Failed to load dataset_files for structures index: {ds_err}")
-        
-        return None
-        
-    except Exception as manifest_err:
-        print(f"dataset_files manifest processing failed: {manifest_err}")
-        return None
-
-def _build_structures_from_manifest(df_idx):
-    """Build structures index from dataset folder manifest DataFrame."""
-    try:
-        # Build field -> structures -> wells from path strings like '/structures/adera/abab/ABB-106.csv'
-        from collections import defaultdict
-        fields_map = defaultdict(lambda: defaultdict(set))
-        # Keep a representative path per structure for display
-        struct_path_sample = defaultdict(dict)
-        
-        print(f"Processing {len(df_idx)} files from dataset folder manifest...")
-        
-        for _, row in df_idx.iterrows():
-            p = str(row.get('path', '') or '').strip()
-            if not p:
-                continue
-            if p.lower().endswith('.csv'):
-                parts = [seg for seg in p.strip('/').split('/') if seg]
-                # Find 'structures' anchor, then next two parts are field and structure when present
-                try:
-                    if 'structures' in [seg.lower() for seg in parts]:
-                        idx = [seg.lower() for seg in parts].index('structures')
-                        field_name = parts[idx+1] if len(parts) > idx+1 else None
-                        struct_name = parts[idx+2] if len(parts) > idx+2 else None
-                        file_name = parts[-1]
-                        well_name = os.path.splitext(file_name)[0]
-                        if field_name and struct_name and well_name:
-                            fields_map[field_name][struct_name].add(well_name)
-                            if struct_name not in struct_path_sample.get(field_name, {}):
-                                struct_path_sample.setdefault(field_name, {})[struct_name] = p
-                            print(f"  Added well {well_name} to {field_name}/{struct_name}")
-                except Exception as parse_err:
-                    print(f"  Error parsing path {p}: {parse_err}")
-                    continue
-        
-        # Convert to expected API shape
-        fields_list = []
-        total_structures = 0
-        for field_name in sorted(fields_map.keys()):
-            struct_entries = []
-            for struct_name in sorted(fields_map[field_name].keys()):
-                wells = sorted(list(fields_map[field_name][struct_name]))
-                # Use the first CSV path as a representative path for display purposes
-                rep_path = None
-                try:
-                    rep_path = struct_path_sample.get(field_name, {}).get(struct_name)
-                except Exception:
-                    rep_path = None
-                struct_entries.append({
-                    "structure_name": struct_name,
-                    "field_name": field_name,
-                    "file_path": rep_path,
-                    "wells_count": len(wells),
-                    "wells": wells,
-                    "total_records": 0,
-                    "columns": [],
-                    "intervals": []
-                })
-                total_structures += 1
-            
-            if struct_entries:
-                fields_list.append({
-                    "field_name": field_name,
-                    "structures_count": len(struct_entries),
-                    "structures": struct_entries
-                })
-        
-        if fields_list:
-            data = {
-                "fields": fields_list,
-                "total_fields": len(fields_list),
-                "total_structures": total_structures
-            }
-            print(f"Built structures index from dataset folder: {len(fields_list)} fields, {total_structures} structures")
-            return json.dumps({"status": "success", "source": "dataset:dataset_files[path]", "data": data})
-        else:
-            print("No valid structures found in dataset folder manifest")
-            return json.dumps({"status": "error", "message": "No structures found in dataset folder"})
-            
-    except Exception as build_err:
-        print(f"Failed building structures from manifest: {build_err}")
-        import traceback
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": f"Error building structures index: {str(build_err)}"})
-
 @app.route('/get_structures_index')
 def get_structures_index():
-    """Get the hierarchical index of fields and structures for the sidebar."""
-    
-    # Priority 1: Try dataset folder manifest (Dataiku dataset folder)
-    dataset_folder_result = _build_structures_from_dataset_folder()
-    if dataset_folder_result:
-        return dataset_folder_result
-    
-    # Priority 2: Continue with original logic
     try:
         base_dir = os.path.dirname(__file__)
 
@@ -2218,84 +2096,66 @@ def get_structures_index():
         # 0b) If a Dataiku dataset named 'dataset_files' exists with a 'path' column, build index from it
         try:
             analysis = get_analysis_instance()
-            
-            # Check if current dataset is dataset_files with manifest available
-            if (analysis.current_dataset or '').startswith('dataset_files') and analysis.dataset_files_manifest is not None:
-                print("Building structures index from loaded dataset folder manifest...")
-                df_idx = analysis.dataset_files_manifest
-                return _build_structures_from_manifest(df_idx)
-            
-            # Fallback: try to load dataset_files directly  
             ds_info = analysis.get_available_datasets() or {}
             datasets = set([d.lower() for d in ds_info.get('datasets', [])])
             if 'dataset_files' in datasets:
                 try:
-                    print("Loading dataset_files manifest to build structures index...")
                     df_idx = dataiku.Dataset('dataset_files').get_dataframe()
                     if 'path' in df_idx.columns:
-                        return _build_structures_from_manifest(df_idx)
-                    else:
-                        print("dataset_files exists but no 'path' column found")
-                except Exception as ds_err:
-                    print(f"Failed to load dataset_files for structures index: {ds_err}")
-        except Exception as manifest_err:
-            print(f"dataset_files manifest processing failed: {manifest_err}")
-
-def _build_structures_from_manifest(df_idx):
-    """Build structures index from dataset folder manifest DataFrame."""
-    try:
-        # Build field -> structures -> wells from path strings like '/structures/adera/abab/ABB-106.csv'
-        from collections import defaultdict
-        fields_map = defaultdict(lambda: defaultdict(set))
-        # Keep a representative path per structure for display
-        struct_path_sample = defaultdict(dict)
-        
-        print(f"Processing {len(df_idx)} files from dataset folder manifest...")
-        
-        for _, row in df_idx.iterrows():
-            p = str(row.get('path', '') or '').strip()
-            if not p:
-                continue
-            if p.lower().endswith('.csv'):
-                parts = [seg for seg in p.strip('/').split('/') if seg]
-                # Find 'structures' anchor, then next two parts are field and structure when present
-                try:
-                    if 'structures' in [seg.lower() for seg in parts]:
-                        idx = [seg.lower() for seg in parts].index('structures')
-                        field_name = parts[idx+1] if len(parts) > idx+1 else None
-                        struct_name = parts[idx+2] if len(parts) > idx+2 else None
-                        file_name = parts[-1]
-                        well_name = os.path.splitext(file_name)[0]
-                        if field_name and struct_name and well_name:
-                            fields_map[field_name][struct_name].add(well_name)
-                            if struct_name not in struct_path_sample.get(field_name, {}):
-                                struct_path_sample.setdefault(field_name, {})[struct_name] = p
-                            print(f"  Added well {well_name} to {field_name}/{struct_name}")
-                except Exception as parse_err:
-                    print(f"  Error parsing path {p}: {parse_err}")
-                    continue
-        
-        # Convert to expected API shape
-        fields_list = []
-        total_structures = 0
-        for field_name in sorted(fields_map.keys()):
-            struct_entries = []
-            for struct_name in sorted(fields_map[field_name].keys()):
-                wells = sorted(list(fields_map[field_name][struct_name]))
-                # Use the first CSV path as a representative path for display purposes
-                rep_path = None
-                try:
-                    rep_path = struct_path_sample.get(field_name, {}).get(struct_name)
-                except Exception:
-                    rep_path = None
-                struct_entries.append({
-                    "structure_name": struct_name,
-                    "field_name": field_name,
-                    "file_path": rep_path,
-                    "wells_count": len(wells),
-                    "wells": wells,
-                    "total_records": 0,
-                    "columns": [],
+                        # Build field -> structures -> wells from path strings like '/structures/adera/abab/ABB-106.csv'
+                        from collections import defaultdict
+                        fields_map = defaultdict(lambda: defaultdict(set))
+                        wells_global = set()  # collect wells that live directly under /wells
+                        # Keep a representative path per structure for display
+                        struct_path_sample = defaultdict(dict)
+                        for _, row in df_idx.iterrows():
+                            p = str(row.get('path', '') or '').strip()
+                            if not p:
+                                continue
+                            if p.lower().endswith('.csv'):
+                                parts = [seg for seg in p.strip('/').split('/') if seg]
+                                # Find 'structures' anchor, then next two parts are field and structure when present
+                                try:
+                                    lowered = [seg.lower() for seg in parts]
+                                    if 'structures' in lowered:
+                                        idx = lowered.index('structures')
+                                        field_name = parts[idx+1] if len(parts) > idx+1 else None
+                                        struct_name = parts[idx+2] if len(parts) > idx+2 else None
+                                        file_name = parts[-1]
+                                        well_name = os.path.splitext(file_name)[0]
+                                        if field_name and struct_name and well_name:
+                                            fields_map[field_name][struct_name].add(well_name)
+                                            if struct_name not in struct_path_sample.get(field_name, {}):
+                                                struct_path_sample.setdefault(field_name, {})[struct_name] = p
+                                    elif 'wells' in lowered:
+                                        # Handle files like '/wells/ABB-036.csv' -> add to General/Wells
+                                        file_name = parts[-1]
+                                        well_name = os.path.splitext(file_name)[0]
+                                        if well_name:
+                                            wells_global.add(well_name)
+                                except Exception:
+                                    continue
+                        # Convert to expected API shape
+                        fields_list = []
+                        total_structures = 0
+                        for field_name in sorted(fields_map.keys()):
+                            struct_entries = []
+                            for struct_name in sorted(fields_map[field_name].keys()):
+                                wells = sorted(list(fields_map[field_name][struct_name]))
+                                # Use the first CSV path as a representative path for display purposes
+                                rep_path = None
+                                try:
+                                    rep_path = struct_path_sample.get(field_name, {}).get(struct_name)
+                                except Exception:
+                                    rep_path = None
+                                struct_entries.append({
+                                    "structure_name": struct_name,
+                                    "field_name": field_name,
+                                    "file_path": rep_path,
+                                    "wells_count": len(wells),
+                                    "wells": wells,
+                                    "total_records": 0,
+                                    "columns": [],
                                     "intervals": []
                                 })
                             if struct_entries:
@@ -2305,6 +2165,24 @@ def _build_structures_from_manifest(df_idx):
                                     "structures_count": len(struct_entries),
                                     "structures": struct_entries
                                 })
+                        # Add a synthetic field for global wells if present
+                        if wells_global:
+                            global_struct = {
+                                "structure_name": "Wells",
+                                "field_name": "General",
+                                "file_path": None,
+                                "wells_count": len(wells_global),
+                                "wells": sorted(list(wells_global)),
+                                "total_records": 0,
+                                "columns": [],
+                                "intervals": []
+                            }
+                            fields_list.append({
+                                "field_name": "General",
+                                "structures_count": 1,
+                                "structures": [global_struct]
+                            })
+                            total_structures += 1
                         if fields_list:
                             data = {
                                 "fields": fields_list,
