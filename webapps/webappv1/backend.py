@@ -475,22 +475,56 @@ class WellLogAnalysis:
         """Find the correct path to dataset_files directory.
         Returns the absolute path to dataset_files directory or None if not found.
         """
-        base_dir = os.path.dirname(__file__)
+        print("🔍 Searching for dataset_files directory...")
         
-        # Possible locations for dataset_files
-        candidates = [
-            os.path.join(base_dir, 'dataset_files'),  # Same directory as backend.py
-            os.path.join(base_dir, '..', '..', 'dataset_files'),  # Root level of project
-            os.path.join(os.path.dirname(base_dir), 'dataset_files'),  # webapps level
+        # Get the backend.py file location (where this script is running)
+        backend_dir = os.path.dirname(os.path.abspath(__file__))
+        print(f"Backend script location: {backend_dir}")
+        
+        # Possible locations to search for dataset_files (in order of preference)
+        search_paths = [
+            # 1. Same directory as backend.py (webappv1/dataset_files)
+            os.path.join(backend_dir, 'dataset_files'),
+            # 2. Parent directory (webapps/dataset_files) - unlikely but possible
+            os.path.join(os.path.dirname(backend_dir), 'dataset_files'),
+            # 3. Go up to dataiku_native root level
+            os.path.join(os.path.dirname(os.path.dirname(backend_dir)), 'dataset_files'),
         ]
         
-        for candidate in candidates:
-            abs_path = os.path.abspath(candidate)
-            if os.path.isdir(abs_path):
-                print(f"Found dataset_files at: {abs_path}")
-                return abs_path
+        # Special case: If running from Dataiku environment, try to find the actual project directory
+        if 'DataScienceStudio' in backend_dir or 'dataiku' in backend_dir.lower():
+            print("🎯 Detected Dataiku environment, searching for project directory...")
+            # Common project locations when running from Dataiku
+            possible_project_paths = [
+                '/Users/macbookair/Documents/project-web/NextJs/dataiku_native/webapps/webappv1/dataset_files',
+                '/Users/macbookair/Documents/project-web/NextJs/dataiku_native/dataset_files',
+            ]
+            search_paths = possible_project_paths + search_paths
         
-        print(f"dataset_files directory not found. Searched in: {candidates}")
+        for search_path in search_paths:
+            print(f"  Checking: {search_path}")
+            if os.path.exists(search_path):
+                # Verify it's a directory and has expected subdirectories
+                if os.path.isdir(search_path):
+                    structures_dir = os.path.join(search_path, 'structures')
+                    wells_dir = os.path.join(search_path, 'wells')
+                    
+                    has_structures = os.path.isdir(structures_dir)
+                    has_wells = os.path.isdir(wells_dir)
+                    
+                    if has_structures or has_wells:
+                        print(f"✅ Found dataset_files directory: {search_path}")
+                        print(f"   - structures: {has_structures}")
+                        print(f"   - wells: {has_wells}")
+                        return search_path
+                    else:
+                        print(f"   ❌ Directory exists but no structures/wells subdirectories")
+                else:
+                    print(f"   ❌ Path exists but is not a directory")
+            else:
+                print(f"   ❌ Path does not exist")
+        
+        print("❌ dataset_files directory not found in any expected location")
         return None
     
     def get_structures_hierarchy(self):
@@ -576,13 +610,18 @@ class WellLogAnalysis:
                     print(f"  - structures directory: {dsf_struct} -> exists: {struct_exists}")
                     print(f"  - wells directory: {dsf_wells} -> exists: {wells_exists}")
                 else:
+                    dsf_struct = None
+                    dsf_wells = None
                     struct_exists = False
                     wells_exists = False
                     print("PRIORITY 1: ❌ dataset_files directory not found in any expected location")
                 
                 print(f"PRIORITY 1: Checking dataset_files directories:")
-                print(f"  - structures directory: {dsf_struct} -> exists: {struct_exists}")
-                print(f"  - wells directory: {dsf_wells} -> exists: {wells_exists}")
+                if dsf_struct and dsf_wells:
+                    print(f"  - structures directory: {dsf_struct} -> exists: {struct_exists}")
+                    print(f"  - wells directory: {dsf_wells} -> exists: {wells_exists}")
+                else:
+                    print("  - No dataset_files directory found to check")
                 
                 if struct_exists or wells_exists:
                     print("PRIORITY 1: Found dataset_files directories, activating folder mode...")
@@ -706,17 +745,23 @@ class WellLogAnalysis:
             if str(dataset_name).lower() == 'dataset_files':
                 print("FOLDER MODE: Activating dataset_files folder mode...")
                 
-                # Check if folders actually exist before proceeding
-                base_dir = os.path.dirname(__file__)
-                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
-                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
+                # Use helper function to find dataset_files directory
+                dataset_files_dir = self._find_dataset_files_directory()
                 
-                print(f"FOLDER MODE: Base directory: {base_dir}")
+                if not dataset_files_dir:
+                    error_msg = "dataset_files directory not found in any expected location"
+                    print(f"FOLDER MODE: ❌ {error_msg}")
+                    return {"status": "error", "message": error_msg}
+                
+                dsf_struct = os.path.join(dataset_files_dir, 'structures')
+                dsf_wells = os.path.join(dataset_files_dir, 'wells')
+                
+                print(f"FOLDER MODE: Using dataset_files directory: {dataset_files_dir}")
                 print(f"FOLDER MODE: Structures path: {dsf_struct} -> exists: {os.path.isdir(dsf_struct)}")
                 print(f"FOLDER MODE: Wells path: {dsf_wells} -> exists: {os.path.isdir(dsf_wells)}")
                 
                 if not (os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells)):
-                    error_msg = f"Neither structures nor wells directory found in {base_dir}/dataset_files"
+                    error_msg = f"Neither structures nor wells directory found in {dataset_files_dir}"
                     print(f"FOLDER MODE: ❌ {error_msg}")
                     return {"status": "error", "message": error_msg}
                 
