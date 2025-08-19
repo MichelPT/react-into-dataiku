@@ -325,152 +325,46 @@ class WellLogAnalysis:
         except Exception as e:
             print(f"Failed loading local fix_pass_qc.csv: {e}")
         return None
-
-    def _load_dataset_files_csv(self):
-        """Load a CSV from webapp dataset_files as the working dataset (if available).
-        Preference: fix_pass_qc_13k.csv -> pass_qc.csv
-        Returns DataFrame or None.
-        """
-        base_dir = os.path.dirname(__file__)
-        candidates = [
-            os.path.join(base_dir, 'dataset_files')
-        ]
-        for p in candidates:
-            try:
-                if os.path.isfile(p):
-                    df = pd.read_csv(p)
-                    self.current_dataset = 'dataset_files (csv)'
-                    self.current_well_data = df
-                    print(f"Loaded dataset from {p} as current_well_data")
-                    return df
-            except Exception as e:
-                print(f"Failed loading {p}: {e}")
-        return None
-
-    def _load_well_csv_from_dataset_files(self, well_name: str, structure_context: dict | None = None):
-        """Attempt to load a single-well CSV from dataset_files based on provided context.
-        Preferred order:
-          1) dataset_files/structures/<field>/<structure>/<well_name>.csv when context present
-          2) dataset_files/wells/<well_name>.csv as general fallback
-        Returns a DataFrame or None.
-        """
-        try:
-            base_dir = os.path.dirname(__file__)
-            # 1) Try structure-specific path if context present
-            if structure_context and isinstance(structure_context, dict):
-                field = structure_context.get('field_name') or structure_context.get('fieldName')
-                struct = structure_context.get('structure_name') or structure_context.get('structureName')
-                if field and struct:
-                    # Direct path first
-                    p1 = os.path.join(base_dir, 'dataset_files', 'structures', str(field), str(struct), f"{well_name}.csv")
-                    if os.path.isfile(p1):
-                        return pd.read_csv(p1)
-                    # Recursive search within structure folder
-                    struct_root = os.path.join(base_dir, 'dataset_files', 'structures', str(field), str(struct))
-                    if os.path.isdir(struct_root):
-                        for r, _d, files in os.walk(struct_root):
-                            for fn in files:
-                                if fn.lower() == f"{well_name.lower()}.csv":
-                                    return pd.read_csv(os.path.join(r, fn))
-            # 2) Fallback to global wells folder
-            p2 = os.path.join(base_dir, 'dataset_files', 'wells', f"{well_name}.csv")
-            if os.path.isfile(p2):
-                return pd.read_csv(p2)
-        except Exception as e:
-            print(f"Failed loading per-well CSV for {well_name}: {e}")
-        return None
-
-    def _list_wells_from_dataset_files(self):
-        """Scan dataset_files for available well CSVs and return well names (no extension).
-        This searches recursively under dataset_files/structures and flat under dataset_files/wells.
-        """
-        wells = set()
-        base_dir = os.path.dirname(__file__)
-        try:
-            # 1) From structures tree (recursive search) - Diperbaiki dan disederhanakan
-            structures_dir = os.path.join(base_dir, 'dataset_files', 'structures')
-            if os.path.isdir(structures_dir):
-                # Langsung gunakan os.walk dari direktori root 'structures'.
-                # Ini akan menjelajahi semua subdirektori secara otomatis,
-                # tidak peduli seberapa dalam strukturnya.
-                for root, dirs, files in os.walk(structures_dir):
-                    for fname in files:
-                        if fname.lower().endswith('.csv'):
-                            wells.add(os.path.splitext(fname)[0])
-
-            # 2) From global wells folder (ini sudah benar, tidak perlu diubah)
-            wells_dir = os.path.join(base_dir, 'dataset_files', 'wells')
-            if os.path.isdir(wells_dir):
-                for fname in os.listdir(wells_dir):
-                    if fname.lower().endswith('.csv'):
-                        wells.add(os.path.splitext(fname)[0])
-                        
-        except Exception as e:
-            print(f"Failed listing wells from dataset_files: {e}")
-            
-        return sorted(list(wells)) # Konversi set ke list sebelum di-sort
     
     def auto_load_default_dataset(self):
         """Automatically load the fix_pass_qc dataset on initialization"""
         try:
-            # Prefer local dataset_files CSVs first (aligns with folder-driven mode)
-            if self._load_dataset_files_csv() is not None:
-                print("Successfully auto-loaded dataset: dataset_files (csv)")
-                return
-
-            # If dataset_files folder exists (structures or wells), enable folder mode
-            try:
-                base_dir = os.path.dirname(__file__)
-                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
-                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
-                if os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells):
-                    result = self.select_dataset('dataset_files')
-                    if result.get("status") == "success":
-                        print("Successfully auto-loaded dataset: dataset_files (folder)")
-                        return
-            except Exception as e:
-                print(f"Dataset_files folder mode auto-select failed: {e}")
-
-            # Next prefer a Dataiku dataset named 'dataset_files' if present
-            try:
-                available_datasets = self.get_available_datasets()
-                if available_datasets.get("status") == "success":
-                    datasets = available_datasets.get("datasets", [])
-                    dsf = [ds for ds in datasets if ds.lower() == 'dataset_files']
-                    if dsf:
-                        result = self.select_dataset(dsf[0])
-                        if result.get("status") == "success":
-                            print("Successfully auto-loaded dataset: dataset_files")
-                            return
-            except Exception as e:
-                print(f"Dataset_files selection attempt failed: {e}")
-
-            # Then try explicit fix_pass_qc
+            # Prefer explicit fix_pass_qc first as requested
             dataset_name = "fix_pass_qc"
             result = self.select_dataset(dataset_name)
             if result.get("status") == "success":
                 print(f"Successfully auto-loaded dataset: {dataset_name}")
-                return
-
-            # Fallback discovery
-            try:
-                available_datasets = self.get_available_datasets()
-                if available_datasets.get("status") == "success":
-                    datasets = available_datasets.get("datasets", [])
-                    raw_datasets = [ds for ds in datasets if 'raw' in ds.lower() and ('well' in ds.lower() or 'data' in ds.lower())]
-                    if raw_datasets:
-                        fallback_dataset = raw_datasets[0]
-                        result = self.select_dataset(fallback_dataset)
-                        if result.get("status") == "success":
-                            print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
+            else:
+                # If fix_pass_qc not found, try to find any dataset with 'raw' and 'well' in name
+                try:
+                    available_datasets = self.get_available_datasets()
+                    if available_datasets.get("status") == "success":
+                        datasets = available_datasets.get("datasets", [])
+                        # Try exact/partial fix_pass_qc first among discovered datasets
+                        fx = [ds for ds in datasets if ds.lower() == 'fix_pass_qc']
+                        if fx:
+                            fallback_dataset = fx[0]
+                            result = self.select_dataset(fallback_dataset)
+                            if result.get("status") == "success":
+                                print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
+                            else:
+                                print(f"Failed to auto-load fallback dataset {fallback_dataset}")
                         else:
-                            print(f"Failed to auto-load fallback dataset {fallback_dataset}")
+                            raw_datasets = [ds for ds in datasets if 'raw' in ds.lower() and ('well' in ds.lower() or 'data' in ds.lower())]
+                            # Keep legacy fallback order
+                            if raw_datasets:
+                                fallback_dataset = raw_datasets[0]
+                                result = self.select_dataset(fallback_dataset)
+                                if result.get("status") == "success":
+                                    print(f"Successfully auto-loaded fallback dataset: {fallback_dataset}")
+                                else:
+                                    print(f"Failed to auto-load fallback dataset {fallback_dataset}")
+                            else:
+                                print("No raw well data dataset found")
                     else:
-                        print("No raw well data dataset found")
-                else:
-                    print("Failed to get available datasets for fallback")
-            except Exception as fallback_error:
-                print(f"Error during fallback dataset loading: {str(fallback_error)}")
+                        print("Failed to get available datasets for fallback")
+                except Exception as fallback_error:
+                    print(f"Error during fallback dataset loading: {str(fallback_error)}")
         except Exception as e:
             print(f"Error auto-loading dataset: {str(e)}")
     
@@ -505,21 +399,6 @@ class WellLogAnalysis:
     def select_dataset(self, dataset_name):
         """Select a dataset and load its basic info"""
         try:
-            # Special handling: folder-based dataset
-            if str(dataset_name).lower() == 'dataset_files':
-                self.current_dataset = 'dataset_files (folder)'
-                self.current_well_data = None  # use per-well CSVs
-                wells = self._list_wells_from_dataset_files()
-                return {
-                    "status": "success",
-                    "dataset_name": self.current_dataset,
-                    "wells": wells,
-                    "markers": [],
-                    "columns": [],
-                    "total_rows": None,
-                    "message": "Using dataset_files folder mode (per-well CSVs)"
-                }
-
             df = None
             # Try Dataiku dataset first
             try:
@@ -586,11 +465,6 @@ class WellLogAnalysis:
     def get_well_list(self):
         """Get list of wells from current dataset"""
         try:
-            # Folder mode: list wells from dataset_files
-            if (self.current_dataset or '').startswith('dataset_files') and self.current_well_data is None:
-                wells = self._list_wells_from_dataset_files()
-                return {"status": "success", "wells": wells, "count": len(wells)}
-
             if self.current_well_data is None:
                 return {"status": "error", "message": "No dataset selected"}
             
@@ -615,31 +489,16 @@ class WellLogAnalysis:
             if structure_context:
                 print(f"Structure context: {structure_context.get('structure_name', 'N/A')}")
         
-            # If no dataset is loaded, try to load from dataset_files per-well CSV
             if self.current_well_data is None:
-                df_single = self._load_well_csv_from_dataset_files(well_name, structure_context)
-                if df_single is None:
-                    return {"status": "error", "message": "No dataset selected and no per-well CSV found"}
-                # Proceed plotting with this dataframe only
-                working_df = df_single
-            else:
-                working_df = self.current_well_data
+                return {"status": "error", "message": "No dataset selected"}
         
             # Get well data
-            if 'WELL_NAME' in working_df.columns:
-                well_data = working_df[working_df['WELL_NAME'] == well_name]
-            else:
-                well_data = working_df.copy()
+            well_data = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]
             print(f"Found {len(well_data)} rows for well {well_name}")
         
             if well_data.empty:
-                # Attempt a per-well CSV fallback if dataset didn't contain this well
-                df_fallback = self._load_well_csv_from_dataset_files(well_name, structure_context)
-                if df_fallback is None:
-                    available_wells = working_df['WELL_NAME'].unique().tolist() if 'WELL_NAME' in working_df.columns else []
-                    return {"status": "error", "message": f"No data found for well {well_name}. Available wells: {available_wells}"}
-                well_data = df_fallback
-                print(f"Loaded per-well CSV for {well_name}: {len(well_data)} rows")
+                available_wells = self.current_well_data['WELL_NAME'].unique().tolist()
+                return {"status": "error", "message": f"No data found for well {well_name}. Available wells: {available_wells}"}
         
             # Filter by intervals if specified
             if selected_intervals and len(selected_intervals) > 0 and 'MARKER' in well_data.columns:
@@ -1462,10 +1321,8 @@ def find_raw_data_dataset(structure_name=None):
                     print(f"Found matching dataset with structure name: {name}")
                     return name
         
-        # Fallback to general dataset discovery - prioritize dataset_files/dataset_qc, then fix_pass_qc
+        # Fallback to general dataset discovery - prioritize fix_pass_qc
         search_patterns = [
-            'dataset_files',
-            'dataset_qc',
             'fix_pass_qc',
             'raw_data_well',
             'raw_well_data', 
@@ -1514,70 +1371,11 @@ def find_raw_data_dataset(structure_name=None):
 def _scan_structures_folder():
     try:
         base_dir = os.path.dirname(__file__)
-        # Prefer scanning dataset_files/structures if present, else fallback to webapp local structures
-        dsf_root = os.path.join(base_dir, 'dataset_files', 'structures')
-        root = dsf_root if os.path.isdir(dsf_root) else os.path.join(base_dir, 'structures')
+        root = os.path.join(base_dir, 'structures')
         fields = []
         total_structures = 0
         if not os.path.isdir(root):
             return {"fields": [], "total_fields": 0, "total_structures": 0}
-        
-        # If scanning dataset_files, we can directly enumerate field > structure folders > well CSVs
-        if os.path.isdir(dsf_root):
-            for field_name in sorted(os.listdir(dsf_root)):
-                field_path = os.path.join(dsf_root, field_name)
-                if not os.path.isdir(field_path):
-                    continue
-                structures = []
-                # Pre-index any structure .xlsx files in the field root for easy lookup
-                xlsx_map = {}
-                try:
-                    for item in os.listdir(field_path):
-                        if item.lower().endswith('.xlsx'):
-                            key = os.path.splitext(item)[0].lower()
-                            xlsx_map[key] = item
-                except Exception:
-                    pass
-                # Each subfolder under field is a structure containing well CSVs
-                for struct_dir in sorted(os.listdir(field_path)):
-                    struct_path = os.path.join(field_path, struct_dir)
-                    if not os.path.isdir(struct_path):
-                        continue
-                    struct_key = struct_dir.lower()
-                    # Preserve folder naming as provided (e.g., 'abab')
-                    struct_display = struct_dir
-                    # List wells by CSV files inside the structure folder (recursive)
-                    wells = []
-                    try:
-                        for r, _d, files in os.walk(struct_path):
-                            for f in files:
-                                if f.lower().endswith('.csv'):
-                                    wells.append(os.path.splitext(f)[0])
-                    except Exception:
-                        pass
-                    wells = sorted(wells)
-                    file_name = xlsx_map.get(struct_key)
-                    web_file_path = f"/dataset_files/structures/{field_name}/{file_name}" if file_name else None
-                    info = {
-                        "structure_name": struct_display,
-                        "field_name": field_name,
-                        "file_path": web_file_path,
-                        "wells_count": len(wells),
-                        "wells": wells,
-                        "total_records": 0,
-                        "columns": [],
-                        "intervals": []
-                    }
-                    structures.append(info)
-                if structures:
-                    total_structures += len(structures)
-                    fields.append({
-                        "field_name": field_name,
-                        "structures_count": len(structures),
-                        "structures": structures
-                    })
-            return {"fields": fields, "total_fields": len(fields), "total_structures": total_structures}
-        
         # Try to get current dataset wells to enrich structures with availability info
         analysis = None
         try:
@@ -1652,96 +1450,6 @@ def scan_structures():
 def get_structures_index():
     try:
         base_dir = os.path.dirname(__file__)
-
-        # 0) Prefer dataset_files/structures if present for field > structure > wells sidebar
-        try:
-            dsf_root = os.path.join(base_dir, 'dataset_files', 'structures')
-            if os.path.isdir(dsf_root):
-                manifest = _scan_structures_folder()
-                data = {
-                    "fields": manifest.get("fields", []),
-                    "total_fields": manifest.get("total_fields", 0),
-                    "total_structures": manifest.get("total_structures", 0)
-                }
-                return json.dumps({"status": "success", "source": "dataset_files", "data": data})
-        except Exception as scan_err:
-            print(f"dataset_files structures scan failed: {scan_err}")
-
-        # 0b) If a Dataiku dataset named 'dataset_files' exists with a 'path' column, build index from it
-        try:
-            analysis = get_analysis_instance()
-            ds_info = analysis.get_available_datasets() or {}
-            datasets = set([d.lower() for d in ds_info.get('datasets', [])])
-            if 'dataset_files' in datasets:
-                try:
-                    df_idx = dataiku.Dataset('dataset_files').get_dataframe()
-                    if 'path' in df_idx.columns:
-                        # Build field -> structures -> wells from path strings like '/structures/adera/abab/ABB-106.csv'
-                        from collections import defaultdict
-                        fields_map = defaultdict(lambda: defaultdict(set))
-                        # Keep a representative path per structure for display
-                        struct_path_sample = defaultdict(dict)
-                        for _, row in df_idx.iterrows():
-                            p = str(row.get('path', '') or '').strip()
-                            if not p:
-                                continue
-                            if p.lower().endswith('.csv'):
-                                parts = [seg for seg in p.strip('/').split('/') if seg]
-                                # Find 'structures' anchor, then next two parts are field and structure when present
-                                try:
-                                    if 'structures' in [seg.lower() for seg in parts]:
-                                        idx = [seg.lower() for seg in parts].index('structures')
-                                        field_name = parts[idx+1] if len(parts) > idx+1 else None
-                                        struct_name = parts[idx+2] if len(parts) > idx+2 else None
-                                        file_name = parts[-1]
-                                        well_name = os.path.splitext(file_name)[0]
-                                        if field_name and struct_name and well_name:
-                                            fields_map[field_name][struct_name].add(well_name)
-                                            if struct_name not in struct_path_sample.get(field_name, {}):
-                                                struct_path_sample.setdefault(field_name, {})[struct_name] = p
-                                except Exception:
-                                    continue
-                        # Convert to expected API shape
-                        fields_list = []
-                        total_structures = 0
-                        for field_name in sorted(fields_map.keys()):
-                            struct_entries = []
-                            for struct_name in sorted(fields_map[field_name].keys()):
-                                wells = sorted(list(fields_map[field_name][struct_name]))
-                                # Use the first CSV path as a representative path for display purposes
-                                rep_path = None
-                                try:
-                                    rep_path = struct_path_sample.get(field_name, {}).get(struct_name)
-                                except Exception:
-                                    rep_path = None
-                                struct_entries.append({
-                                    "structure_name": struct_name,
-                                    "field_name": field_name,
-                                    "file_path": rep_path,
-                                    "wells_count": len(wells),
-                                    "wells": wells,
-                                    "total_records": 0,
-                                    "columns": [],
-                                    "intervals": []
-                                })
-                            if struct_entries:
-                                total_structures += len(struct_entries)
-                                fields_list.append({
-                                    "field_name": field_name,
-                                    "structures_count": len(struct_entries),
-                                    "structures": struct_entries
-                                })
-                        if fields_list:
-                            data = {
-                                "fields": fields_list,
-                                "total_fields": len(fields_list),
-                                "total_structures": total_structures
-                            }
-                            return json.dumps({"status": "success", "source": "dataset:dataset_files[path]", "data": data})
-                except Exception as ds_err:
-                    print(f"Failed building structures from dataset_files dataset: {ds_err}")
-        except Exception:
-            pass
 
         # 1) Prefer dataset-driven index from fix_pass_qc if available
         try:
@@ -1863,34 +1571,13 @@ def select_dataset():
     """API endpoint to select a dataset"""
     try:
         data = request.get_json()
-        # Accept new key 'dataset_name' first, keep backward compatibility with older 'fix_pass_qc' key
-        dataset_name = (data or {}).get('dataset_name') or (data or {}).get('fix_pass_qc')
-        structure_name = (data or {}).get('structure_name')  # Optional structure name
-
+        dataset_name = data.get('fix_pass_qc')
+        structure_name = data.get('structure_name')  # Optional structure name
+        
         print(f"Dataset selection request - dataset_name: {dataset_name}, structure_name: {structure_name}")
-
-        # If no dataset_name provided, prefer dataset_files folder mode when present
-        if not dataset_name:
-            base_dir = os.path.dirname(__file__)
-            dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
-            dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
-            if os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells):
-                dataset_name = 'dataset_files'
-            else:
-                # If folder not available, prefer a project dataset named dataset_files, then dataset_qc
-                try:
-                    analysis = get_analysis_instance()
-                    ds_info = analysis.get_available_datasets() or {}
-                    datasets = [d.lower() for d in ds_info.get('datasets', [])]
-                    if 'dataset_files' in datasets:
-                        dataset_name = 'dataset_files'
-                    elif 'dataset_qc' in datasets:
-                        dataset_name = 'dataset_qc'
-                except Exception as _:
-                    pass
-
+        
         analysis = get_analysis_instance()
-
+        
         # If dataset_name indicates a structure pattern, try to find the actual dataset
         if dataset_name and 'raw_well_data_' in dataset_name:
             # Extract structure name from dataset_name
@@ -1899,19 +1586,6 @@ def select_dataset():
             if actual_dataset:
                 dataset_name = actual_dataset
                 print(f"Found structure-specific dataset: {actual_dataset}")
-            else:
-                # Fallback: prefer dataset_files folder mode if present, else general discovery
-                base_dir = os.path.dirname(__file__)
-                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
-                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
-                if os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells):
-                    dataset_name = 'dataset_files'
-                    print("Falling back to dataset_files (folder) for structure selection")
-                else:
-                    fallback_dataset = find_raw_data_dataset()
-                    if fallback_dataset:
-                        dataset_name = fallback_dataset
-                        print(f"Falling back to discovered dataset: {fallback_dataset}")
         elif structure_name:
             # Try to find dataset for specific structure
             structure_dataset = find_raw_data_dataset(structure_name)
@@ -1924,13 +1598,13 @@ def select_dataset():
                 if fallback_dataset:
                     dataset_name = fallback_dataset
                     print(f"Using fallback dataset: {fallback_dataset}")
-
+        
         if not dataset_name:
             # Last resort: try to find any suitable dataset
             dataset_name = find_raw_data_dataset()
             if not dataset_name:
                 return json.dumps({"status": "error", "message": "No suitable dataset found in project"})
-
+        
         print(f"Final dataset selection: {dataset_name}")
         result = analysis.select_dataset(dataset_name)
         return json.dumps(result)
@@ -1945,52 +1619,6 @@ def get_wells():
     try:
         analysis = get_analysis_instance()
         result = analysis.get_well_list()
-        # If folder mode is active or wells are empty, try scanning dataset_files directly as a safety net
-        if (result.get('status') == 'success' and (result.get('wells') is None or len(result.get('wells')) == 0)) or \
-           ((analysis.current_dataset or '').startswith('dataset_files') and analysis.current_well_data is None):
-            base_dir = os.path.dirname(__file__)
-            wells = set()
-            try:
-                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
-                if os.path.isdir(dsf_struct):
-                    for field_name in os.listdir(dsf_struct):
-                        fpath = os.path.join(dsf_struct, field_name)
-                        if not os.path.isdir(fpath):
-                            continue
-                        for struct_name in os.listdir(fpath):
-                            spath = os.path.join(fpath, struct_name)
-                            if not os.path.isdir(spath):
-                                continue
-                            for r, _d, files in os.walk(spath):
-                                for fn in files:
-                                    if fn.lower().endswith('.csv'):
-                                        wells.add(os.path.splitext(fn)[0])
-                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
-                if os.path.isdir(dsf_wells):
-                    for fn in os.listdir(dsf_wells):
-                        if fn.lower().endswith('.csv'):
-                            wells.add(os.path.splitext(fn)[0])
-                # If still empty or to supplement, try Dataiku dataset 'dataset_files' with 'path' column
-                if not wells:
-                    try:
-                        analysis2 = get_analysis_instance()
-                        ds_info2 = analysis2.get_available_datasets() or {}
-                        if 'dataset_files' in [d.lower() for d in ds_info2.get('datasets', [])]:
-                            df_idx = dataiku.Dataset('dataset_files').get_dataframe()
-                            col = 'basename' if 'basename' in df_idx.columns else None
-                            if col:
-                                for v in df_idx[col].dropna().astype(str).tolist():
-                                    wells.add(v)
-                            elif 'path' in df_idx.columns:
-                                for p in df_idx['path'].dropna().astype(str).tolist():
-                                    if p.lower().endswith('.csv'):
-                                        wells.add(os.path.splitext(os.path.basename(p))[0])
-                    except Exception as _:
-                        pass
-            except Exception as e:
-                print(f"Fallback scan for wells failed: {e}")
-            wells = sorted(wells)
-            return json.dumps({"status": "success", "wells": wells, "count": len(wells)})
         return json.dumps(result)
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
@@ -2108,12 +1736,9 @@ def get_data_prep_files():
     try:
         analysis = get_analysis_instance()
         files = []
-        # Avoid suggesting pseudo names like 'dataset_files (folder)' for Data Prep
-        current = analysis.current_dataset or ''
-        if current and '(' not in current:
-            files.append(current)
+        if analysis.current_dataset:
+            files.append(analysis.current_dataset)
         else:
-            # Prefer real project datasets in this order
             ds = find_raw_data_dataset()
             if ds:
                 files.append(ds)
@@ -2130,37 +1755,6 @@ def get_data_prep_columns():
         dataset_name = files[0] if files else (analysis.current_dataset or find_raw_data_dataset())
         if not dataset_name:
             return json.dumps({"status": "error", "message": "No dataset available"})
-        # If we're in folder/csv pseudo mode, infer columns from a sample CSV under dataset_files
-        if '(' in dataset_name and dataset_name.lower().startswith('dataset_files'):
-            try:
-                base_dir = os.path.dirname(__file__)
-                # Prefer a sample from global wells, else first CSV found under structures
-                candidates = []
-                wells_dir = os.path.join(base_dir, 'dataset_files', 'wells')
-                if os.path.isdir(wells_dir):
-                    for fn in os.listdir(wells_dir):
-                        if fn.lower().endswith('.csv'):
-                            candidates.append(os.path.join(wells_dir, fn))
-                if not candidates:
-                    struct_root = os.path.join(base_dir, 'dataset_files', 'structures')
-                    if os.path.isdir(struct_root):
-                        for r, _d, files_in in os.walk(struct_root):
-                            for fn in files_in:
-                                if fn.lower().endswith('.csv'):
-                                    candidates.append(os.path.join(r, fn))
-                                    if len(candidates) >= 1:
-                                        break
-                            if candidates:
-                                break
-                if candidates:
-                    sample = candidates[0]
-                    df = pd.read_csv(sample, nrows=1)
-                    return json.dumps({"status": "success", "columns": df.columns.tolist(), "source": sample})
-                else:
-                    return json.dumps({"status": "error", "message": "No CSV files found in dataset_files to infer columns"})
-            except Exception as infer_err:
-                return json.dumps({"status": "error", "message": f"Failed to infer columns from dataset_files: {infer_err}"})
-        # Otherwise use Dataiku dataset normally
         df = dataiku.Dataset(dataset_name).get_dataframe()
         return json.dumps({"status": "success", "columns": df.columns.tolist()})
     except Exception as e:

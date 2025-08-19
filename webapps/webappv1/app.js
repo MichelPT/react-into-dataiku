@@ -1581,9 +1581,54 @@ function findStructureData(fieldName, structureName) {
 }
 
 // Back-compat: markers list was previously called interval list
-// Back-compat: legacy interval list now maps to markers list UI
 function renderIntervalList(intervals) {
-    renderMarkersList(intervals || []);
+    var intervalList = document.getElementById('intervalList');
+    intervalList.innerHTML = '';
+    
+    if (intervals.length === 0) {
+        intervalList.innerHTML = '<div class="empty-state">No intervals available</div>';
+        return;
+    }
+    
+    intervals.forEach(function(intervalName) {
+        var intervalItem = document.createElement('div');
+        intervalItem.className = 'list-item';
+        intervalItem.setAttribute('data-id', intervalName);
+        
+        var checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = 'interval-' + intervalName;
+        checkbox.checked = appState.selectedIntervals.indexOf(intervalName) !== -1;
+        
+        var label = document.createElement('label');
+        label.htmlFor = 'interval-' + intervalName;
+        label.textContent = intervalName;
+        
+        var statusDot = document.createElement('div');
+        statusDot.className = 'status-dot';
+        statusDot.style.display = checkbox.checked ? 'block' : 'none';
+        
+        intervalItem.appendChild(checkbox);
+        intervalItem.appendChild(label);
+        intervalItem.appendChild(statusDot);
+        
+        // Add click event listener
+        intervalItem.addEventListener('click', function(e) {
+            var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+            if (e.target === checkbox || tag === 'label') {
+                return;
+            }
+            checkbox.checked = !checkbox.checked;
+            toggleInterval(intervalName);
+        });
+        
+        checkbox.addEventListener('change', function(e) {
+            e.stopPropagation();
+            toggleInterval(intervalName);
+        });
+        
+        intervalList.appendChild(intervalItem);
+    });
 }
 
 function renderMarkersList(markers) {
@@ -3257,15 +3302,20 @@ function initializeApp() {
 function autoLoadDefaultDataset() {
     // Check if user has selected a structure from structures page
     var selectedStructure = appState.currentStructure;
-    // Prefer folder-based dataset_files mode by default
-    var payload = { dataset_name: 'dataset_files' };
+    var datasetName = 'fix_pass_qc'; // default dataset
+    var payload = { dataset_name: datasetName };
     
     if (selectedStructure && selectedStructure.name) {
-        // Keep using dataset_files in folder mode; include structure_name only as context
-        payload.structure_name = selectedStructure.name;
-        console.log('Auto-loading dataset_files (folder) for structure:', selectedStructure.name);
+        // Create dataset name based on selected structure
+        // e.g., "Adera" -> "raw_well_data_adera"
+        datasetName = 'fix_pass_qc_' + selectedStructure.name.toLowerCase();
+        payload = {
+            dataset_name: datasetName,
+            structure_name: selectedStructure.name
+        };
+        console.log('Auto-loading dataset for structure:', selectedStructure.name, '- Dataset:', datasetName);
     } else {
-        console.log('Auto-loading dataset_files (folder or dataset)...');
+        console.log('Auto-loading default fix_pass_qc dataset...');
     }
     
     return fetchJson('/select_dataset', {
@@ -3274,14 +3324,9 @@ function autoLoadDefaultDataset() {
     })
     .then(function(response) {
         if (response.status === 'success') {
-            var wells = Array.isArray(response.wells) ? response.wells : [];
-            // Fallback: if folder mode returns 0 wells, use structure wells list if available
-            if ((!wells || wells.length === 0) && appState.currentStructure && Array.isArray(appState.currentStructure.wells) && appState.currentStructure.wells.length > 0) {
-                wells = appState.currentStructure.wells.slice();
-            }
-            appState.availableWells = wells;
+            appState.availableWells = response.wells;
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
-            renderWellList(wells);
+            renderWellList(response.wells);
             
             // Also load intervals after dataset is selected
             if (response.markers && response.markers.length > 0) {
@@ -3295,10 +3340,9 @@ function autoLoadDefaultDataset() {
             
             updateBadges();
             
-            var structName = (selectedStructure && selectedStructure.name) ? selectedStructure.name : null;
-            var successMessage = structName 
-                ? 'Loaded ' + wells.length + ' wells from ' + structName + ' structure (' + response.dataset_name + ')'
-                : 'Loaded ' + wells.length + ' wells from ' + response.dataset_name + ' dataset';
+            var successMessage = selectedStructure 
+                ? 'Loaded ' + response.wells.length + ' wells from ' + selectedStructure.name + ' structure (' + response.dataset_name + ')'
+                : 'Loaded ' + response.wells.length + ' wells from ' + response.dataset_name + ' dataset';
             showSuccess(successMessage);
         } else {
             throw new Error(response.message || 'Failed to load dataset');
@@ -3330,21 +3374,17 @@ function autoLoadDefaultDataset() {
 }
 
 function autoLoadFallbackDataset() {
-    console.log('Loading fallback dataset: dataset_files');
+    console.log('Loading fallback dataset: fix_pass_qc');
     
     return fetchJson('/select_dataset', {
         method: 'POST',
-        body: JSON.stringify({ dataset_name: 'dataset_files' })
+    body: JSON.stringify({ dataset_name: 'fix_pass_qc' })
     })
     .then(function(response) {
         if (response.status === 'success') {
-            var wells = Array.isArray(response.wells) ? response.wells : [];
-            if ((!wells || wells.length === 0) && appState.currentStructure && Array.isArray(appState.currentStructure.wells) && appState.currentStructure.wells.length > 0) {
-                wells = appState.currentStructure.wells.slice();
-            }
-            appState.availableWells = wells;
+            appState.availableWells = response.wells;
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
-            renderWellList(wells);
+            renderWellList(response.wells);
             
             // Also load intervals for fallback dataset
             if (response.markers && response.markers.length > 0) {
@@ -3356,7 +3396,7 @@ function autoLoadFallbackDataset() {
             }
             
             updateBadges();
-            showSuccess('Loaded ' + wells.length + ' wells from fallback dataset: ' + response.dataset_name);
+            showSuccess('Loaded ' + response.wells.length + ' wells from fallback dataset: ' + response.dataset_name);
         } else {
             throw new Error(response.message || 'Failed to load fallback dataset');
         }
