@@ -349,92 +349,163 @@ class WellLogAnalysis:
 
     def _load_well_csv_from_dataset_files(self, well_name: str, structure_context: dict | None = None):
         """Attempt to load a single-well CSV from dataset_files based on provided context.
-        It performs a comprehensive search:
-          1. Tries the specific path from structure_context if provided.
-          2. Recursively searches the entire `dataset_files/structures` directory.
-          3. Falls back to the `dataset_files/wells` directory.
+        Supports multi-level directory structures like: structures/adera/benuang/BNG-012.csv
+        Preferred order:
+          1) dataset_files/structures/<field>/<structure>/<well_name>.csv when context present
+          2) Recursive search in structures folder for the well CSV
+          3) dataset_files/wells/<well_name>.csv as general fallback
         Returns a DataFrame or None.
         """
         try:
             base_dir = os.path.dirname(__file__)
             
-            # 1) Try structure-specific path first if context is rich enough
+            # 1) Try structure-specific path if context present
             if structure_context and isinstance(structure_context, dict):
                 field = structure_context.get('field_name') or structure_context.get('fieldName')
                 struct = structure_context.get('structure_name') or structure_context.get('structureName')
+                
                 if field and struct:
-                    specific_path = os.path.join(base_dir, 'dataset_files', 'structures', str(field), str(struct), f"{well_name}.csv")
-                    if os.path.isfile(specific_path):
-                        return pd.read_csv(specific_path)
-
-            # 2) If not found, perform a full recursive search within the entire 'structures' directory
-            structures_root = os.path.join(base_dir, 'dataset_files', 'structures')
-            if os.path.isdir(structures_root):
-                for root, _, files in os.walk(structures_root):
-                    for filename in files:
-                        if filename.lower() == f"{well_name.lower()}.csv":
-                            found_path = os.path.join(root, filename)
-                            return pd.read_csv(found_path)
-
-            # 3) Fallback to global 'wells' folder if still not found
-            wells_path = os.path.join(base_dir, 'dataset_files', 'wells', f"{well_name}.csv")
-            if os.path.isfile(wells_path):
-                return pd.read_csv(wells_path)
+                    # Direct path first (2-level: field/struct/well.csv)
+                    p1 = os.path.join(base_dir, 'dataset_files', 'structures', str(field), str(struct), f"{well_name}.csv")
+                    if os.path.isfile(p1):
+                        print(f"Found well CSV at: {p1}")
+                        return pd.read_csv(p1)
+                    
+                    # Recursive search within structure folder (for 3+ levels like field/struct/subdir/well.csv)
+                    struct_root = os.path.join(base_dir, 'dataset_files', 'structures', str(field), str(struct))
+                    if os.path.isdir(struct_root):
+                        for r, _d, files in os.walk(struct_root):
+                            for fn in files:
+                                if fn.lower() == f"{well_name.lower()}.csv":
+                                    full_path = os.path.join(r, fn)
+                                    print(f"Found well CSV at: {full_path}")
+                                    return pd.read_csv(full_path)
+                
+                # If only field is provided, search within that field folder
+                elif field:
+                    field_root = os.path.join(base_dir, 'dataset_files', 'structures', str(field))
+                    if os.path.isdir(field_root):
+                        for r, _d, files in os.walk(field_root):
+                            for fn in files:
+                                if fn.lower() == f"{well_name.lower()}.csv":
+                                    full_path = os.path.join(r, fn)
+                                    print(f"Found well CSV at: {full_path}")
+                                    return pd.read_csv(full_path)
+            
+            # 2) Global recursive search in structures folder if no context or context search failed
+            structures_dir = os.path.join(base_dir, 'dataset_files', 'structures')
+            if os.path.isdir(structures_dir):
+                for r, _d, files in os.walk(structures_dir):
+                    for fn in files:
+                        if fn.lower() == f"{well_name.lower()}.csv":
+                            full_path = os.path.join(r, fn)
+                            print(f"Found well CSV at: {full_path}")
+                            return pd.read_csv(full_path)
+            
+            # 3) Fallback to global wells folder
+            p2 = os.path.join(base_dir, 'dataset_files', 'wells', f"{well_name}.csv")
+            if os.path.isfile(p2):
+                print(f"Found well CSV at: {p2}")
+                return pd.read_csv(p2)
                 
         except Exception as e:
             print(f"Failed loading per-well CSV for {well_name}: {e}")
-            
         return None
 
     def _list_wells_from_dataset_files(self):
-        """
-        Scan dataset_files for available well CSVs and return a list of dicts,
-        each containing well_name and structure_path.
+        """Scan dataset_files for available well CSVs and return well names (no extension).
         This searches recursively under dataset_files/structures and flat under dataset_files/wells.
+        Supports multi-level directory structures like: structures/adera/benuang/BNG-012.csv
         """
-        wells_with_structure = []
-        well_names = set()  # To track uniqueness of well names
+        wells = set()
         base_dir = os.path.dirname(__file__)
-        
         try:
-            # 1) From structures tree (recursive search)
+            # 1) From structures tree (recursive search) - handles multi-level directories
             structures_dir = os.path.join(base_dir, 'dataset_files', 'structures')
             if os.path.isdir(structures_dir):
-                for root, _, files in os.walk(structures_dir):
+                print(f"Scanning structures directory: {structures_dir}")
+                # Use os.walk to traverse all subdirectories automatically,
+                # no matter how deep the structure is (field/struct/subdir/...)
+                for root, dirs, files in os.walk(structures_dir):
                     for fname in files:
                         if fname.lower().endswith('.csv'):
                             well_name = os.path.splitext(fname)[0]
-                            if well_name not in well_names:
-                                # Make the path relative to the 'structures' directory
-                                relative_path = os.path.relpath(root, structures_dir)
-                                # Use forward slashes for consistency and web paths
-                                structure_path = relative_path.replace(os.path.sep, '/')
-                                if structure_path == '.':
-                                    structure_path = '' # Root of structures
-                                wells_with_structure.append({
-                                    "well_name": well_name,
-                                    "structure_path": structure_path
-                                })
-                                well_names.add(well_name)
+                            wells.add(well_name)
+                            # Print the relative path for debugging
+                            rel_path = os.path.relpath(os.path.join(root, fname), structures_dir)
+                            print(f"Found well: {well_name} at structures/{rel_path}")
 
-            # 2) From global wells folder
+            # 2) From global wells folder (flat structure)
             wells_dir = os.path.join(base_dir, 'dataset_files', 'wells')
             if os.path.isdir(wells_dir):
+                print(f"Scanning wells directory: {wells_dir}")
                 for fname in os.listdir(wells_dir):
                     if fname.lower().endswith('.csv'):
                         well_name = os.path.splitext(fname)[0]
-                        if well_name not in well_names:
-                            wells_with_structure.append({
-                                "well_name": well_name,
-                                "structure_path": "wells"  # Special path for the global wells folder
-                            })
-                            well_names.add(well_name)
-                            
+                        wells.add(well_name)
+                        print(f"Found well: {well_name} at wells/{fname}")
+                        
         except Exception as e:
             print(f"Failed listing wells from dataset_files: {e}")
             
-        # Sort by structure path then by well name
-        return sorted(wells_with_structure, key=lambda x: (x['structure_path'], x['well_name']))
+        wells_list = sorted(list(wells))  # Convert set to sorted list
+        print(f"Total wells found: {len(wells_list)}")
+        return wells_list
+    
+    def get_structures_hierarchy(self):
+        """Get the hierarchical structure of dataset_files/structures directory.
+        Returns a nested dictionary representing the folder structure.
+        Example: {"adera": {"benuang": ["BNG-012"], "abab": ["ABB-001"]}}
+        """
+        try:
+            base_dir = os.path.dirname(__file__)
+            structures_dir = os.path.join(base_dir, 'dataset_files', 'structures')
+            
+            if not os.path.isdir(structures_dir):
+                return {"status": "error", "message": "Structures directory not found"}
+            
+            hierarchy = {}
+            
+            # Walk through all directories and build hierarchy
+            for root, dirs, files in os.walk(structures_dir):
+                # Get relative path from structures root
+                rel_path = os.path.relpath(root, structures_dir)
+                
+                # Skip the root directory itself
+                if rel_path == '.':
+                    continue
+                
+                # Split path into components
+                path_parts = rel_path.split(os.sep)
+                
+                # Find CSV files in current directory
+                wells_in_dir = []
+                for fname in files:
+                    if fname.lower().endswith('.csv'):
+                        wells_in_dir.append(os.path.splitext(fname)[0])
+                
+                # Build nested dictionary structure
+                current_level = hierarchy
+                for part in path_parts[:-1]:  # Navigate to parent directory
+                    if part not in current_level:
+                        current_level[part] = {}
+                    current_level = current_level[part]
+                
+                # Add the final directory with its wells
+                final_dir = path_parts[-1]
+                if wells_in_dir:  # Only add if there are wells
+                    if final_dir not in current_level:
+                        current_level[final_dir] = {}
+                    current_level[final_dir]['wells'] = sorted(wells_in_dir)
+            
+            return {
+                "status": "success", 
+                "hierarchy": hierarchy,
+                "message": f"Structure hierarchy loaded successfully"
+            }
+            
+        except Exception as e:
+            return {"status": "error", "message": f"Error getting structures hierarchy: {str(e)}"}
     
     def auto_load_default_dataset(self):
         """Automatically load the fix_pass_qc dataset on initialization"""
@@ -1871,6 +1942,16 @@ def get_structures_index():
         return json.dumps({"status": "error", "message": "No structures index available (dataset missing required columns and no static index.json found)."})
     except Exception as e:
         traceback.print_exc()
+        return json.dumps({"status": "error", "message": str(e)})
+
+@app.route('/get_structures_hierarchy')
+def get_structures_hierarchy():
+    """API endpoint to get hierarchical structure of dataset_files/structures directory"""
+    try:
+        analysis = get_analysis_instance()
+        result = analysis.get_structures_hierarchy()
+        return json.dumps(result)
+    except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})
 
 # API Endpoints for Dataiku WebApp
