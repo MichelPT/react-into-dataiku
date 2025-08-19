@@ -884,8 +884,17 @@ class WellLogAnalysis:
                             print(f"DATASET_FILES MODE: Found {len(wells)} wells from dataset folder: {wells[:5] if len(wells) > 5 else wells}...")
                         except Exception as wells_error:
                             print(f"DATASET_FILES MODE: ❌ Error listing wells from dataset folder: {wells_error}")
+                            wells = []
                         
-                        return {"status": "success", "message": f"Loaded dataset_files (Dataiku folder) with {len(df)} files"}
+                        return {
+                            "status": "success", 
+                            "dataset_name": "dataset_files (Dataiku folder)",
+                            "wells": wells,
+                            "markers": [],
+                            "columns": [],
+                            "total_rows": len(df),
+                            "message": f"Loaded dataset_files (Dataiku folder) with {len(df)} files and {len(wells)} wells"
+                        }
                     else:
                         print(f"DATASET_FILES MODE: ❌ Dataset exists but not a folder dataset (no 'path' column)")
                         print(f"DATASET_FILES MODE: Available columns: {list(df.columns)}")
@@ -1007,23 +1016,36 @@ class WellLogAnalysis:
     def get_well_list(self):
         """Get list of wells from current dataset"""
         try:
+            print(f"📋 get_well_list() called:")
+            print(f"📋   - current_dataset: {self.current_dataset}")
+            print(f"📋   - current_well_data: {type(self.current_well_data)}")
+            print(f"📋   - dataset_files_manifest: {'Available' if self.dataset_files_manifest is not None else 'None'}")
+            
             # Dataset folder mode: list wells from dataset folder manifest or local files
             if (self.current_dataset or '').startswith('dataset_files') and self.current_well_data is None:
+                print("📋 📁 Dataset_files mode detected")
                 if self.dataset_files_manifest is not None:
                     # Use dataset folder manifest (Dataiku mode)
+                    print("📋 🎯 Using dataset folder manifest...")
                     wells = self._list_wells_from_dataset_folder(self.dataset_files_manifest)
+                    print(f"📋 ✅ Found {len(wells)} wells from manifest")
                 else:
                     # Use local files (local folder mode)
+                    print("📋 📁 Using local files scan...")
                     wells = self._list_wells_from_dataset_files()
+                    print(f"📋 ✅ Found {len(wells)} wells from local scan")
                 return {"status": "success", "wells": wells, "count": len(wells)}
 
             if self.current_well_data is None:
+                print("📋 ❌ No dataset selected")
                 return {"status": "error", "message": "No dataset selected"}
             
             if 'WELL_NAME' not in self.current_well_data.columns:
+                print("📋 ❌ WELL_NAME column not found")
                 return {"status": "error", "message": "WELL_NAME column not found in dataset"}
             
             wells = self.current_well_data['WELL_NAME'].unique().tolist()
+            print(f"📋 ✅ Found {len(wells)} wells from current_well_data")
             return {
                 "status": "success",
                 "wells": wells,
@@ -2432,9 +2454,59 @@ def get_wells():
     try:
         analysis = get_analysis_instance()
         result = analysis.get_well_list()
-        # If folder mode is active or wells are empty, try scanning dataset_files directly as a safety net
-        if (result.get('status') == 'success' and (result.get('wells') is None or len(result.get('wells')) == 0)) or \
-           ((analysis.current_dataset or '').startswith('dataset_files') and analysis.current_well_data is None):
+        
+        print(f"📋 /get_wells called - analysis.current_dataset: {analysis.current_dataset}")
+        print(f"📋 Initial result: status={result.get('status')}, wells_count={len(result.get('wells', []))}")
+        
+        # If result is successful and has wells, return it
+        if result.get('status') == 'success' and result.get('wells') and len(result.get('wells')) > 0:
+            print(f"📋 ✅ Returning wells from analysis.get_well_list(): {len(result.get('wells'))} wells")
+            return json.dumps(result)
+        
+        # If dataset_files mode is active but no wells found, this means there's an issue
+        # Let's try getting wells directly from dataset_files manifest or fallback
+        if (analysis.current_dataset or '').startswith('dataset_files'):
+            print("📋 🔍 Dataset_files mode active but no wells found, investigating...")
+            
+            # First, try to get wells from dataset_files manifest if available
+            if hasattr(analysis, 'dataset_files_manifest') and analysis.dataset_files_manifest is not None:
+                print("📋 🎯 Using dataset_files manifest to get wells...")
+                try:
+                    wells = analysis._list_wells_from_dataset_folder(analysis.dataset_files_manifest)
+                    print(f"📋 ✅ Found {len(wells)} wells from dataset folder manifest")
+                    return json.dumps({
+                        "status": "success",
+                        "wells": wells,
+                        "count": len(wells),
+                        "source": "dataset_folder_manifest"
+                    })
+                except Exception as manifest_err:
+                    print(f"📋 ❌ Error getting wells from manifest: {manifest_err}")
+            
+            # Fallback: Try accessing dataset_files dataset directly
+            print("📋 🔄 Fallback: Accessing dataset_files dataset directly...")
+            try:
+                ds_info = analysis.get_available_datasets() or {}
+                if 'dataset_files' in [d.lower() for d in ds_info.get('datasets', [])]:
+                    df_idx = dataiku.Dataset('dataset_files').get_dataframe()
+                    if 'path' in df_idx.columns:
+                        wells = set()
+                        for p in df_idx['path'].dropna().astype(str).tolist():
+                            if p.lower().endswith('.csv'):
+                                wells.add(os.path.splitext(os.path.basename(p))[0])
+                        wells = sorted(wells)
+                        print(f"📋 ✅ Found {len(wells)} wells from direct dataset_files access")
+                        return json.dumps({
+                            "status": "success",
+                            "wells": wells,
+                            "count": len(wells),
+                            "source": "dataset_files_direct"
+                        })
+            except Exception as direct_err:
+                print(f"📋 ❌ Error accessing dataset_files directly: {direct_err}")
+            
+            # Last resort: Try local filesystem scan
+            print("📋 🆘 Last resort: Local filesystem scan...")
             base_dir = os.path.dirname(__file__)
             wells = set()
             try:
@@ -2457,27 +2529,20 @@ def get_wells():
                     for fn in os.listdir(dsf_wells):
                         if fn.lower().endswith('.csv'):
                             wells.add(os.path.splitext(fn)[0])
-                # If still empty or to supplement, try Dataiku dataset 'dataset_files' with 'path' column
-                if not wells:
-                    try:
-                        analysis2 = get_analysis_instance()
-                        ds_info2 = analysis2.get_available_datasets() or {}
-                        if 'dataset_files' in [d.lower() for d in ds_info2.get('datasets', [])]:
-                            df_idx = dataiku.Dataset('dataset_files').get_dataframe()
-                            col = 'basename' if 'basename' in df_idx.columns else None
-                            if col:
-                                for v in df_idx[col].dropna().astype(str).tolist():
-                                    wells.add(v)
-                            elif 'path' in df_idx.columns:
-                                for p in df_idx['path'].dropna().astype(str).tolist():
-                                    if p.lower().endswith('.csv'):
-                                        wells.add(os.path.splitext(os.path.basename(p))[0])
-                    except Exception as _:
-                        pass
-            except Exception as e:
-                print(f"Fallback scan for wells failed: {e}")
-            wells = sorted(wells)
-            return json.dumps({"status": "success", "wells": wells, "count": len(wells)})
+                wells = sorted(wells)
+                if wells:
+                    print(f"📋 ✅ Found {len(wells)} wells from local filesystem scan")
+                    return json.dumps({
+                        "status": "success",
+                        "wells": wells,
+                        "count": len(wells),
+                        "source": "local_filesystem"
+                    })
+            except Exception as fs_err:
+                print(f"📋 ❌ Local filesystem scan failed: {fs_err}")
+        
+        # If we reach here, return the original result (even if empty)
+        print(f"📋 ⚠️ No wells found through any method, returning original result")
         return json.dumps(result)
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})

@@ -171,8 +171,14 @@ function initializeStructuresPage() {
         showLoading();
     } catch (e) { /* no-op */ }
 
-    // Try loading structures from local data first
-    return loadStructuresFromFolder()
+    // Auto-select dataset_files to ensure backend is in correct mode
+    console.log('🔄 Auto-selecting dataset_files for structures page...');
+    autoLoadDefaultDataset()
+        .then(function() {
+            console.log('✅ Dataset selected, now loading structures...');
+            // Try loading structures from local data first
+            return loadStructuresFromFolder();
+        })
         .then(function(loaded) {
             if (!loaded) {
                 // Fallback to embedded manifest
@@ -181,6 +187,18 @@ function initializeStructuresPage() {
             renderFieldsList();
             showEmptyStructuresState();
             showEmptyDetailsState();
+        })
+        .catch(function(error) {
+            console.error('Error initializing structures page:', error);
+            // Even if dataset selection fails, try to load structures
+            return loadStructuresFromFolder().then(function(loaded) {
+                if (!loaded) {
+                    console.warn('Using embedded structures manifest as fallback');
+                }
+                renderFieldsList();
+                showEmptyStructuresState();
+                showEmptyDetailsState();
+            });
         })
         .finally(function(){
             // Sembunyikan loading setelah data siap
