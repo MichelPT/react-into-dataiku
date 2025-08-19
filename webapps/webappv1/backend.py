@@ -257,6 +257,7 @@ class WellLogAnalysis:
         self.current_dataset = None
         self.current_well_data = None
         self.dataset_files_manifest = None  # Store dataset folder manifest
+        self.current_structure_context = None  # Store current structure context for filtering
         self.available_datasets = []
         # Track selection coming from UI
         self.selected_intervals = []
@@ -639,9 +640,13 @@ class WellLogAnalysis:
         print("❌ dataset_files directory not found in any expected location")
         return None
 
-    def _list_wells_from_dataset_folder(self, manifest_df):
+    def _list_wells_from_dataset_folder(self, manifest_df, structure_context=None):
         """Extract well names from dataset folder manifest DataFrame.
         The manifest should have a 'path' column with file paths like '/structures/adera/abab/ABB-106.csv'
+        
+        Args:
+            manifest_df: DataFrame with 'path' column containing file paths
+            structure_context: Optional dict with field_name and structure_name to filter wells
         """
         wells = set()
         
@@ -650,11 +655,26 @@ class WellLogAnalysis:
             return []
         
         print(f"Extracting wells from {len(manifest_df)} files in dataset folder manifest...")
+        if structure_context:
+            field_name = structure_context.get('field_name') or structure_context.get('fieldName')
+            structure_name = structure_context.get('structure_name') or structure_context.get('structureName')
+            print(f"🏗️ Filtering for structure: {structure_name} in field: {field_name}")
         
         for _, row in manifest_df.iterrows():
             path = row['path']
             if pd.isna(path) or not isinstance(path, str):
                 continue
+            
+            # If structure context provided, filter paths to only include files from that structure
+            if structure_context:
+                field_name = structure_context.get('field_name') or structure_context.get('fieldName')
+                structure_name = structure_context.get('structure_name') or structure_context.get('structureName')
+                
+                if field_name and structure_name:
+                    # Check if path contains the specific structure path pattern
+                    structure_path_pattern = f"/structures/{field_name}/{structure_name}/"
+                    if structure_path_pattern not in path:
+                        continue  # Skip wells not in this structure
                 
             # Extract filename from path and remove extension
             filename = os.path.basename(path)
@@ -889,10 +909,21 @@ class WellLogAnalysis:
         except Exception as e:
             return {"status": "error", "message": f"Error getting datasets: {str(e)}"}
     
-    def select_dataset(self, dataset_name):
-        """Select a dataset and load its basic info"""
+    def select_dataset(self, dataset_name, structure_context=None):
+        """Select a dataset and load its basic info
+        
+        Args:
+            dataset_name: Name of the dataset to select
+            structure_context: Optional dict with field_name and structure_name for filtering
+        """
         try:
             print(f"=== SELECT DATASET: {dataset_name} ===")
+            if structure_context:
+                print(f"🏗️ Structure context: {structure_context}")
+                # Store structure context for later use
+                self.current_structure_context = structure_context
+            else:
+                self.current_structure_context = None
             
             # Special handling: folder-based dataset
             if str(dataset_name).lower() == 'dataset_files':
@@ -911,9 +942,9 @@ class WellLogAnalysis:
                         self.current_well_data = None  # Use dataset folder mode
                         self.dataset_files_manifest = df  # Store the manifest for file access
                         
-                        # List available wells from the manifest
+                        # List available wells from the manifest (with structure filtering)
                         try:
-                            wells = self._list_wells_from_dataset_folder(df)
+                            wells = self._list_wells_from_dataset_folder(df, structure_context)
                             print(f"DATASET_FILES MODE: Found {len(wells)} wells from dataset folder: {wells[:5] if len(wells) > 5 else wells}...")
                         except Exception as wells_error:
                             print(f"DATASET_FILES MODE: ❌ Error listing wells from dataset folder: {wells_error}")
@@ -1058,9 +1089,11 @@ class WellLogAnalysis:
             if (self.current_dataset or '').startswith('dataset_files') and self.current_well_data is None:
                 print("📋 📁 Dataset_files mode detected")
                 if self.dataset_files_manifest is not None:
-                    # Use dataset folder manifest (Dataiku mode)
+                    # Use dataset folder manifest (Dataiku mode) with structure context
                     print("📋 🎯 Using dataset folder manifest...")
-                    wells = self._list_wells_from_dataset_folder(self.dataset_files_manifest)
+                    if self.current_structure_context:
+                        print(f"📋 🏗️ Applying structure filter: {self.current_structure_context.get('structure_name', 'N/A')}")
+                    wells = self._list_wells_from_dataset_folder(self.dataset_files_manifest, self.current_structure_context)
                     print(f"📋 ✅ Found {len(wells)} wells from manifest")
                 else:
                     # Use local files (local folder mode)
@@ -1093,6 +1126,11 @@ class WellLogAnalysis:
             print(f"Creating log plot for well: {well_name}")
             if selected_intervals:
                 print(f"Selected intervals: {selected_intervals}")
+            
+            # Use provided structure context or fall back to stored context
+            if structure_context is None:
+                structure_context = getattr(self, 'current_structure_context', None)
+                
             if structure_context:
                 print(f"Structure context: {structure_context.get('structure_name', 'N/A')}")
         
@@ -2474,18 +2512,10 @@ def select_dataset():
                 return json.dumps({"status": "error", "message": "No suitable dataset found in project"})
 
         print(f"Final dataset selection: {dataset_name}")
-        result = analysis.select_dataset(dataset_name)
+        result = analysis.select_dataset(dataset_name, structure_context)
         
-        # If we have structure context, filter wells to only include those from the selected structure
-        if structure_context and result.get('status') == 'success' and result.get('wells'):
-            structure_wells = structure_context.get('wells', [])
-            if structure_wells:
-                # Filter wells list to only include wells from the selected structure
-                all_wells = result.get('wells', [])
-                filtered_wells = [w for w in all_wells if w in structure_wells]
-                result['wells'] = filtered_wells
-                result['message'] = f"Loaded {len(filtered_wells)} wells from {structure_context.get('structure_name', 'selected structure')} structure"
-                print(f"🏗️ Filtered wells for structure {structure_context.get('structure_name')}: {len(filtered_wells)} wells from {len(all_wells)} total")
+        # Note: Structure-specific filtering is now handled within select_dataset method
+        # No need for additional filtering here since the method already filters wells
         
         return json.dumps(result)
     except Exception as e:
@@ -2517,7 +2547,9 @@ def get_wells():
             if hasattr(analysis, 'dataset_files_manifest') and analysis.dataset_files_manifest is not None:
                 print("📋 🎯 Using dataset_files manifest to get wells...")
                 try:
-                    wells = analysis._list_wells_from_dataset_folder(analysis.dataset_files_manifest)
+                    # Use current structure context if available
+                    structure_context = getattr(analysis, 'current_structure_context', None)
+                    wells = analysis._list_wells_from_dataset_folder(analysis.dataset_files_manifest, structure_context)
                     print(f"📋 ✅ Found {len(wells)} wells from dataset folder manifest")
                     return json.dumps({
                         "status": "success",
