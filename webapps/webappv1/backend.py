@@ -385,15 +385,10 @@ class WellLogAnalysis:
         """Load a well CSV from Dataiku dataset folder using the manifest."""
         try:
             manifest = self.dataset_files_manifest
-            # Normalize to case-insensitive CSV filename
-            well_csv_filename = f"{str(well_name).strip()}.csv"
+            well_csv_filename = f"{well_name}.csv"
             
-            # Pre-filter to valid string paths and lowercase for robust matching
-            valid_manifest = manifest[manifest['path'].apply(lambda p: isinstance(p, str))].copy()
-            valid_manifest['path_lower'] = valid_manifest['path'].str.lower()
-            
-            # Find matching file paths (case-insensitive endswith check)
-            matching_paths = valid_manifest[valid_manifest['path_lower'].str.endswith('/' + well_csv_filename.lower())]
+            # Find matching file path in manifest
+            matching_paths = manifest[manifest['path'].str.contains(well_csv_filename, na=False)]
             
             if len(matching_paths) == 0:
                 print(f"Well {well_name} not found in dataset folder manifest")
@@ -407,84 +402,40 @@ class WellLogAnalysis:
                     struct = structure_context.get('structure_name') or structure_context.get('structureName')
                     
                     if field and struct:
-                        fl = str(field).strip().lower()
-                        st = str(struct).strip().lower()
                         structure_matches = matching_paths[
-                            matching_paths['path_lower'].str.contains('/' + fl + '/') &
-                            matching_paths['path_lower'].str.contains('/' + st + '/')
+                            matching_paths['path'].str.contains(f"/{field}/", na=False) &
+                            matching_paths['path'].str.contains(f"/{struct}/", na=False)
                         ]
                         if len(structure_matches) > 0:
                             file_path = structure_matches.iloc[0]['path']
                         else:
-                            # Next preference: any path under /structures/
-                            under_structures = matching_paths[matching_paths['path_lower'].str.contains('/structures/')]
-                            file_path = (under_structures.iloc[0]['path'] if len(under_structures) > 0 else matching_paths.iloc[0]['path'])
+                            file_path = matching_paths.iloc[0]['path']
                     else:
-                        # Prefer path under /structures/ if available
-                        under_structures = matching_paths[matching_paths['path_lower'].str.contains('/structures/')]
-                        file_path = (under_structures.iloc[0]['path'] if len(under_structures) > 0 else matching_paths.iloc[0]['path'])
+                        file_path = matching_paths.iloc[0]['path']
                 else:
-                    # Prefer path under /structures/
-                    under_structures = matching_paths[matching_paths['path_lower'].str.contains('/structures/')]
-                    file_path = (under_structures.iloc[0]['path'] if len(under_structures) > 0 else matching_paths.iloc[0]['path'])
+                    file_path = matching_paths.iloc[0]['path']
             else:
                 file_path = matching_paths.iloc[0]['path']
             
             print(f"Loading well {well_name} from dataset folder: {file_path}")
             
             # Use Dataiku API to read the file from dataset folder
+            # For dataset folders, files are accessible using get_dataframe() with path parameter
+            # or get_download_stream() depending on Dataiku version
             try:
-                # For Dataiku dataset folders, resolve the underlying managed folder and stream the file
+                # Method 1: Try using dataset folder file access
                 dataset = dataiku.Dataset('dataset_files')
-                cfg = None
-                try:
-                    cfg = dataset.get_config()
-                except Exception:
-                    cfg = None
-                folder_id = None
-                if isinstance(cfg, dict):
-                    params = cfg.get('params', {}) if isinstance(cfg.get('params', {}), dict) else {}
-                    # Different DSS versions use different keys
-                    folder_id = params.get('folderSmartId') or params.get('folderId') or params.get('managedFolderId')
-
-                # Try direct dataset streaming methods first (rarely available)
-                try:
-                    if hasattr(dataset, 'get_file'):
-                        with dataset.get_file(file_path) as f:
-                            df = pd.read_csv(f)
-                            print(f"Loaded via dataset.get_file: {file_path}")
-                            return df
-                    if hasattr(dataset, 'get_download_stream'):
-                        with dataset.get_download_stream(path=file_path) as f:
-                            df = pd.read_csv(f)
-                            print(f"Loaded via dataset.get_download_stream: {file_path}")
-                            return df
-                except Exception as ds_stream_err:
-                    print(f"Dataset direct stream attempt failed for {file_path}: {ds_stream_err}")
-
-                # Preferred: use the managed folder when linked
-                if folder_id:
-                    try:
-                        folder = dataiku.Folder(folder_id)
-                        rel_path = file_path.lstrip('/')
-                        with folder.get_download_stream(rel_path) as f:
-                            df = pd.read_csv(f)
-                            print(f"Loaded via managed folder {folder_id}: {rel_path}")
-                            return df
-                    except Exception as folder_err:
-                        print(f"Managed folder access failed for {folder_id}:{file_path} -> {folder_err}")
-
-                # Fallback: try filesystem if files are materialized locally under webapp
-                print("Dataset folder direct access not available, checking filesystem fallback...")
-                base_dir = os.path.dirname(__file__)
-                potential_path = os.path.join(base_dir, 'dataset_files', file_path.lstrip('/'))
-                if os.path.exists(potential_path):
-                    df = pd.read_csv(potential_path)
-                    print(f"Successfully loaded {well_name} from filesystem fallback: {potential_path}")
-                    return df
-
-                print(f"File not accessible via any method: {file_path}")
-                return None
+                
+                # Get the specific file content from dataset folder
+                # Note: Exact API depends on Dataiku version and dataset folder setup
+                # This might need adjustment based on your Dataiku environment
+                
+                # Approach: Use dataset streaming to get specific file
+                stream = dataset.get_download_stream(path=file_path)
+                df = pd.read_csv(stream)
+                print(f"Successfully loaded {well_name} from dataset folder: {len(df)} rows")
+                return df
+                
             except Exception as api_err:
                 print(f"Dataset folder API access failed for {file_path}: {api_err}")
                 return None
@@ -933,17 +884,8 @@ class WellLogAnalysis:
                             print(f"DATASET_FILES MODE: Found {len(wells)} wells from dataset folder: {wells[:5] if len(wells) > 5 else wells}...")
                         except Exception as wells_error:
                             print(f"DATASET_FILES MODE: ❌ Error listing wells from dataset folder: {wells_error}")
-                            wells = []
                         
-                        return {
-                            "status": "success", 
-                            "dataset_name": "dataset_files (Dataiku folder)",
-                            "wells": wells,
-                            "markers": [],
-                            "columns": [],
-                            "total_rows": len(df),
-                            "message": f"Loaded dataset_files (Dataiku folder) with {len(df)} files and {len(wells)} wells"
-                        }
+                        return {"status": "success", "message": f"Loaded dataset_files (Dataiku folder) with {len(df)} files"}
                     else:
                         print(f"DATASET_FILES MODE: ❌ Dataset exists but not a folder dataset (no 'path' column)")
                         print(f"DATASET_FILES MODE: Available columns: {list(df.columns)}")
@@ -1065,36 +1007,23 @@ class WellLogAnalysis:
     def get_well_list(self):
         """Get list of wells from current dataset"""
         try:
-            print(f"📋 get_well_list() called:")
-            print(f"📋   - current_dataset: {self.current_dataset}")
-            print(f"📋   - current_well_data: {type(self.current_well_data)}")
-            print(f"📋   - dataset_files_manifest: {'Available' if self.dataset_files_manifest is not None else 'None'}")
-            
             # Dataset folder mode: list wells from dataset folder manifest or local files
             if (self.current_dataset or '').startswith('dataset_files') and self.current_well_data is None:
-                print("📋 📁 Dataset_files mode detected")
                 if self.dataset_files_manifest is not None:
                     # Use dataset folder manifest (Dataiku mode)
-                    print("📋 🎯 Using dataset folder manifest...")
                     wells = self._list_wells_from_dataset_folder(self.dataset_files_manifest)
-                    print(f"📋 ✅ Found {len(wells)} wells from manifest")
                 else:
                     # Use local files (local folder mode)
-                    print("📋 📁 Using local files scan...")
                     wells = self._list_wells_from_dataset_files()
-                    print(f"📋 ✅ Found {len(wells)} wells from local scan")
                 return {"status": "success", "wells": wells, "count": len(wells)}
 
             if self.current_well_data is None:
-                print("📋 ❌ No dataset selected")
                 return {"status": "error", "message": "No dataset selected"}
             
             if 'WELL_NAME' not in self.current_well_data.columns:
-                print("📋 ❌ WELL_NAME column not found")
                 return {"status": "error", "message": "WELL_NAME column not found in dataset"}
             
             wells = self.current_well_data['WELL_NAME'].unique().tolist()
-            print(f"📋 ✅ Found {len(wells)} wells from current_well_data")
             return {
                 "status": "success",
                 "wells": wells,
@@ -2150,25 +2079,32 @@ def get_structures_index():
     try:
         base_dir = os.path.dirname(__file__)
 
-        # 0) Prefer Dataiku dataset named 'dataset_files' with 'path' column if available
+        # 0) Prefer dataset_files/structures if present for field > structure > wells sidebar
+        try:
+            dsf_root = os.path.join(base_dir, 'dataset_files', 'structures')
+            if os.path.isdir(dsf_root):
+                manifest = _scan_structures_folder()
+                data = {
+                    "fields": manifest.get("fields", []),
+                    "total_fields": manifest.get("total_fields", 0),
+                    "total_structures": manifest.get("total_structures", 0)
+                }
+                return json.dumps({"status": "success", "source": "dataset_files", "data": data})
+        except Exception as scan_err:
+            print(f"dataset_files structures scan failed: {scan_err}")
+
+        # 0b) If a Dataiku dataset named 'dataset_files' exists with a 'path' column, build index from it
         try:
             analysis = get_analysis_instance()
             ds_info = analysis.get_available_datasets() or {}
             datasets = set([d.lower() for d in ds_info.get('datasets', [])])
-            print(f"📁 Available datasets: {list(datasets)}")
-            
             if 'dataset_files' in datasets:
                 try:
-                    print("📁 🎯 Found dataset_files in available datasets, attempting to load...")
                     df_idx = dataiku.Dataset('dataset_files').get_dataframe()
-                    print(f"📁 Loaded dataset_files successfully: {len(df_idx)} rows, columns: {list(df_idx.columns)}")
-                    
                     if 'path' in df_idx.columns:
-                        print(f"📁 ✅ Found 'path' column with {len(df_idx)} files in manifest, building structures index...")
                         # Build field -> structures -> wells from path strings like '/structures/adera/abab/ABB-106.csv'
                         from collections import defaultdict
                         fields_map = defaultdict(lambda: defaultdict(set))
-                        wells_global = set()  # collect wells that live directly under /wells
                         # Keep a representative path per structure for display
                         struct_path_sample = defaultdict(dict)
                         for _, row in df_idx.iterrows():
@@ -2179,9 +2115,8 @@ def get_structures_index():
                                 parts = [seg for seg in p.strip('/').split('/') if seg]
                                 # Find 'structures' anchor, then next two parts are field and structure when present
                                 try:
-                                    lowered = [seg.lower() for seg in parts]
-                                    if 'structures' in lowered:
-                                        idx = lowered.index('structures')
+                                    if 'structures' in [seg.lower() for seg in parts]:
+                                        idx = [seg.lower() for seg in parts].index('structures')
                                         field_name = parts[idx+1] if len(parts) > idx+1 else None
                                         struct_name = parts[idx+2] if len(parts) > idx+2 else None
                                         file_name = parts[-1]
@@ -2190,25 +2125,15 @@ def get_structures_index():
                                             fields_map[field_name][struct_name].add(well_name)
                                             if struct_name not in struct_path_sample.get(field_name, {}):
                                                 struct_path_sample.setdefault(field_name, {})[struct_name] = p
-                                    elif 'wells' in lowered:
-                                        # Handle files like '/wells/ABB-036.csv' -> add to General/Wells
-                                        file_name = parts[-1]
-                                        well_name = os.path.splitext(file_name)[0]
-                                        if well_name:
-                                            wells_global.add(well_name)
                                 except Exception:
                                     continue
                         # Convert to expected API shape
                         fields_list = []
                         total_structures = 0
-                        print(f"📁 Building structures index from {len(fields_map)} fields...")
-                        
                         for field_name in sorted(fields_map.keys()):
-                            print(f"📁   Field: {field_name} ({len(fields_map[field_name])} structures)")
                             struct_entries = []
                             for struct_name in sorted(fields_map[field_name].keys()):
                                 wells = sorted(list(fields_map[field_name][struct_name]))
-                                print(f"📁     Structure: {struct_name} ({len(wells)} wells)")
                                 # Use the first CSV path as a representative path for display purposes
                                 rep_path = None
                                 try:
@@ -2232,61 +2157,17 @@ def get_structures_index():
                                     "structures_count": len(struct_entries),
                                     "structures": struct_entries
                                 })
-                        # Add a synthetic field for global wells if present
-                        if wells_global:
-                            print(f"📁   Adding General/Wells field with {len(wells_global)} wells")
-                            global_struct = {
-                                "structure_name": "Wells",
-                                "field_name": "General",
-                                "file_path": None,
-                                "wells_count": len(wells_global),
-                                "wells": sorted(list(wells_global)),
-                                "total_records": 0,
-                                "columns": [],
-                                "intervals": []
-                            }
-                            fields_list.append({
-                                "field_name": "General",
-                                "structures_count": 1,
-                                "structures": [global_struct]
-                            })
-                            total_structures += 1
                         if fields_list:
                             data = {
                                 "fields": fields_list,
                                 "total_fields": len(fields_list),
                                 "total_structures": total_structures
                             }
-                            print(f"📁 ✅ SUCCESS! Returning structures from Dataiku dataset_files:")
-                            print(f"📁     - {len(fields_list)} fields")
-                            print(f"📁     - {total_structures} structures total")
-                            for field in fields_list:
-                                print(f"📁     - Field '{field['field_name']}': {field['structures_count']} structures")
                             return json.dumps({"status": "success", "source": "dataset:dataset_files[path]", "data": data})
-                        else:
-                            print("📁 ❌ No structures found in dataset_files manifest")
-                    else:
-                        print(f"📁 ❌ dataset_files exists but no 'path' column. Columns: {list(df_idx.columns)}")
                 except Exception as ds_err:
-                    print(f"📁 ❌ Failed loading dataset_files dataset: {ds_err}")
+                    print(f"Failed building structures from dataset_files dataset: {ds_err}")
         except Exception:
             pass
-
-        # 1) Fallback: Try local dataset_files/structures folder scan
-        try:
-            dsf_root = os.path.join(base_dir, 'dataset_files', 'structures')
-            if os.path.isdir(dsf_root):
-                print("📁 Falling back to local dataset_files/structures scan...")
-                manifest = _scan_structures_folder()
-                data = {
-                    "fields": manifest.get("fields", []),
-                    "total_fields": manifest.get("total_fields", 0),
-                    "total_structures": manifest.get("total_structures", 0)
-                }
-                print(f"📁 ✅ Returning structures from local scan: {data.get('total_fields', 0)} fields")
-                return json.dumps({"status": "success", "source": "dataset_files_local", "data": data})
-        except Exception as scan_err:
-            print(f"📁 ❌ Local dataset_files structures scan failed: {scan_err}")
 
         # 1) Prefer dataset-driven index from fix_pass_qc if available
         try:
@@ -2491,22 +2372,6 @@ def select_dataset():
 
         print(f"Final dataset selection: {dataset_name}")
         result = analysis.select_dataset(dataset_name)
-        
-        # If we have structure context, filter wells to only include those from the selected structure
-        if structure_context and result.get('status') == 'success' and result.get('wells') is not None:
-            structure_wells = structure_context.get('wells', []) or []
-            if len(structure_wells) > 0:
-                # Case-insensitive intersection
-                struct_set = set([str(w).strip().lower() for w in structure_wells])
-                all_wells = result.get('wells', []) or []
-                filtered_wells = [w for w in all_wells if str(w).strip().lower() in struct_set]
-                # If no intersection, prefer structure_wells to ensure UX continuity
-                if len(filtered_wells) == 0:
-                    filtered_wells = structure_wells
-                result['wells'] = filtered_wells
-                result['message'] = f"Loaded {len(filtered_wells)} wells from {structure_context.get('structure_name', 'selected structure')} structure"
-                print(f"🏗️ Filtered wells for structure {structure_context.get('structure_name')}: {len(filtered_wells)} wells from {len(all_wells)} total")
-        
         return json.dumps(result)
     except Exception as e:
         error_msg = f"Error in select_dataset endpoint: {str(e)}"
@@ -2519,59 +2384,9 @@ def get_wells():
     try:
         analysis = get_analysis_instance()
         result = analysis.get_well_list()
-        
-        print(f"📋 /get_wells called - analysis.current_dataset: {analysis.current_dataset}")
-        print(f"📋 Initial result: status={result.get('status')}, wells_count={len(result.get('wells', []))}")
-        
-        # If result is successful and has wells, return it
-        if result.get('status') == 'success' and result.get('wells') and len(result.get('wells')) > 0:
-            print(f"📋 ✅ Returning wells from analysis.get_well_list(): {len(result.get('wells'))} wells")
-            return json.dumps(result)
-        
-        # If dataset_files mode is active but no wells found, this means there's an issue
-        # Let's try getting wells directly from dataset_files manifest or fallback
-        if (analysis.current_dataset or '').startswith('dataset_files'):
-            print("📋 🔍 Dataset_files mode active but no wells found, investigating...")
-            
-            # First, try to get wells from dataset_files manifest if available
-            if hasattr(analysis, 'dataset_files_manifest') and analysis.dataset_files_manifest is not None:
-                print("📋 🎯 Using dataset_files manifest to get wells...")
-                try:
-                    wells = analysis._list_wells_from_dataset_folder(analysis.dataset_files_manifest)
-                    print(f"📋 ✅ Found {len(wells)} wells from dataset folder manifest")
-                    return json.dumps({
-                        "status": "success",
-                        "wells": wells,
-                        "count": len(wells),
-                        "source": "dataset_folder_manifest"
-                    })
-                except Exception as manifest_err:
-                    print(f"📋 ❌ Error getting wells from manifest: {manifest_err}")
-            
-            # Fallback: Try accessing dataset_files dataset directly
-            print("📋 🔄 Fallback: Accessing dataset_files dataset directly...")
-            try:
-                ds_info = analysis.get_available_datasets() or {}
-                if 'dataset_files' in [d.lower() for d in ds_info.get('datasets', [])]:
-                    df_idx = dataiku.Dataset('dataset_files').get_dataframe()
-                    if 'path' in df_idx.columns:
-                        wells = set()
-                        for p in df_idx['path'].dropna().astype(str).tolist():
-                            if p.lower().endswith('.csv'):
-                                wells.add(os.path.splitext(os.path.basename(p))[0])
-                        wells = sorted(wells)
-                        print(f"📋 ✅ Found {len(wells)} wells from direct dataset_files access")
-                        return json.dumps({
-                            "status": "success",
-                            "wells": wells,
-                            "count": len(wells),
-                            "source": "dataset_files_direct"
-                        })
-            except Exception as direct_err:
-                print(f"📋 ❌ Error accessing dataset_files directly: {direct_err}")
-            
-            # Last resort: Try local filesystem scan
-            print("📋 🆘 Last resort: Local filesystem scan...")
+        # If folder mode is active or wells are empty, try scanning dataset_files directly as a safety net
+        if (result.get('status') == 'success' and (result.get('wells') is None or len(result.get('wells')) == 0)) or \
+           ((analysis.current_dataset or '').startswith('dataset_files') and analysis.current_well_data is None):
             base_dir = os.path.dirname(__file__)
             wells = set()
             try:
@@ -2594,20 +2409,27 @@ def get_wells():
                     for fn in os.listdir(dsf_wells):
                         if fn.lower().endswith('.csv'):
                             wells.add(os.path.splitext(fn)[0])
-                wells = sorted(wells)
-                if wells:
-                    print(f"📋 ✅ Found {len(wells)} wells from local filesystem scan")
-                    return json.dumps({
-                        "status": "success",
-                        "wells": wells,
-                        "count": len(wells),
-                        "source": "local_filesystem"
-                    })
-            except Exception as fs_err:
-                print(f"📋 ❌ Local filesystem scan failed: {fs_err}")
-        
-        # If we reach here, return the original result (even if empty)
-        print(f"📋 ⚠️ No wells found through any method, returning original result")
+                # If still empty or to supplement, try Dataiku dataset 'dataset_files' with 'path' column
+                if not wells:
+                    try:
+                        analysis2 = get_analysis_instance()
+                        ds_info2 = analysis2.get_available_datasets() or {}
+                        if 'dataset_files' in [d.lower() for d in ds_info2.get('datasets', [])]:
+                            df_idx = dataiku.Dataset('dataset_files').get_dataframe()
+                            col = 'basename' if 'basename' in df_idx.columns else None
+                            if col:
+                                for v in df_idx[col].dropna().astype(str).tolist():
+                                    wells.add(v)
+                            elif 'path' in df_idx.columns:
+                                for p in df_idx['path'].dropna().astype(str).tolist():
+                                    if p.lower().endswith('.csv'):
+                                        wells.add(os.path.splitext(os.path.basename(p))[0])
+                    except Exception as _:
+                        pass
+            except Exception as e:
+                print(f"Fallback scan for wells failed: {e}")
+            wells = sorted(wells)
+            return json.dumps({"status": "success", "wells": wells, "count": len(wells)})
         return json.dumps(result)
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})

@@ -171,14 +171,8 @@ function initializeStructuresPage() {
         showLoading();
     } catch (e) { /* no-op */ }
 
-    // Auto-select dataset_files to ensure backend is in correct mode
-    console.log('🔄 Auto-selecting dataset_files for structures page...');
-    autoLoadDefaultDataset()
-        .then(function() {
-            console.log('✅ Dataset selected, now loading structures...');
-            // Try loading structures from local data first
-            return loadStructuresFromFolder();
-        })
+    // Try loading structures from local data first
+    return loadStructuresFromFolder()
         .then(function(loaded) {
             if (!loaded) {
                 // Fallback to embedded manifest
@@ -187,18 +181,6 @@ function initializeStructuresPage() {
             renderFieldsList();
             showEmptyStructuresState();
             showEmptyDetailsState();
-        })
-        .catch(function(error) {
-            console.error('Error initializing structures page:', error);
-            // Even if dataset selection fails, try to load structures
-            return loadStructuresFromFolder().then(function(loaded) {
-                if (!loaded) {
-                    console.warn('Using embedded structures manifest as fallback');
-                }
-                renderFieldsList();
-                showEmptyStructuresState();
-                showEmptyDetailsState();
-            });
         })
         .finally(function(){
             // Sembunyikan loading setelah data siap
@@ -366,34 +348,6 @@ function handleStructureSelect(structureName) {
     };
     localStorage.setItem('selectedStructure', JSON.stringify(selectedInfo));
     console.log('Saved selectedStructure to localStorage:', selectedInfo);
-    
-    // Automatically navigate to dashboard and load the structure data
-    console.log('🔄 Auto-navigating to dashboard with selected structure...');
-    
-    // Set current structure in appState
-    appState.currentStructure = {
-        name: structure.structure_name,
-        fieldName: structuresState.selectedField,
-        structureName: structure.structure_name,
-        filePath: structure.file_path,
-        wells: structure.wells || [],
-        columns: structure.columns || []
-    };
-    
-    // Navigate to dashboard
-    showPage('dashboard');
-    handleNavigation('/dashboard');
-    
-    // Load the structure-specific dataset and wells
-    autoLoadDefaultDataset()
-        .then(function() {
-            console.log('✅ Structure-specific dataset loaded successfully');
-            showSuccess('Loaded ' + (structure.wells || []).length + ' wells from ' + structure.structure_name + ' structure');
-        })
-        .catch(function(error) {
-            console.error('❌ Error loading structure-specific dataset:', error);
-            showError('Failed to load structure data: ' + error.message);
-        });
 }
 
 function handleFieldSelect(fieldName) {
@@ -1264,21 +1218,6 @@ function showWarning(message) {
 function loadWells() {
     showLoading();
     
-    // If a structure is selected, reuse the dataset selection flow which returns filtered wells
-    if (appState.currentStructure && Array.isArray(appState.currentStructure.wells)) {
-        autoLoadDefaultDataset()
-            .then(function(resp){
-                // autoLoadDefaultDataset already rendered wells and updated badges
-            })
-            .catch(function(error){
-                console.error('Failed to load wells (structure mode):', error);
-                showError('Failed to load wells: ' + error.message);
-            })
-            .finally(function(){ hideLoading(); });
-        return;
-    }
-    
-    // No structure selected: fallback to global wells list
     fetchJson('/get_wells')
         .then(function(response) {
             if (response.status === 'success') {
@@ -1303,45 +1242,12 @@ function renderWellList(wells) {
     var wellList = document.getElementById('wellList');
     wellList.innerHTML = '';
     
-    // If a structure is selected, enforce filtering to that structure's wells (case-insensitive)
-    var displayedWells = wells;
-    if (appState.currentStructure && Array.isArray(appState.currentStructure.wells) && appState.currentStructure.wells.length > 0) {
-        try {
-            var structSet = new Set(appState.currentStructure.wells.map(function(w){ return String(w).trim().toLowerCase(); }));
-            var filtered = (Array.isArray(wells) ? wells : []).filter(function(w){ return structSet.has(String(w).trim().toLowerCase()); });
-            displayedWells = (filtered && filtered.length > 0) ? filtered : appState.currentStructure.wells.slice();
-        } catch (e) {
-            displayedWells = appState.currentStructure.wells.slice();
-        }
-    }
-    // Keep state in sync
-    appState.availableWells = displayedWells;
-    // Drop any selected wells not in the available set
-    appState.selectedWells = (appState.selectedWells || []).filter(function(w){
-        return appState.availableWells.some(function(x){ return String(x).trim().toLowerCase() === String(w).trim().toLowerCase(); });
-    });
-
-    // Add structure context header if available
-    if (appState.currentStructure && appState.currentStructure.structureName) {
-        var structureHeader = document.createElement('div');
-        structureHeader.className = 'structure-context-header';
-        structureHeader.innerHTML = 
-            '<div class="structure-context">' +
-                '<strong>Structure:</strong> ' + appState.currentStructure.structureName +
-                (appState.currentStructure.fieldName ? ' <span class="field-info">(' + appState.currentStructure.fieldName + ')</span>' : '') +
-            '</div>';
-        wellList.appendChild(structureHeader);
-    }
-    
-    if (displayedWells.length === 0) {
-        var emptyDiv = document.createElement('div');
-        emptyDiv.className = 'empty-state';
-        emptyDiv.textContent = 'No wells available';
-        wellList.appendChild(emptyDiv);
+    if (wells.length === 0) {
+        wellList.innerHTML = '<div class="empty-state">No wells available</div>';
         return;
     }
     
-    displayedWells.forEach(function(wellName) {
+    wells.forEach(function(wellName) {
         var wellItem = document.createElement('div');
         wellItem.className = 'list-item';
         wellItem.setAttribute('data-id', wellName);
@@ -3378,21 +3284,9 @@ function autoLoadDefaultDataset() {
     .then(function(response) {
         if (response.status === 'success') {
             var wells = Array.isArray(response.wells) ? response.wells : [];
-            // If a structure has been selected, restrict wells to that structure (case-insensitive)
-            var selStruct = appState.currentStructure;
-            if (selStruct && Array.isArray(selStruct.wells) && selStruct.wells.length > 0) {
-                try {
-                    var structSet = new Set(selStruct.wells.map(function(w){ return String(w).trim().toLowerCase(); }));
-                    var filtered = wells.filter(function(w){ return structSet.has(String(w).trim().toLowerCase()); });
-                    // If intersection found, use it; else fall back to structure-defined wells
-                    wells = (filtered && filtered.length > 0) ? filtered : selStruct.wells.slice();
-                } catch (e) {
-                    // Safe fallback
-                    wells = selStruct.wells.slice();
-                }
-            } else if ((!wells || wells.length === 0) && selStruct && Array.isArray(selStruct.wells) && selStruct.wells.length > 0) {
-                // Fallback: if dataset returns 0 wells, use structure wells list if available
-                wells = selStruct.wells.slice();
+            // Fallback: if folder mode returns 0 wells, use structure wells list if available
+            if ((!wells || wells.length === 0) && appState.currentStructure && Array.isArray(appState.currentStructure.wells) && appState.currentStructure.wells.length > 0) {
+                wells = appState.currentStructure.wells.slice();
             }
             appState.availableWells = wells;
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
@@ -3500,15 +3394,6 @@ function updateDatasetStatus(response) {
         } else {
             statusText += ' (Dataiku Dataset)';
         }
-        
-        // Add structure information if available
-        if (appState.currentStructure && appState.currentStructure.structureName) {
-            statusText += ' - Structure: ' + appState.currentStructure.structureName;
-            if (appState.currentStructure.fieldName) {
-                statusText += ' (' + appState.currentStructure.fieldName + ')';
-            }
-        }
-        
         statusEl.textContent = statusText;
     }
     
@@ -3517,8 +3402,7 @@ function updateDatasetStatus(response) {
     console.log('Dataset status updated:', {
         name: response.dataset_name,
         mode: response.message,
-        wells: response.wells ? response.wells.length : 0,
-        structure: appState.currentStructure ? appState.currentStructure.structureName : 'None'
+        wells: response.wells ? response.wells.length : 0
     });
 }
 
