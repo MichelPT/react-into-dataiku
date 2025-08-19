@@ -349,35 +349,41 @@ class WellLogAnalysis:
 
     def _load_well_csv_from_dataset_files(self, well_name: str, structure_context: dict | None = None):
         """Attempt to load a single-well CSV from dataset_files based on provided context.
-        Preferred order:
-          1) dataset_files/structures/<field>/<structure>/<well_name>.csv when context present
-          2) dataset_files/wells/<well_name>.csv as general fallback
+        It performs a comprehensive search:
+          1. Tries the specific path from structure_context if provided.
+          2. Recursively searches the entire `dataset_files/structures` directory.
+          3. Falls back to the `dataset_files/wells` directory.
         Returns a DataFrame or None.
         """
         try:
             base_dir = os.path.dirname(__file__)
-            # 1) Try structure-specific path if context present
+            
+            # 1) Try structure-specific path first if context is rich enough
             if structure_context and isinstance(structure_context, dict):
                 field = structure_context.get('field_name') or structure_context.get('fieldName')
                 struct = structure_context.get('structure_name') or structure_context.get('structureName')
                 if field and struct:
-                    # Direct path first
-                    p1 = os.path.join(base_dir, 'dataset_files', 'structures', str(field), str(struct), f"{well_name}.csv")
-                    if os.path.isfile(p1):
-                        return pd.read_csv(p1)
-                    # Recursive search within structure folder
-                    struct_root = os.path.join(base_dir, 'dataset_files', 'structures', str(field), str(struct))
-                    if os.path.isdir(struct_root):
-                        for r, _d, files in os.walk(struct_root):
-                            for fn in files:
-                                if fn.lower() == f"{well_name.lower()}.csv":
-                                    return pd.read_csv(os.path.join(r, fn))
-            # 2) Fallback to global wells folder
-            p2 = os.path.join(base_dir, 'dataset_files', 'wells', f"{well_name}.csv")
-            if os.path.isfile(p2):
-                return pd.read_csv(p2)
+                    specific_path = os.path.join(base_dir, 'dataset_files', 'structures', str(field), str(struct), f"{well_name}.csv")
+                    if os.path.isfile(specific_path):
+                        return pd.read_csv(specific_path)
+
+            # 2) If not found, perform a full recursive search within the entire 'structures' directory
+            structures_root = os.path.join(base_dir, 'dataset_files', 'structures')
+            if os.path.isdir(structures_root):
+                for root, _, files in os.walk(structures_root):
+                    for filename in files:
+                        if filename.lower() == f"{well_name.lower()}.csv":
+                            found_path = os.path.join(root, filename)
+                            return pd.read_csv(found_path)
+
+            # 3) Fallback to global 'wells' folder if still not found
+            wells_path = os.path.join(base_dir, 'dataset_files', 'wells', f"{well_name}.csv")
+            if os.path.isfile(wells_path):
+                return pd.read_csv(wells_path)
+                
         except Exception as e:
             print(f"Failed loading per-well CSV for {well_name}: {e}")
+            
         return None
 
     def _list_wells_from_dataset_files(self):
