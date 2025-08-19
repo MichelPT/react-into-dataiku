@@ -3257,13 +3257,22 @@ function initializeApp() {
 function autoLoadDefaultDataset() {
     // Check if user has selected a structure from structures page
     var selectedStructure = appState.currentStructure;
-    // Prefer folder-based dataset_files mode by default
+    // Always prefer folder-based dataset_files mode for consistency
     var payload = { dataset_name: 'dataset_files' };
     
     if (selectedStructure && selectedStructure.name) {
-        // Keep using dataset_files in folder mode; include structure_name only as context
+        // Include structure context for folder mode
         payload.structure_name = selectedStructure.name;
+        // Add structure context for better file loading
+        payload.structure_context = {
+            field_name: selectedStructure.fieldName,
+            structure_name: selectedStructure.structureName,
+            file_path: selectedStructure.filePath,
+            wells: selectedStructure.wells,
+            columns: selectedStructure.columns
+        };
         console.log('Auto-loading dataset_files (folder) for structure:', selectedStructure.name);
+        console.log('Structure context:', payload.structure_context);
     } else {
         console.log('Auto-loading dataset_files (folder or dataset)...');
     }
@@ -3294,11 +3303,16 @@ function autoLoadDefaultDataset() {
             }
             
             updateBadges();
+            updateDatasetStatus(response);
             
             var structName = (selectedStructure && selectedStructure.name) ? selectedStructure.name : null;
+            var datasetInfo = response.dataset_name;
+            if (response.message && response.message.includes('folder')) {
+                datasetInfo += ' (folder mode)';
+            }
             var successMessage = structName 
-                ? 'Loaded ' + wells.length + ' wells from ' + structName + ' structure (' + response.dataset_name + ')'
-                : 'Loaded ' + wells.length + ' wells from ' + response.dataset_name + ' dataset';
+                ? 'Loaded ' + wells.length + ' wells from ' + structName + ' structure (' + datasetInfo + ')'
+                : 'Loaded ' + wells.length + ' wells from ' + datasetInfo;
             showSuccess(successMessage);
         } else {
             throw new Error(response.message || 'Failed to load dataset');
@@ -3364,12 +3378,35 @@ function autoLoadFallbackDataset() {
     .catch(function(error) {
         console.error('Error loading fallback dataset:', error);
         showError('Error loading fallback dataset: ' + error.message + '. Please ensure at least one dataset exists in your Dataiku project.');
+        });
+}
+
+// Update dataset status display
+function updateDatasetStatus(response) {
+    // Update status text if element exists
+    var statusEl = document.getElementById('datasetStatus');
+    if (statusEl) {
+        var statusText = response.dataset_name;
+        if (response.message && response.message.includes('folder')) {
+            statusText += ' (Folder Mode)';
+        } else if (response.message && response.message.includes('csv')) {
+            statusText += ' (CSV)';
+        } else {
+            statusText += ' (Dataiku Dataset)';
+        }
+        statusEl.textContent = statusText;
+    }
+    
+    // Update current dataset in state
+    appState.currentDataset = response.dataset_name;
+    console.log('Dataset status updated:', {
+        name: response.dataset_name,
+        mode: response.message,
+        wells: response.wells ? response.wells.length : 0
     });
 }
 
-// (duplicate loadIntervalsFromDataset removed)
-
-// Load intervals from current dataset  
+// (duplicate loadIntervalsFromDataset removed)// Load intervals from current dataset  
 function loadIntervalsFromDataset() {
     console.log('Loading intervals from current dataset...');
     

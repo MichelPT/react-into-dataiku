@@ -327,24 +327,35 @@ class WellLogAnalysis:
         return None
 
     def _load_dataset_files_csv(self):
-        """Load a CSV from webapp dataset_files as the working dataset (if available).
-        Preference: fix_pass_qc_13k.csv -> pass_qc.csv
+        """Load a CSV from webapp dataset_files directory as the working dataset (if available).
+        Looks for specific CSV files like fix_pass_qc_13k.csv, pass_qc.csv in dataset_files folder.
         Returns DataFrame or None.
         """
         base_dir = os.path.dirname(__file__)
-        candidates = [
-            os.path.join(base_dir, 'dataset_files')
+        dataset_files_dir = os.path.join(base_dir, 'dataset_files')
+        
+        # List of candidate CSV files to look for in dataset_files directory
+        candidate_files = [
+            'fix_pass_qc_13k.csv',
+            'fix_pass_qc.csv', 
+            'pass_qc.csv',
+            'data.csv'
         ]
-        for p in candidates:
+        
+        for filename in candidate_files:
+            file_path = os.path.join(dataset_files_dir, filename)
             try:
-                if os.path.isfile(p):
-                    df = pd.read_csv(p)
-                    self.current_dataset = 'dataset_files (csv)'
+                if os.path.isfile(file_path):
+                    print(f"Loading CSV file: {file_path}")
+                    df = pd.read_csv(file_path)
+                    self.current_dataset = f'dataset_files ({filename})'
                     self.current_well_data = df
-                    print(f"Loaded dataset from {p} as current_well_data")
+                    print(f"Loaded dataset from {file_path} as current_well_data - rows: {len(df)}")
                     return df
             except Exception as e:
-                print(f"Failed loading {p}: {e}")
+                print(f"Failed loading {file_path}: {e}")
+        
+        print("No suitable CSV files found in dataset_files directory")
         return None
 
     def _load_well_csv_from_dataset_files(self, well_name: str, structure_context: dict | None = None):
@@ -508,46 +519,86 @@ class WellLogAnalysis:
             return {"status": "error", "message": f"Error getting structures hierarchy: {str(e)}"}
     
     def auto_load_default_dataset(self):
-        """Automatically load the fix_pass_qc dataset on initialization"""
+        """Automatically load the default dataset on initialization.
+        Priority order:
+        1. dataset_files folder mode (if structures/wells directories exist)
+        2. dataset_files Dataiku dataset (if available)
+        3. Local CSV files in dataset_files
+        4. fix_pass_qc dataset
+        5. Fallback to any available raw well data dataset
+        """
         try:
-            # Prefer local dataset_files CSVs first (aligns with folder-driven mode)
-            if self._load_dataset_files_csv() is not None:
-                print("Successfully auto-loaded dataset: dataset_files (csv)")
-                return
-
-            # If dataset_files folder exists (structures or wells), enable folder mode
+            print("=== AUTO LOAD DEFAULT DATASET START ===")
+            
+            # PRIORITY 1: If dataset_files folder exists (structures or wells), enable folder mode
             try:
                 base_dir = os.path.dirname(__file__)
                 dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
                 dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
-                if os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells):
+                
+                struct_exists = os.path.isdir(dsf_struct)
+                wells_exists = os.path.isdir(dsf_wells)
+                
+                print(f"PRIORITY 1: Checking dataset_files directories:")
+                print(f"  - structures directory: {dsf_struct} -> exists: {struct_exists}")
+                print(f"  - wells directory: {dsf_wells} -> exists: {wells_exists}")
+                
+                if struct_exists or wells_exists:
+                    print("PRIORITY 1: Found dataset_files directories, activating folder mode...")
                     result = self.select_dataset('dataset_files')
                     if result.get("status") == "success":
-                        print("Successfully auto-loaded dataset: dataset_files (folder)")
+                        print("PRIORITY 1: ✅ Successfully auto-loaded dataset: dataset_files (folder)")
+                        print("=== AUTO LOAD DEFAULT DATASET END ===")
                         return
+                    else:
+                        print(f"PRIORITY 1: ❌ Failed to select dataset_files folder mode: {result}")
+                else:
+                    print("PRIORITY 1: ❌ No dataset_files directories found")
             except Exception as e:
-                print(f"Dataset_files folder mode auto-select failed: {e}")
+                print(f"PRIORITY 1: ❌ Exception in dataset_files folder mode: {e}")
 
-            # Next prefer a Dataiku dataset named 'dataset_files' if present
+            # PRIORITY 2: Prefer a Dataiku dataset named 'dataset_files' if present
             try:
+                print("PRIORITY 2: Checking for Dataiku dataset named 'dataset_files'...")
                 available_datasets = self.get_available_datasets()
                 if available_datasets.get("status") == "success":
                     datasets = available_datasets.get("datasets", [])
                     dsf = [ds for ds in datasets if ds.lower() == 'dataset_files']
                     if dsf:
+                        print(f"PRIORITY 2: Found Dataiku dataset: {dsf[0]}")
                         result = self.select_dataset(dsf[0])
                         if result.get("status") == "success":
-                            print("Successfully auto-loaded dataset: dataset_files")
+                            print("PRIORITY 2: ✅ Successfully auto-loaded dataset: dataset_files (Dataiku)")
+                            print("=== AUTO LOAD DEFAULT DATASET END ===")
                             return
+                        else:
+                            print(f"PRIORITY 2: ❌ Failed to select dataset_files Dataiku: {result}")
+                    else:
+                        print("PRIORITY 2: ❌ No 'dataset_files' found in available datasets")
+                else:
+                    print(f"PRIORITY 2: ❌ Failed to get available datasets: {available_datasets}")
             except Exception as e:
-                print(f"Dataset_files selection attempt failed: {e}")
+                print(f"PRIORITY 2: ❌ Exception in dataset_files Dataiku selection: {e}")
 
-            # Then try explicit fix_pass_qc
+            # PRIORITY 3: Try local dataset_files CSVs (if any specific CSV files exist)
+            print("PRIORITY 3: Checking for local CSV files in dataset_files...")
+            if self._load_dataset_files_csv() is not None:
+                print("PRIORITY 3: ✅ Successfully auto-loaded dataset: dataset_files (csv)")
+                print("=== AUTO LOAD DEFAULT DATASET END ===")
+                return
+            else:
+                print("PRIORITY 3: ❌ No suitable CSV files found")
+
+            # PRIORITY 4: Try explicit fix_pass_qc
+            print("PRIORITY 4: Trying fix_pass_qc dataset...")
             dataset_name = "fix_pass_qc"
             result = self.select_dataset(dataset_name)
             if result.get("status") == "success":
-                print(f"Successfully auto-loaded dataset: {dataset_name}")
+                print(f"PRIORITY 4: ✅ Successfully auto-loaded dataset: {dataset_name}")
+                print("=== AUTO LOAD DEFAULT DATASET END ===")
                 return
+            else:
+                print(f"PRIORITY 4: ❌ Failed to load fix_pass_qc: {result}")
 
             # Fallback discovery
             try:
@@ -602,12 +653,17 @@ class WellLogAnalysis:
     def select_dataset(self, dataset_name):
         """Select a dataset and load its basic info"""
         try:
+            print(f"=== SELECT DATASET: {dataset_name} ===")
+            
             # Special handling: folder-based dataset
             if str(dataset_name).lower() == 'dataset_files':
+                print("FOLDER MODE: Activating dataset_files folder mode...")
                 self.current_dataset = 'dataset_files (folder)'
                 self.current_well_data = None  # use per-well CSVs
+                print("FOLDER MODE: Listing wells from dataset_files...")
                 wells = self._list_wells_from_dataset_files()
-                return {
+                print(f"FOLDER MODE: Found {len(wells)} wells")
+                result = {
                     "status": "success",
                     "dataset_name": self.current_dataset,
                     "wells": wells,
@@ -616,6 +672,8 @@ class WellLogAnalysis:
                     "total_rows": None,
                     "message": "Using dataset_files folder mode (per-well CSVs)"
                 }
+                print(f"FOLDER MODE: ✅ Success - {result['message']}")
+                return result
 
             df = None
             # Try Dataiku dataset first
@@ -1973,8 +2031,11 @@ def select_dataset():
         # Accept new key 'dataset_name' first, keep backward compatibility with older 'fix_pass_qc' key
         dataset_name = (data or {}).get('dataset_name') or (data or {}).get('fix_pass_qc')
         structure_name = (data or {}).get('structure_name')  # Optional structure name
+        structure_context = (data or {}).get('structure_context')  # Optional structure context
 
         print(f"Dataset selection request - dataset_name: {dataset_name}, structure_name: {structure_name}")
+        if structure_context:
+            print(f"Structure context provided: {structure_context}")
 
         # If no dataset_name provided, prefer dataset_files folder mode when present
         if not dataset_name:
