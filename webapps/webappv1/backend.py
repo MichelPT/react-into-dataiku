@@ -418,6 +418,19 @@ class WellLogAnalysis:
                 print("Successfully auto-loaded dataset: dataset_files (csv)")
                 return
 
+            # If dataset_files folder exists (structures or wells), enable folder mode
+            try:
+                base_dir = os.path.dirname(__file__)
+                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
+                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
+                if os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells):
+                    result = self.select_dataset('dataset_files')
+                    if result.get("status") == "success":
+                        print("Successfully auto-loaded dataset: dataset_files (folder)")
+                        return
+            except Exception as e:
+                print(f"Dataset_files folder mode auto-select failed: {e}")
+
             # Next prefer a Dataiku dataset named 'dataset_files' if present
             try:
                 available_datasets = self.get_available_datasets()
@@ -431,19 +444,6 @@ class WellLogAnalysis:
                             return
             except Exception as e:
                 print(f"Dataset_files selection attempt failed: {e}")
-
-            # If dataset_files folder exists (structures or wells), enable folder mode
-            try:
-                base_dir = os.path.dirname(__file__)
-                dsf_struct = os.path.join(base_dir, 'dataset_files', 'structures')
-                dsf_wells = os.path.join(base_dir, 'dataset_files', 'wells')
-                if os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells):
-                    result = self.select_dataset('dataset_files')
-                    if result.get("status") == "success":
-                        print("Successfully auto-loaded dataset: dataset_files (folder)")
-                        return
-            except Exception as e:
-                print(f"Dataset_files folder mode auto-select failed: {e}")
 
             # Then try explicit fix_pass_qc
             dataset_name = "fix_pass_qc"
