@@ -2079,29 +2079,21 @@ def get_structures_index():
     try:
         base_dir = os.path.dirname(__file__)
 
-        # 0) Prefer dataset_files/structures if present for field > structure > wells sidebar
-        try:
-            dsf_root = os.path.join(base_dir, 'dataset_files', 'structures')
-            if os.path.isdir(dsf_root):
-                manifest = _scan_structures_folder()
-                data = {
-                    "fields": manifest.get("fields", []),
-                    "total_fields": manifest.get("total_fields", 0),
-                    "total_structures": manifest.get("total_structures", 0)
-                }
-                return json.dumps({"status": "success", "source": "dataset_files", "data": data})
-        except Exception as scan_err:
-            print(f"dataset_files structures scan failed: {scan_err}")
-
-        # 0b) If a Dataiku dataset named 'dataset_files' exists with a 'path' column, build index from it
+        # 0) Prefer Dataiku dataset named 'dataset_files' with 'path' column if available
         try:
             analysis = get_analysis_instance()
             ds_info = analysis.get_available_datasets() or {}
             datasets = set([d.lower() for d in ds_info.get('datasets', [])])
+            print(f"📁 Available datasets: {list(datasets)}")
+            
             if 'dataset_files' in datasets:
                 try:
+                    print("📁 🎯 Found dataset_files in available datasets, attempting to load...")
                     df_idx = dataiku.Dataset('dataset_files').get_dataframe()
+                    print(f"📁 Loaded dataset_files successfully: {len(df_idx)} rows, columns: {list(df_idx.columns)}")
+                    
                     if 'path' in df_idx.columns:
+                        print(f"📁 ✅ Found 'path' column with {len(df_idx)} files in manifest, building structures index...")
                         # Build field -> structures -> wells from path strings like '/structures/adera/abab/ABB-106.csv'
                         from collections import defaultdict
                         fields_map = defaultdict(lambda: defaultdict(set))
@@ -2138,10 +2130,14 @@ def get_structures_index():
                         # Convert to expected API shape
                         fields_list = []
                         total_structures = 0
+                        print(f"📁 Building structures index from {len(fields_map)} fields...")
+                        
                         for field_name in sorted(fields_map.keys()):
+                            print(f"📁   Field: {field_name} ({len(fields_map[field_name])} structures)")
                             struct_entries = []
                             for struct_name in sorted(fields_map[field_name].keys()):
                                 wells = sorted(list(fields_map[field_name][struct_name]))
+                                print(f"📁     Structure: {struct_name} ({len(wells)} wells)")
                                 # Use the first CSV path as a representative path for display purposes
                                 rep_path = None
                                 try:
@@ -2167,6 +2163,7 @@ def get_structures_index():
                                 })
                         # Add a synthetic field for global wells if present
                         if wells_global:
+                            print(f"📁   Adding General/Wells field with {len(wells_global)} wells")
                             global_struct = {
                                 "structure_name": "Wells",
                                 "field_name": "General",
@@ -2189,11 +2186,36 @@ def get_structures_index():
                                 "total_fields": len(fields_list),
                                 "total_structures": total_structures
                             }
+                            print(f"📁 ✅ SUCCESS! Returning structures from Dataiku dataset_files:")
+                            print(f"📁     - {len(fields_list)} fields")
+                            print(f"📁     - {total_structures} structures total")
+                            for field in fields_list:
+                                print(f"📁     - Field '{field['field_name']}': {field['structures_count']} structures")
                             return json.dumps({"status": "success", "source": "dataset:dataset_files[path]", "data": data})
+                        else:
+                            print("📁 ❌ No structures found in dataset_files manifest")
+                    else:
+                        print(f"📁 ❌ dataset_files exists but no 'path' column. Columns: {list(df_idx.columns)}")
                 except Exception as ds_err:
-                    print(f"Failed building structures from dataset_files dataset: {ds_err}")
+                    print(f"📁 ❌ Failed loading dataset_files dataset: {ds_err}")
         except Exception:
             pass
+
+        # 1) Fallback: Try local dataset_files/structures folder scan
+        try:
+            dsf_root = os.path.join(base_dir, 'dataset_files', 'structures')
+            if os.path.isdir(dsf_root):
+                print("📁 Falling back to local dataset_files/structures scan...")
+                manifest = _scan_structures_folder()
+                data = {
+                    "fields": manifest.get("fields", []),
+                    "total_fields": manifest.get("total_fields", 0),
+                    "total_structures": manifest.get("total_structures", 0)
+                }
+                print(f"📁 ✅ Returning structures from local scan: {data.get('total_fields', 0)} fields")
+                return json.dumps({"status": "success", "source": "dataset_files_local", "data": data})
+        except Exception as scan_err:
+            print(f"📁 ❌ Local dataset_files structures scan failed: {scan_err}")
 
         # 1) Prefer dataset-driven index from fix_pass_qc if available
         try:
