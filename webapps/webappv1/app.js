@@ -1264,6 +1264,21 @@ function showWarning(message) {
 function loadWells() {
     showLoading();
     
+    // If a structure is selected, reuse the dataset selection flow which returns filtered wells
+    if (appState.currentStructure && Array.isArray(appState.currentStructure.wells)) {
+        autoLoadDefaultDataset()
+            .then(function(resp){
+                // autoLoadDefaultDataset already rendered wells and updated badges
+            })
+            .catch(function(error){
+                console.error('Failed to load wells (structure mode):', error);
+                showError('Failed to load wells: ' + error.message);
+            })
+            .finally(function(){ hideLoading(); });
+        return;
+    }
+    
+    // No structure selected: fallback to global wells list
     fetchJson('/get_wells')
         .then(function(response) {
             if (response.status === 'success') {
