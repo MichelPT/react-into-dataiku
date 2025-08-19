@@ -387,34 +387,54 @@ class WellLogAnalysis:
         return None
 
     def _list_wells_from_dataset_files(self):
-        """Scan dataset_files for available well CSVs and return well names (no extension).
+        """
+        Scan dataset_files for available well CSVs and return a list of dicts,
+        each containing well_name and structure_path.
         This searches recursively under dataset_files/structures and flat under dataset_files/wells.
         """
-        wells = set()
+        wells_with_structure = []
+        well_names = set()  # To track uniqueness of well names
         base_dir = os.path.dirname(__file__)
+        
         try:
-            # 1) From structures tree (recursive search) - Diperbaiki dan disederhanakan
+            # 1) From structures tree (recursive search)
             structures_dir = os.path.join(base_dir, 'dataset_files', 'structures')
             if os.path.isdir(structures_dir):
-                # Langsung gunakan os.walk dari direktori root 'structures'.
-                # Ini akan menjelajahi semua subdirektori secara otomatis,
-                # tidak peduli seberapa dalam strukturnya.
-                for root, dirs, files in os.walk(structures_dir):
+                for root, _, files in os.walk(structures_dir):
                     for fname in files:
                         if fname.lower().endswith('.csv'):
-                            wells.add(os.path.splitext(fname)[0])
+                            well_name = os.path.splitext(fname)[0]
+                            if well_name not in well_names:
+                                # Make the path relative to the 'structures' directory
+                                relative_path = os.path.relpath(root, structures_dir)
+                                # Use forward slashes for consistency and web paths
+                                structure_path = relative_path.replace(os.path.sep, '/')
+                                if structure_path == '.':
+                                    structure_path = '' # Root of structures
+                                wells_with_structure.append({
+                                    "well_name": well_name,
+                                    "structure_path": structure_path
+                                })
+                                well_names.add(well_name)
 
-            # 2) From global wells folder (ini sudah benar, tidak perlu diubah)
+            # 2) From global wells folder
             wells_dir = os.path.join(base_dir, 'dataset_files', 'wells')
             if os.path.isdir(wells_dir):
                 for fname in os.listdir(wells_dir):
                     if fname.lower().endswith('.csv'):
-                        wells.add(os.path.splitext(fname)[0])
-                        
+                        well_name = os.path.splitext(fname)[0]
+                        if well_name not in well_names:
+                            wells_with_structure.append({
+                                "well_name": well_name,
+                                "structure_path": "wells"  # Special path for the global wells folder
+                            })
+                            well_names.add(well_name)
+                            
         except Exception as e:
             print(f"Failed listing wells from dataset_files: {e}")
             
-        return sorted(list(wells)) # Konversi set ke list sebelum di-sort
+        # Sort by structure path then by well name
+        return sorted(wells_with_structure, key=lambda x: (x['structure_path'], x['well_name']))
     
     def auto_load_default_dataset(self):
         """Automatically load the fix_pass_qc dataset on initialization"""
