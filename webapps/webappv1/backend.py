@@ -434,54 +434,57 @@ class WellLogAnalysis:
             
             # Use Dataiku API to read the file from dataset folder
             try:
-                # For Dataiku dataset folders, we need to access individual files
-                # The exact method depends on how the dataset folder is set up
-                
-                # Approach 1: Try to read file content directly using Dataiku dataset folder API
+                # For Dataiku dataset folders, resolve the underlying managed folder and stream the file
                 dataset = dataiku.Dataset('dataset_files')
-                
-                # For dataset folders, try to get file content using streaming
+                cfg = None
                 try:
-                    # Some Dataiku versions support get_file() or get_download_stream()
+                    cfg = dataset.get_config()
+                except Exception:
+                    cfg = None
+                folder_id = None
+                if isinstance(cfg, dict):
+                    params = cfg.get('params', {}) if isinstance(cfg.get('params', {}), dict) else {}
+                    # Different DSS versions use different keys
+                    folder_id = params.get('folderSmartId') or params.get('folderId') or params.get('managedFolderId')
+
+                # Try direct dataset streaming methods first (rarely available)
+                try:
                     if hasattr(dataset, 'get_file'):
                         with dataset.get_file(file_path) as f:
                             df = pd.read_csv(f)
-                    elif hasattr(dataset, 'get_download_stream'):
+                            print(f"Loaded via dataset.get_file: {file_path}")
+                            return df
+                    if hasattr(dataset, 'get_download_stream'):
                         with dataset.get_download_stream(path=file_path) as f:
                             df = pd.read_csv(f)
-                    else:
-                        # Fallback: try to construct the file path and read directly if possible
-                        print(f"Dataset folder direct access not available, checking if file is accessible via filesystem...")
-                        
-                        # Try to construct potential filesystem path
-                        base_dir = os.path.dirname(__file__)
-                        potential_path = os.path.join(base_dir, 'dataset_files', file_path.lstrip('/'))
-                        
-                        if os.path.exists(potential_path):
-                            df = pd.read_csv(potential_path)
-                            print(f"Successfully loaded {well_name} from filesystem fallback: {potential_path}")
-                        else:
-                            print(f"File not accessible: {potential_path}")
-                            return None
-                    
-                    print(f"Successfully loaded {well_name} from dataset folder: {len(df)} rows")
+                            print(f"Loaded via dataset.get_download_stream: {file_path}")
+                            return df
+                except Exception as ds_stream_err:
+                    print(f"Dataset direct stream attempt failed for {file_path}: {ds_stream_err}")
+
+                # Preferred: use the managed folder when linked
+                if folder_id:
+                    try:
+                        folder = dataiku.Folder(folder_id)
+                        rel_path = file_path.lstrip('/')
+                        with folder.get_download_stream(rel_path) as f:
+                            df = pd.read_csv(f)
+                            print(f"Loaded via managed folder {folder_id}: {rel_path}")
+                            return df
+                    except Exception as folder_err:
+                        print(f"Managed folder access failed for {folder_id}:{file_path} -> {folder_err}")
+
+                # Fallback: try filesystem if files are materialized locally under webapp
+                print("Dataset folder direct access not available, checking filesystem fallback...")
+                base_dir = os.path.dirname(__file__)
+                potential_path = os.path.join(base_dir, 'dataset_files', file_path.lstrip('/'))
+                if os.path.exists(potential_path):
+                    df = pd.read_csv(potential_path)
+                    print(f"Successfully loaded {well_name} from filesystem fallback: {potential_path}")
                     return df
-                    
-                except Exception as inner_err:
-                    print(f"Failed to access file {file_path} in dataset folder: {inner_err}")
-                    
-                    # Fallback: Check if we can access via local filesystem
-                    base_dir = os.path.dirname(__file__)
-                    potential_path = os.path.join(base_dir, 'dataset_files', file_path.lstrip('/'))
-                    
-                    if os.path.exists(potential_path):
-                        df = pd.read_csv(potential_path)
-                        print(f"Successfully loaded {well_name} from filesystem fallback: {potential_path}")
-                        return df
-                    else:
-                        print(f"File not accessible via any method: {file_path}")
-                        return None
-                
+
+                print(f"File not accessible via any method: {file_path}")
+                return None
             except Exception as api_err:
                 print(f"Dataset folder API access failed for {file_path}: {api_err}")
                 return None

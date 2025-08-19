@@ -1303,6 +1303,24 @@ function renderWellList(wells) {
     var wellList = document.getElementById('wellList');
     wellList.innerHTML = '';
     
+    // If a structure is selected, enforce filtering to that structure's wells (case-insensitive)
+    var displayedWells = wells;
+    if (appState.currentStructure && Array.isArray(appState.currentStructure.wells) && appState.currentStructure.wells.length > 0) {
+        try {
+            var structSet = new Set(appState.currentStructure.wells.map(function(w){ return String(w).trim().toLowerCase(); }));
+            var filtered = (Array.isArray(wells) ? wells : []).filter(function(w){ return structSet.has(String(w).trim().toLowerCase()); });
+            displayedWells = (filtered && filtered.length > 0) ? filtered : appState.currentStructure.wells.slice();
+        } catch (e) {
+            displayedWells = appState.currentStructure.wells.slice();
+        }
+    }
+    // Keep state in sync
+    appState.availableWells = displayedWells;
+    // Drop any selected wells not in the available set
+    appState.selectedWells = (appState.selectedWells || []).filter(function(w){
+        return appState.availableWells.some(function(x){ return String(x).trim().toLowerCase() === String(w).trim().toLowerCase(); });
+    });
+
     // Add structure context header if available
     if (appState.currentStructure && appState.currentStructure.structureName) {
         var structureHeader = document.createElement('div');
@@ -1315,7 +1333,7 @@ function renderWellList(wells) {
         wellList.appendChild(structureHeader);
     }
     
-    if (wells.length === 0) {
+    if (displayedWells.length === 0) {
         var emptyDiv = document.createElement('div');
         emptyDiv.className = 'empty-state';
         emptyDiv.textContent = 'No wells available';
@@ -1323,7 +1341,7 @@ function renderWellList(wells) {
         return;
     }
     
-    wells.forEach(function(wellName) {
+    displayedWells.forEach(function(wellName) {
         var wellItem = document.createElement('div');
         wellItem.className = 'list-item';
         wellItem.setAttribute('data-id', wellName);
