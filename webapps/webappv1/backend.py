@@ -402,19 +402,33 @@ class WellLogAnalysis:
                     field = structure_context.get('field_name') or structure_context.get('fieldName')
                     struct = structure_context.get('structure_name') or structure_context.get('structureName')
                     
+                    print(f"Looking for structure-specific file: field={field}, struct={struct}")
+                    
                     if field and struct:
+                        # Look for exact structure path match
+                        structure_path_pattern = f"/structures/{field}/{struct}/"
                         structure_matches = matching_paths[
-                            matching_paths['path'].str.contains(f"/{field}/", na=False) &
-                            matching_paths['path'].str.contains(f"/{struct}/", na=False)
+                            matching_paths['path'].str.contains(structure_path_pattern, na=False)
                         ]
                         if len(structure_matches) > 0:
                             file_path = structure_matches.iloc[0]['path']
+                            print(f"✅ Selected structure-specific file: {file_path}")
                         else:
+                            # Fallback to first available file
                             file_path = matching_paths.iloc[0]['path']
+                            print(f"⚠️ No structure-specific file found, using: {file_path}")
                     else:
                         file_path = matching_paths.iloc[0]['path']
+                        print(f"⚠️ Missing field/structure context, using: {file_path}")
                 else:
-                    file_path = matching_paths.iloc[0]['path']
+                    # No structure context - prefer structure files over wells files if available
+                    structure_files = matching_paths[matching_paths['path'].str.contains('/structures/', na=False)]
+                    if len(structure_files) > 0:
+                        file_path = structure_files.iloc[0]['path']
+                        print(f"🏗️ No context but preferring structure file: {file_path}")
+                    else:
+                        file_path = matching_paths.iloc[0]['path']
+                        print(f"📁 Using general wells file: {file_path}")
             else:
                 file_path = matching_paths.iloc[0]['path']
             
@@ -430,30 +444,49 @@ class WellLogAnalysis:
                 
                 # For dataset folders, try to get file content using streaming
                 try:
-                    # Some Dataiku versions support get_file() or get_download_stream()
-                    if hasattr(dataset, 'get_file'):
+                    # Try different methods to access file content from dataset folder
+                    import io
+                    
+                    # Method 1: Try get_download_stream (if available)
+                    try:
+                        stream = dataset.get_download_stream(path=file_path)
+                        df = pd.read_csv(stream)
+                        print(f"Successfully loaded {well_name} from dataset folder using get_download_stream: {len(df)} rows")
+                        return df
+                    except (AttributeError, Exception) as stream_err:
+                        print(f"get_download_stream failed: {stream_err}")
+                    
+                    # Method 2: Try get_file (if available)  
+                    try:
                         with dataset.get_file(file_path) as f:
                             df = pd.read_csv(f)
-                    elif hasattr(dataset, 'get_download_stream'):
-                        with dataset.get_download_stream(path=file_path) as f:
-                            df = pd.read_csv(f)
-                    else:
-                        # Fallback: try to construct the file path and read directly if possible
-                        print(f"Dataset folder direct access not available, checking if file is accessible via filesystem...")
-                        
-                        # Try to construct potential filesystem path
-                        base_dir = os.path.dirname(__file__)
-                        potential_path = os.path.join(base_dir, 'dataset_files', file_path.lstrip('/'))
-                        
-                        if os.path.exists(potential_path):
-                            df = pd.read_csv(potential_path)
-                            print(f"Successfully loaded {well_name} from filesystem fallback: {potential_path}")
-                        else:
-                            print(f"File not accessible: {potential_path}")
-                            return None
+                        print(f"Successfully loaded {well_name} from dataset folder using get_file: {len(df)} rows")
+                        return df
+                    except (AttributeError, Exception) as file_err:
+                        print(f"get_file failed: {file_err}")
                     
-                    print(f"Successfully loaded {well_name} from dataset folder: {len(df)} rows")
-                    return df
+                    # Method 3: Try to get the file data using dataset folder iteration
+                    # This approach reads the dataset folder and finds the specific file
+                    try:
+                        # Get the full dataset folder content
+                        full_df = dataset.get_dataframe()
+                        
+                        # Find the specific file content if the dataset has file content columns
+                        # This is a fallback approach - actual implementation depends on dataset structure
+                        if 'content' in full_df.columns:
+                            file_rows = full_df[full_df['path'] == file_path]
+                            if len(file_rows) > 0:
+                                content = file_rows.iloc[0]['content']
+                                df = pd.read_csv(io.StringIO(content))
+                                print(f"Successfully loaded {well_name} from dataset folder content column: {len(df)} rows")
+                                return df
+                        
+                        print(f"File content not available in dataset folder structure")
+                        raise Exception("Cannot access file content from dataset folder")
+                        
+                    except Exception as content_err:
+                        print(f"Dataset folder content access failed: {content_err}")
+                        raise content_err
                     
                 except Exception as inner_err:
                     print(f"Failed to access file {file_path} in dataset folder: {inner_err}")
@@ -472,7 +505,18 @@ class WellLogAnalysis:
                 
             except Exception as api_err:
                 print(f"Dataset folder API access failed for {file_path}: {api_err}")
-                return None
+                
+                # Final fallback: try local filesystem
+                base_dir = os.path.dirname(__file__)
+                potential_path = os.path.join(base_dir, 'dataset_files', file_path.lstrip('/'))
+                
+                if os.path.exists(potential_path):
+                    df = pd.read_csv(potential_path)
+                    print(f"Successfully loaded {well_name} from final filesystem fallback: {potential_path}")
+                    return df
+                else:
+                    print(f"All access methods failed for {file_path}")
+                    return None
                 
         except Exception as e:
             print(f"Failed loading well {well_name} from dataset folder: {e}")
@@ -659,9 +703,14 @@ class WellLogAnalysis:
             field_name = structure_context.get('field_name') or structure_context.get('fieldName')
             structure_name = structure_context.get('structure_name') or structure_context.get('structureName')
             print(f"🏗️ Filtering for structure: {structure_name} in field: {field_name}")
+            print(f"🏗️ Full structure context: {structure_context}")
+        
+        filtered_count = 0
+        total_count = 0
         
         for _, row in manifest_df.iterrows():
             path = row['path']
+            total_count += 1
             if pd.isna(path) or not isinstance(path, str):
                 continue
             
@@ -675,7 +724,12 @@ class WellLogAnalysis:
                     structure_path_pattern = f"/structures/{field_name}/{structure_name}/"
                     if structure_path_pattern not in path:
                         continue  # Skip wells not in this structure
-                
+                    else:
+                        filtered_count += 1
+                        print(f"  ✅ Including: {path} (matches {structure_path_pattern})")
+                else:
+                    print(f"  ⚠️  Missing field_name or structure_name in context")
+            
             # Extract filename from path and remove extension
             filename = os.path.basename(path)
             if filename.lower().endswith('.csv'):
@@ -684,7 +738,10 @@ class WellLogAnalysis:
                 print(f"  Found well: {well_name} from {path}")
         
         wells_list = sorted(list(wells))
-        print(f"Found {len(wells_list)} unique wells from dataset folder")
+        if structure_context:
+            print(f"🏗️ After filtering: {len(wells_list)} wells from {filtered_count}/{total_count} matching files")
+        else:
+            print(f"Found {len(wells_list)} unique wells from dataset folder")
         return wells_list
     
     def get_structures_hierarchy(self):
