@@ -3345,9 +3345,21 @@ function autoLoadDefaultDataset() {
     .then(function(response) {
         if (response.status === 'success') {
             var wells = Array.isArray(response.wells) ? response.wells : [];
-            // Fallback: if folder mode returns 0 wells, use structure wells list if available
-            if ((!wells || wells.length === 0) && appState.currentStructure && Array.isArray(appState.currentStructure.wells) && appState.currentStructure.wells.length > 0) {
-                wells = appState.currentStructure.wells.slice();
+            // If a structure has been selected, restrict wells to that structure (case-insensitive)
+            var selStruct = appState.currentStructure;
+            if (selStruct && Array.isArray(selStruct.wells) && selStruct.wells.length > 0) {
+                try {
+                    var structSet = new Set(selStruct.wells.map(function(w){ return String(w).trim().toLowerCase(); }));
+                    var filtered = wells.filter(function(w){ return structSet.has(String(w).trim().toLowerCase()); });
+                    // If intersection found, use it; else fall back to structure-defined wells
+                    wells = (filtered && filtered.length > 0) ? filtered : selStruct.wells.slice();
+                } catch (e) {
+                    // Safe fallback
+                    wells = selStruct.wells.slice();
+                }
+            } else if ((!wells || wells.length === 0) && selStruct && Array.isArray(selStruct.wells) && selStruct.wells.length > 0) {
+                // Fallback: if dataset returns 0 wells, use structure wells list if available
+                wells = selStruct.wells.slice();
             }
             appState.availableWells = wells;
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
