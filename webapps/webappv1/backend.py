@@ -256,6 +256,7 @@ class WellLogAnalysis:
             self.project = dataiku.Project(project_key)
         self.current_dataset = None
         self.current_well_data = None
+        self.dataset_files_manifest = None  # Store dataset folder manifest
         self.available_datasets = []
         # Track selection coming from UI
         self.selected_intervals = []
@@ -360,13 +361,91 @@ class WellLogAnalysis:
 
     def _load_well_csv_from_dataset_files(self, well_name: str, structure_context: dict | None = None):
         """Attempt to load a single-well CSV from dataset_files based on provided context.
-        Supports multi-level directory structures like: structures/adera/benuang/BNG-012.csv
+        Supports both Dataiku dataset folder mode and local filesystem.
         Preferred order:
-          1) dataset_files/structures/<field>/<structure>/<well_name>.csv when context present
-          2) Recursive search in structures folder for the well CSV
-          3) dataset_files/wells/<well_name>.csv as general fallback
+          1) If dataset folder manifest available, use Dataiku API to load file
+          2) Local filesystem with structure-specific path when context present
+          3) Recursive search in structures folder for the well CSV
+          4) dataset_files/wells/<well_name>.csv as general fallback
         Returns a DataFrame or None.
         """
+        try:
+            # Method 1: Use dataset folder manifest (Dataiku mode)
+            if self.dataset_files_manifest is not None:
+                return self._load_well_csv_from_dataset_folder(well_name, structure_context)
+            
+            # Method 2: Local filesystem (original logic)
+            return self._load_well_csv_from_local_files(well_name, structure_context)
+            
+        except Exception as e:
+            print(f"Failed loading per-well CSV for {well_name}: {e}")
+            return None
+
+    def _load_well_csv_from_dataset_folder(self, well_name: str, structure_context: dict | None = None):
+        """Load a well CSV from Dataiku dataset folder using the manifest."""
+        try:
+            manifest = self.dataset_files_manifest
+            well_csv_filename = f"{well_name}.csv"
+            
+            # Find matching file path in manifest
+            matching_paths = manifest[manifest['path'].str.contains(well_csv_filename, na=False)]
+            
+            if len(matching_paths) == 0:
+                print(f"Well {well_name} not found in dataset folder manifest")
+                return None
+            
+            if len(matching_paths) > 1:
+                print(f"Multiple files found for well {well_name}: {matching_paths['path'].tolist()}")
+                # If structure context provided, prefer matching structure path
+                if structure_context:
+                    field = structure_context.get('field_name') or structure_context.get('fieldName')
+                    struct = structure_context.get('structure_name') or structure_context.get('structureName')
+                    
+                    if field and struct:
+                        structure_matches = matching_paths[
+                            matching_paths['path'].str.contains(f"/{field}/", na=False) &
+                            matching_paths['path'].str.contains(f"/{struct}/", na=False)
+                        ]
+                        if len(structure_matches) > 0:
+                            file_path = structure_matches.iloc[0]['path']
+                        else:
+                            file_path = matching_paths.iloc[0]['path']
+                    else:
+                        file_path = matching_paths.iloc[0]['path']
+                else:
+                    file_path = matching_paths.iloc[0]['path']
+            else:
+                file_path = matching_paths.iloc[0]['path']
+            
+            print(f"Loading well {well_name} from dataset folder: {file_path}")
+            
+            # Use Dataiku API to read the file from dataset folder
+            # For dataset folders, files are accessible using get_dataframe() with path parameter
+            # or get_download_stream() depending on Dataiku version
+            try:
+                # Method 1: Try using dataset folder file access
+                dataset = dataiku.Dataset('dataset_files')
+                
+                # Get the specific file content from dataset folder
+                # Note: Exact API depends on Dataiku version and dataset folder setup
+                # This might need adjustment based on your Dataiku environment
+                
+                # Approach: Use dataset streaming to get specific file
+                stream = dataset.get_download_stream(path=file_path)
+                df = pd.read_csv(stream)
+                print(f"Successfully loaded {well_name} from dataset folder: {len(df)} rows")
+                return df
+                
+            except Exception as api_err:
+                print(f"Dataset folder API access failed for {file_path}: {api_err}")
+                return None
+                
+        except Exception as e:
+            print(f"Failed loading well {well_name} from dataset folder: {e}")
+            return None
+
+    def _load_well_csv_from_local_files(self, well_name: str, structure_context: dict | None = None):
+        """Load a well CSV from local filesystem (original logic)."""
         try:
             base_dir = os.path.dirname(__file__)
             
@@ -526,6 +605,34 @@ class WellLogAnalysis:
         
         print("❌ dataset_files directory not found in any expected location")
         return None
+
+    def _list_wells_from_dataset_folder(self, manifest_df):
+        """Extract well names from dataset folder manifest DataFrame.
+        The manifest should have a 'path' column with file paths like '/structures/adera/abab/ABB-106.csv'
+        """
+        wells = set()
+        
+        if 'path' not in manifest_df.columns:
+            print("❌ Manifest DataFrame does not have 'path' column")
+            return []
+        
+        print(f"Extracting wells from {len(manifest_df)} files in dataset folder manifest...")
+        
+        for _, row in manifest_df.iterrows():
+            path = row['path']
+            if pd.isna(path) or not isinstance(path, str):
+                continue
+                
+            # Extract filename from path and remove extension
+            filename = os.path.basename(path)
+            if filename.lower().endswith('.csv'):
+                well_name = filename[:-4]  # Remove .csv extension
+                wells.add(well_name)
+                print(f"  Found well: {well_name} from {path}")
+        
+        wells_list = sorted(list(wells))
+        print(f"Found {len(wells_list)} unique wells from dataset folder")
+        return wells_list
     
     def get_structures_hierarchy(self):
         """Get the hierarchical structure of dataset_files/structures directory.
@@ -652,13 +759,26 @@ class WellLogAnalysis:
                     dsf = [ds for ds in datasets if ds.lower() == 'dataset_files']
                     if dsf:
                         print(f"PRIORITY 2: Found Dataiku dataset: {dsf[0]}")
-                        result = self.select_dataset(dsf[0])
-                        if result.get("status") == "success":
-                            print("PRIORITY 2: ✅ Successfully auto-loaded dataset: dataset_files (Dataiku)")
-                            print("=== AUTO LOAD DEFAULT DATASET END ===")
-                            return
-                        else:
-                            print(f"PRIORITY 2: ❌ Failed to select dataset_files Dataiku: {result}")
+                        
+                        # Test if it's a valid dataset folder with expected structure
+                        try:
+                            test_dataset = dataiku.Dataset(dsf[0])
+                            test_df = test_dataset.get_dataframe()
+                            
+                            if 'path' in test_df.columns:
+                                print(f"PRIORITY 2: ✅ 'dataset_files' is a valid dataset folder with {len(test_df)} files")
+                                result = self.select_dataset(dsf[0])
+                                if result.get("status") == "success":
+                                    print("PRIORITY 2: ✅ Successfully auto-loaded dataset: dataset_files (Dataiku folder)")
+                                    print("=== AUTO LOAD DEFAULT DATASET END ===")
+                                    return
+                                else:
+                                    print(f"PRIORITY 2: ❌ Failed to select dataset_files Dataiku: {result}")
+                            else:
+                                print(f"PRIORITY 2: ❌ 'dataset_files' exists but not a folder dataset (no 'path' column)")
+                                print(f"PRIORITY 2: Available columns: {list(test_df.columns)}")
+                        except Exception as test_err:
+                            print(f"PRIORITY 2: ❌ Error testing dataset_files structure: {test_err}")
                     else:
                         print("PRIORITY 2: ❌ No 'dataset_files' found in available datasets")
                 else:
@@ -743,31 +863,64 @@ class WellLogAnalysis:
             
             # Special handling: folder-based dataset
             if str(dataset_name).lower() == 'dataset_files':
-                print("FOLDER MODE: Activating dataset_files folder mode...")
+                print("DATASET_FILES MODE: Activating dataset_files mode...")
+                
+                # First try as Dataiku dataset folder
+                try:
+                    print("DATASET_FILES MODE: Trying Dataiku dataset folder...")
+                    dataset = dataiku.Dataset('dataset_files')
+                    df = dataset.get_dataframe()
+                    
+                    # Check if it's a dataset folder (has 'path' column)
+                    if 'path' in df.columns:
+                        print(f"DATASET_FILES MODE: ✅ Successfully loaded dataset folder with {len(df)} files")
+                        self.current_dataset = 'dataset_files (Dataiku folder)'
+                        self.current_well_data = None  # Use dataset folder mode
+                        self.dataset_files_manifest = df  # Store the manifest for file access
+                        
+                        # List available wells from the manifest
+                        try:
+                            wells = self._list_wells_from_dataset_folder(df)
+                            print(f"DATASET_FILES MODE: Found {len(wells)} wells from dataset folder: {wells[:5] if len(wells) > 5 else wells}...")
+                        except Exception as wells_error:
+                            print(f"DATASET_FILES MODE: ❌ Error listing wells from dataset folder: {wells_error}")
+                        
+                        return {"status": "success", "message": f"Loaded dataset_files (Dataiku folder) with {len(df)} files"}
+                    else:
+                        print(f"DATASET_FILES MODE: ❌ Dataset exists but not a folder dataset (no 'path' column)")
+                        print(f"DATASET_FILES MODE: Available columns: {list(df.columns)}")
+                        # Fall through to try local folder mode
+                        
+                except Exception as dataiku_err:
+                    print(f"DATASET_FILES MODE: ❌ Dataiku dataset folder failed: {dataiku_err}")
+                    # Fall through to try local folder mode
+                
+                # Fallback: Try local folder mode (original logic)
+                print("DATASET_FILES MODE: Falling back to local folder mode...")
                 
                 # Use helper function to find dataset_files directory
                 dataset_files_dir = self._find_dataset_files_directory()
                 
                 if not dataset_files_dir:
-                    error_msg = "dataset_files directory not found in any expected location"
-                    print(f"FOLDER MODE: ❌ {error_msg}")
+                    error_msg = "dataset_files not found as Dataiku dataset folder or local directory"
+                    print(f"DATASET_FILES MODE: ❌ {error_msg}")
                     return {"status": "error", "message": error_msg}
                 
                 dsf_struct = os.path.join(dataset_files_dir, 'structures')
                 dsf_wells = os.path.join(dataset_files_dir, 'wells')
                 
-                print(f"FOLDER MODE: Using dataset_files directory: {dataset_files_dir}")
-                print(f"FOLDER MODE: Structures path: {dsf_struct} -> exists: {os.path.isdir(dsf_struct)}")
-                print(f"FOLDER MODE: Wells path: {dsf_wells} -> exists: {os.path.isdir(dsf_wells)}")
+                print(f"DATASET_FILES MODE: Using local dataset_files directory: {dataset_files_dir}")
+                print(f"DATASET_FILES MODE: Structures path: {dsf_struct} -> exists: {os.path.isdir(dsf_struct)}")
+                print(f"DATASET_FILES MODE: Wells path: {dsf_wells} -> exists: {os.path.isdir(dsf_wells)}")
                 
                 if not (os.path.isdir(dsf_struct) or os.path.isdir(dsf_wells)):
                     error_msg = f"Neither structures nor wells directory found in {dataset_files_dir}"
-                    print(f"FOLDER MODE: ❌ {error_msg}")
+                    print(f"DATASET_FILES MODE: ❌ {error_msg}")
                     return {"status": "error", "message": error_msg}
                 
-                self.current_dataset = 'dataset_files (folder)'
+                self.current_dataset = 'dataset_files (local folder)'
                 self.current_well_data = None  # use per-well CSVs
-                print("FOLDER MODE: Listing wells from dataset_files...")
+                print("FOLDER MODE: Listing wells from local dataset_files...")
                 
                 try:
                     wells = self._list_wells_from_dataset_files()
@@ -854,9 +1007,14 @@ class WellLogAnalysis:
     def get_well_list(self):
         """Get list of wells from current dataset"""
         try:
-            # Folder mode: list wells from dataset_files
+            # Dataset folder mode: list wells from dataset folder manifest or local files
             if (self.current_dataset or '').startswith('dataset_files') and self.current_well_data is None:
-                wells = self._list_wells_from_dataset_files()
+                if self.dataset_files_manifest is not None:
+                    # Use dataset folder manifest (Dataiku mode)
+                    wells = self._list_wells_from_dataset_folder(self.dataset_files_manifest)
+                else:
+                    # Use local files (local folder mode)
+                    wells = self._list_wells_from_dataset_files()
                 return {"status": "success", "wells": wells, "count": len(wells)}
 
             if self.current_well_data is None:
