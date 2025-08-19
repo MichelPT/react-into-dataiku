@@ -366,6 +366,34 @@ function handleStructureSelect(structureName) {
     };
     localStorage.setItem('selectedStructure', JSON.stringify(selectedInfo));
     console.log('Saved selectedStructure to localStorage:', selectedInfo);
+    
+    // Automatically navigate to dashboard and load the structure data
+    console.log('🔄 Auto-navigating to dashboard with selected structure...');
+    
+    // Set current structure in appState
+    appState.currentStructure = {
+        name: structure.structure_name,
+        fieldName: structuresState.selectedField,
+        structureName: structure.structure_name,
+        filePath: structure.file_path,
+        wells: structure.wells || [],
+        columns: structure.columns || []
+    };
+    
+    // Navigate to dashboard
+    showPage('dashboard');
+    handleNavigation('/dashboard');
+    
+    // Load the structure-specific dataset and wells
+    autoLoadDefaultDataset()
+        .then(function() {
+            console.log('✅ Structure-specific dataset loaded successfully');
+            showSuccess('Loaded ' + (structure.wells || []).length + ' wells from ' + structure.structure_name + ' structure');
+        })
+        .catch(function(error) {
+            console.error('❌ Error loading structure-specific dataset:', error);
+            showError('Failed to load structure data: ' + error.message);
+        });
 }
 
 function handleFieldSelect(fieldName) {
@@ -1260,8 +1288,23 @@ function renderWellList(wells) {
     var wellList = document.getElementById('wellList');
     wellList.innerHTML = '';
     
+    // Add structure context header if available
+    if (appState.currentStructure && appState.currentStructure.structureName) {
+        var structureHeader = document.createElement('div');
+        structureHeader.className = 'structure-context-header';
+        structureHeader.innerHTML = 
+            '<div class="structure-context">' +
+                '<strong>Structure:</strong> ' + appState.currentStructure.structureName +
+                (appState.currentStructure.fieldName ? ' <span class="field-info">(' + appState.currentStructure.fieldName + ')</span>' : '') +
+            '</div>';
+        wellList.appendChild(structureHeader);
+    }
+    
     if (wells.length === 0) {
-        wellList.innerHTML = '<div class="empty-state">No wells available</div>';
+        var emptyDiv = document.createElement('div');
+        emptyDiv.className = 'empty-state';
+        emptyDiv.textContent = 'No wells available';
+        wellList.appendChild(emptyDiv);
         return;
     }
     
@@ -3412,6 +3455,15 @@ function updateDatasetStatus(response) {
         } else {
             statusText += ' (Dataiku Dataset)';
         }
+        
+        // Add structure information if available
+        if (appState.currentStructure && appState.currentStructure.structureName) {
+            statusText += ' - Structure: ' + appState.currentStructure.structureName;
+            if (appState.currentStructure.fieldName) {
+                statusText += ' (' + appState.currentStructure.fieldName + ')';
+            }
+        }
+        
         statusEl.textContent = statusText;
     }
     
@@ -3420,7 +3472,8 @@ function updateDatasetStatus(response) {
     console.log('Dataset status updated:', {
         name: response.dataset_name,
         mode: response.message,
-        wells: response.wells ? response.wells.length : 0
+        wells: response.wells ? response.wells.length : 0,
+        structure: appState.currentStructure ? appState.currentStructure.structureName : 'None'
     });
 }
 

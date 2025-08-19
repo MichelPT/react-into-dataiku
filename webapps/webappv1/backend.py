@@ -420,21 +420,54 @@ class WellLogAnalysis:
             print(f"Loading well {well_name} from dataset folder: {file_path}")
             
             # Use Dataiku API to read the file from dataset folder
-            # For dataset folders, files are accessible using get_dataframe() with path parameter
-            # or get_download_stream() depending on Dataiku version
             try:
-                # Method 1: Try using dataset folder file access
+                # For Dataiku dataset folders, we need to access individual files
+                # The exact method depends on how the dataset folder is set up
+                
+                # Approach 1: Try to read file content directly using Dataiku dataset folder API
                 dataset = dataiku.Dataset('dataset_files')
                 
-                # Get the specific file content from dataset folder
-                # Note: Exact API depends on Dataiku version and dataset folder setup
-                # This might need adjustment based on your Dataiku environment
-                
-                # Approach: Use dataset streaming to get specific file
-                stream = dataset.get_download_stream(path=file_path)
-                df = pd.read_csv(stream)
-                print(f"Successfully loaded {well_name} from dataset folder: {len(df)} rows")
-                return df
+                # For dataset folders, try to get file content using streaming
+                try:
+                    # Some Dataiku versions support get_file() or get_download_stream()
+                    if hasattr(dataset, 'get_file'):
+                        with dataset.get_file(file_path) as f:
+                            df = pd.read_csv(f)
+                    elif hasattr(dataset, 'get_download_stream'):
+                        with dataset.get_download_stream(path=file_path) as f:
+                            df = pd.read_csv(f)
+                    else:
+                        # Fallback: try to construct the file path and read directly if possible
+                        print(f"Dataset folder direct access not available, checking if file is accessible via filesystem...")
+                        
+                        # Try to construct potential filesystem path
+                        base_dir = os.path.dirname(__file__)
+                        potential_path = os.path.join(base_dir, 'dataset_files', file_path.lstrip('/'))
+                        
+                        if os.path.exists(potential_path):
+                            df = pd.read_csv(potential_path)
+                            print(f"Successfully loaded {well_name} from filesystem fallback: {potential_path}")
+                        else:
+                            print(f"File not accessible: {potential_path}")
+                            return None
+                    
+                    print(f"Successfully loaded {well_name} from dataset folder: {len(df)} rows")
+                    return df
+                    
+                except Exception as inner_err:
+                    print(f"Failed to access file {file_path} in dataset folder: {inner_err}")
+                    
+                    # Fallback: Check if we can access via local filesystem
+                    base_dir = os.path.dirname(__file__)
+                    potential_path = os.path.join(base_dir, 'dataset_files', file_path.lstrip('/'))
+                    
+                    if os.path.exists(potential_path):
+                        df = pd.read_csv(potential_path)
+                        print(f"Successfully loaded {well_name} from filesystem fallback: {potential_path}")
+                        return df
+                    else:
+                        print(f"File not accessible via any method: {file_path}")
+                        return None
                 
             except Exception as api_err:
                 print(f"Dataset folder API access failed for {file_path}: {api_err}")
@@ -2442,6 +2475,18 @@ def select_dataset():
 
         print(f"Final dataset selection: {dataset_name}")
         result = analysis.select_dataset(dataset_name)
+        
+        # If we have structure context, filter wells to only include those from the selected structure
+        if structure_context and result.get('status') == 'success' and result.get('wells'):
+            structure_wells = structure_context.get('wells', [])
+            if structure_wells:
+                # Filter wells list to only include wells from the selected structure
+                all_wells = result.get('wells', [])
+                filtered_wells = [w for w in all_wells if w in structure_wells]
+                result['wells'] = filtered_wells
+                result['message'] = f"Loaded {len(filtered_wells)} wells from {structure_context.get('structure_name', 'selected structure')} structure"
+                print(f"🏗️ Filtered wells for structure {structure_context.get('structure_name')}: {len(filtered_wells)} wells from {len(all_wells)} total")
+        
         return json.dumps(result)
     except Exception as e:
         error_msg = f"Error in select_dataset endpoint: {str(e)}"
