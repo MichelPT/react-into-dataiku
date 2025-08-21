@@ -188,9 +188,9 @@ function initializeStructuresPage() {
         });
 }
 
-// Load structures definition, preferring backend (dataset_fix) then falling back to static JSON
+// Load structures definition, preferring backend dataset (fix_pass_qc) then falling back to static JSON
 function loadStructuresFromFolder() {
-    // 1) Try backend first (dataset-driven from dataset_fix)
+    // 1) Try backend first (dataset-driven from fix_pass_qc)
     return fetchJson('/get_structures_index')
         .then(function(resp){
             if (resp && resp.status === 'success' && resp.data && Array.isArray(resp.data.fields)) {
@@ -1581,54 +1581,9 @@ function findStructureData(fieldName, structureName) {
 }
 
 // Back-compat: markers list was previously called interval list
+// Back-compat: legacy interval list now maps to markers list UI
 function renderIntervalList(intervals) {
-    var intervalList = document.getElementById('intervalList');
-    intervalList.innerHTML = '';
-    
-    if (intervals.length === 0) {
-        intervalList.innerHTML = '<div class="empty-state">No intervals available</div>';
-        return;
-    }
-    
-    intervals.forEach(function(intervalName) {
-        var intervalItem = document.createElement('div');
-        intervalItem.className = 'list-item';
-        intervalItem.setAttribute('data-id', intervalName);
-        
-        var checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = 'interval-' + intervalName;
-        checkbox.checked = appState.selectedIntervals.indexOf(intervalName) !== -1;
-        
-        var label = document.createElement('label');
-        label.htmlFor = 'interval-' + intervalName;
-        label.textContent = intervalName;
-        
-        var statusDot = document.createElement('div');
-        statusDot.className = 'status-dot';
-        statusDot.style.display = checkbox.checked ? 'block' : 'none';
-        
-        intervalItem.appendChild(checkbox);
-        intervalItem.appendChild(label);
-        intervalItem.appendChild(statusDot);
-        
-        // Add click event listener
-        intervalItem.addEventListener('click', function(e) {
-            var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
-            if (e.target === checkbox || tag === 'label') {
-                return;
-            }
-            checkbox.checked = !checkbox.checked;
-            toggleInterval(intervalName);
-        });
-        
-        checkbox.addEventListener('change', function(e) {
-            e.stopPropagation();
-            toggleInterval(intervalName);
-        });
-        
-        intervalList.appendChild(intervalItem);
-    });
+    renderMarkersList(intervals || []);
 }
 
 function renderMarkersList(markers) {
@@ -3302,15 +3257,15 @@ function initializeApp() {
 function autoLoadDefaultDataset() {
     // Check if user has selected a structure from structures page
     var selectedStructure = appState.currentStructure;
-    var datasetName = 'dataset_fix'; // default single source
-    var payload = { dataset_name: datasetName };
+    // Prefer folder-based dataset_files mode by default
+    var payload = { dataset_name: 'dataset_files' };
     
     if (selectedStructure && selectedStructure.name) {
-        // Always use dataset_fix regardless of structure; backend prefers folder-mode
-        payload = { dataset_name: 'dataset_fix', structure_name: selectedStructure.name };
-        console.log('Auto-loading dataset for structure (folder mode):', selectedStructure.name, '- Dataset: dataset_fix');
+        // Keep using dataset_files in folder mode; include structure_name only as context
+        payload.structure_name = selectedStructure.name;
+        console.log('Auto-loading dataset_files (folder) for structure:', selectedStructure.name);
     } else {
-        console.log('Auto-loading default dataset_fix dataset...');
+        console.log('Auto-loading dataset_files (folder or dataset)...');
     }
     
     return fetchJson('/select_dataset', {
@@ -3319,9 +3274,14 @@ function autoLoadDefaultDataset() {
     })
     .then(function(response) {
         if (response.status === 'success') {
-            appState.availableWells = response.wells;
+            var wells = Array.isArray(response.wells) ? response.wells : [];
+            // Fallback: if folder mode returns 0 wells, use structure wells list if available
+            if ((!wells || wells.length === 0) && appState.currentStructure && Array.isArray(appState.currentStructure.wells) && appState.currentStructure.wells.length > 0) {
+                wells = appState.currentStructure.wells.slice();
+            }
+            appState.availableWells = wells;
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
-            renderWellList(response.wells);
+            renderWellList(wells);
             
             // Also load intervals after dataset is selected
             if (response.markers && response.markers.length > 0) {
@@ -3335,9 +3295,10 @@ function autoLoadDefaultDataset() {
             
             updateBadges();
             
-            var successMessage = selectedStructure 
-                ? 'Loaded ' + response.wells.length + ' wells from ' + selectedStructure.name + ' structure (' + response.dataset_name + ')'
-                : 'Loaded ' + response.wells.length + ' wells from ' + response.dataset_name + ' dataset';
+            var structName = (selectedStructure && selectedStructure.name) ? selectedStructure.name : null;
+            var successMessage = structName 
+                ? 'Loaded ' + wells.length + ' wells from ' + structName + ' structure (' + response.dataset_name + ')'
+                : 'Loaded ' + wells.length + ' wells from ' + response.dataset_name + ' dataset';
             showSuccess(successMessage);
         } else {
             throw new Error(response.message || 'Failed to load dataset');
@@ -3348,13 +3309,13 @@ function autoLoadDefaultDataset() {
         
         // More specific error handling
         var errorMessage = error.message;
-    if (errorMessage.includes('dataset does not exist')) {
+        if (errorMessage.includes('dataset does not exist')) {
             if (selectedStructure) {
                 errorMessage = 'Dataset for structure "' + selectedStructure.name + '" not found. Trying fallback dataset...';
                 showError(errorMessage);
                 return autoLoadFallbackDataset();
             } else {
-        errorMessage = 'Default dataset not found. Please check that dataset_fix folder or dataset exists.';
+                errorMessage = 'Default dataset not found. Please check if fix_pass_qc dataset exists in your Dataiku project.';
             }
         }
         
@@ -3369,17 +3330,21 @@ function autoLoadDefaultDataset() {
 }
 
 function autoLoadFallbackDataset() {
-    console.log('Loading fallback dataset: dataset_fix');
+    console.log('Loading fallback dataset: dataset_files');
     
     return fetchJson('/select_dataset', {
         method: 'POST',
-        body: JSON.stringify({ dataset_name: 'dataset_fix' })
+        body: JSON.stringify({ dataset_name: 'dataset_files' })
     })
     .then(function(response) {
         if (response.status === 'success') {
-            appState.availableWells = response.wells;
+            var wells = Array.isArray(response.wells) ? response.wells : [];
+            if ((!wells || wells.length === 0) && appState.currentStructure && Array.isArray(appState.currentStructure.wells) && appState.currentStructure.wells.length > 0) {
+                wells = appState.currentStructure.wells.slice();
+            }
+            appState.availableWells = wells;
             appState.currentDataset = response.dataset_name; // Use actual dataset name from backend
-            renderWellList(response.wells);
+            renderWellList(wells);
             
             // Also load intervals for fallback dataset
             if (response.markers && response.markers.length > 0) {
@@ -3391,14 +3356,14 @@ function autoLoadFallbackDataset() {
             }
             
             updateBadges();
-            showSuccess('Loaded ' + response.wells.length + ' wells from fallback dataset: ' + response.dataset_name);
+            showSuccess('Loaded ' + wells.length + ' wells from fallback dataset: ' + response.dataset_name);
         } else {
             throw new Error(response.message || 'Failed to load fallback dataset');
         }
     })
     .catch(function(error) {
         console.error('Error loading fallback dataset:', error);
-        showError('Error loading fallback dataset: ' + error.message + '. Ensure dataset_fix folder/dataset exists.');
+        showError('Error loading fallback dataset: ' + error.message + '. Please ensure at least one dataset exists in your Dataiku project.');
     });
 }
 
