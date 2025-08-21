@@ -1225,17 +1225,140 @@ class WellLogAnalysis:
             return {"status": "error", "message": f"Error creating porosity plot: {str(e)}"}
     
     def _create_gsa_plot(self, df):
-        """Create GSA plot"""
+        """Create GSA plot - enhanced to handle RGSA, DGSA, NGSA individually or combined"""
         try:
-            # Accept plot if any GSA-related column exists
+            # Check for any GSA-related columns
             gsa_cols = [c for c in ['RGSA', 'NGSA', 'DGSA'] if c in df.columns]
+            
             if len(gsa_cols) == 0:
-                return {"status": "error", "message": "Missing GSA data"}
-            fig = plot_gsa_main(df)
-            return {"status": "success", "figure": fig.to_dict()}
+                # Fall back to dashboard plot if no GSA columns found
+                print("No GSA columns found, falling back to dashboard plot")
+                df_normalized = self._ensure_crossplot_norms(df)
+                fig = self._plot_dashboard_log(df_normalized)
+                return {"status": "success", "figure": fig.to_dict()}
+            
+            # Use enhanced GSA plotting function
+            try:
+                fig = plot_gsa_main(df)
+                return {"status": "success", "figure": fig.to_dict()}
+            except Exception as plot_error:
+                print(f"GSA plot failed: {plot_error}, falling back to dashboard")
+                # Fallback to enhanced dashboard that includes GSA columns
+                df_normalized = self._ensure_crossplot_norms(df)
+                fig = self._plot_gsa_dashboard(df_normalized)
+                return {"status": "success", "figure": fig.to_dict()}
+                
         except Exception as e:
             return {"status": "error", "message": f"Error creating GSA plot: {str(e)}"}
     
+    def _plot_gsa_dashboard(self, df):
+        """Enhanced dashboard plot that includes GSA columns if available"""
+        from plotly.subplots import make_subplots
+        import plotly.graph_objects as go
+        
+        # Prepare depth and available logs
+        depth_col = 'DEPTH' if 'DEPTH' in df.columns else ('DEPT' if 'DEPT' in df.columns else None)
+        if depth_col is None:
+            return self._plot_dashboard_log(df)
+
+        y = pd.to_numeric(df[depth_col], errors='coerce')
+        
+        # Determine number of columns based on available GSA data
+        gsa_cols = [c for c in ['RGSA', 'NGSA', 'DGSA'] if c in df.columns]
+        base_cols = 4  # Marker, GR, RT, RHOB&NPHI
+        total_cols = base_cols + len(gsa_cols)
+        
+        # Create subplot titles
+        titles = ['Marker', 'GR', 'RT', 'RHOB & NPHI']
+        for col in gsa_cols:
+            if col == 'RGSA':
+                titles.append('RT vs RGSA')
+            elif col == 'NGSA':
+                titles.append('NPHI vs NGSA')
+            elif col == 'DGSA':
+                titles.append('RHOB vs DGSA')
+        
+        # Build subplots
+        fig = make_subplots(
+            rows=1, cols=total_cols,
+            subplot_titles=titles,
+            shared_yaxes=True,
+            horizontal_spacing=0.02
+        )
+
+        # Track 1: Marker annotations
+        if 'MARKER' in df.columns:
+            try:
+                markers_df = extract_markers_with_mean_depth(df)
+                fig.add_trace(
+                    go.Scatter(x=[0, 0], y=[y.min(), y.max()], mode='lines', line=dict(color='lightgray'), showlegend=False),
+                    row=1, col=1
+                )
+                for _, r in markers_df.iterrows():
+                    fig.add_annotation(x=0, y=r['MEAN_DEPTH'], text=r['MARKER'], showarrow=False, xshift=10, row=1, col=1)
+            except Exception:
+                fig.add_trace(go.Scatter(x=[0, 0], y=[y.min(), y.max()], mode='lines', showlegend=False), row=1, col=1)
+        else:
+            fig.add_trace(go.Scatter(x=[0, 0], y=[y.min(), y.max()], mode='lines', showlegend=False), row=1, col=1)
+
+        # Track 2: GR
+        if 'GR' in df.columns:
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['GR'], errors='coerce'), y=y, mode='lines', name='GR', line=dict(color='#2ca02c')), row=1, col=2)
+
+        # Track 3: RT
+        if 'RT' in df.columns:
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['RT'], errors='coerce'), y=y, mode='lines', name='RT', line=dict(color='#1f77b4')), row=1, col=3)
+            try:
+                rt_values = pd.to_numeric(df['RT'], errors='coerce').dropna()
+                if rt_values.min() > 0:
+                    fig.update_xaxes(type="log", row=1, col=3)
+            except Exception:
+                pass
+
+        # Track 4: RHOB + NPHI combined
+        if 'RHOB' in df.columns:
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['RHOB'], errors='coerce'), y=y, mode='lines', name='RHOB', line=dict(color='#9467bd', dash='solid')), row=1, col=4)
+        if 'NPHI' in df.columns:
+            fig.add_trace(go.Scatter(x=pd.to_numeric(df['NPHI'], errors='coerce'), y=y, mode='lines', name='NPHI', line=dict(color='#ff7f0e', dash='solid')), row=1, col=4)
+
+        # GSA columns - overlay original and GSA curves
+        col_offset = base_cols
+        for i, gsa_col in enumerate(gsa_cols):
+            current_col = col_offset + i + 1
+            
+            if gsa_col == 'RGSA' and 'RT' in df.columns:
+                # RT vs RGSA comparison
+                fig.add_trace(go.Scatter(x=pd.to_numeric(df['RT'], errors='coerce'), y=y, mode='lines', name='RT', line=dict(color='#1f77b4')), row=1, col=current_col)
+                fig.add_trace(go.Scatter(x=pd.to_numeric(df['RGSA'], errors='coerce'), y=y, mode='lines', name='RGSA', line=dict(color='#d62728', dash='dash')), row=1, col=current_col)
+                try:
+                    rt_values = pd.to_numeric(df['RT'], errors='coerce').dropna()
+                    if rt_values.min() > 0:
+                        fig.update_xaxes(type="log", row=1, col=current_col)
+                except Exception:
+                    pass
+                    
+            elif gsa_col == 'NGSA' and 'NPHI' in df.columns:
+                # NPHI vs NGSA comparison
+                fig.add_trace(go.Scatter(x=pd.to_numeric(df['NPHI'], errors='coerce'), y=y, mode='lines', name='NPHI', line=dict(color='#ff7f0e')), row=1, col=current_col)
+                fig.add_trace(go.Scatter(x=pd.to_numeric(df['NGSA'], errors='coerce'), y=y, mode='lines', name='NGSA', line=dict(color='#2ca02c', dash='dash')), row=1, col=current_col)
+                
+            elif gsa_col == 'DGSA' and 'RHOB' in df.columns:
+                # RHOB vs DGSA comparison
+                fig.add_trace(go.Scatter(x=pd.to_numeric(df['RHOB'], errors='coerce'), y=y, mode='lines', name='RHOB', line=dict(color='#9467bd')), row=1, col=current_col)
+                fig.add_trace(go.Scatter(x=pd.to_numeric(df['DGSA'], errors='coerce'), y=y, mode='lines', name='DGSA', line=dict(color='#8c564b', dash='dash')), row=1, col=current_col)
+
+        # Set layout
+        dmin, dmax = float(y.min()), float(y.max())
+        pad = (dmax - dmin) * 0.02 if dmax > dmin else 0
+        fig.update_yaxes(autorange='reversed', range=[dmax + pad, dmin - pad])
+        fig.update_layout(
+            height=820,
+            margin=dict(t=80, b=90, l=60, r=20),
+            title={"text": "GSA Analysis Dashboard", "x": 0.5, "xanchor": "center", "y": 0.98, "yanchor": "top", "pad": {"b": 12}},
+            legend_orientation='h', legend_yanchor='top', legend_y=-0.12
+        )
+        
+        return fig
     def _create_normalization_plot(self, df):
         """Create normalization plot"""
         try:

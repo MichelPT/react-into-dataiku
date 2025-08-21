@@ -1769,7 +1769,7 @@ function updateIntervalSelection() {
 function toggleAllIntervals() {
     var checkbox = document.getElementById('selectAllIntervals');
     
-    if (checkbox.checked) {
+    if (checkbox && checkbox.checked) {
         appState.selectedIntervals = appState.availableIntervals.slice(); // Copy array
     } else {
         appState.selectedIntervals = [];
@@ -1781,6 +1781,28 @@ function toggleAllIntervals() {
     // Regenerate plot when all intervals are toggled (if wells are selected)
     if (appState.selectedWells.length > 0) {
         console.log('Regenerating plot with all intervals toggled');
+        generatePlot();
+    }
+}
+
+function toggleAllMarkers() {
+    var checkbox = document.getElementById('selectAllMarkers');
+    
+    if (checkbox && checkbox.checked) {
+        appState.selectedIntervals = (appState.availableIntervals || []).slice(); // Copy array
+    } else {
+        appState.selectedIntervals = [];
+    }
+    
+    // Switch to markers tab if not already
+    appState.intervalsTab = 'markers';
+    updateIntervalsTabVisibility();
+    updateIntervalSelection();
+    updateBadges();
+    
+    // Regenerate plot when all markers are toggled (if wells are selected)
+    if (appState.selectedWells.length > 0) {
+        console.log('Regenerating plot with all markers toggled');
         generatePlot();
     }
 }
@@ -2042,34 +2064,28 @@ function getCalculationParameters(calculationType) {
         'rgsa': {
             title: 'Resistivity Gamma Ray Shale Analysis (RGSA) Parameters', 
             parameters: [
-                { name: 'GR_COLUMN', label: 'Gamma Ray Column', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
-                { name: 'RT_COLUMN', label: 'Resistivity Column', type: 'select', options: ['RT', 'ILD', 'RD'], default_value: 'RT', required: true },
-                { name: 'GR_CLEAN', label: 'Clean GR Value', type: 'number', default_value: 30, required: true },
-                { name: 'GR_SHALE', label: 'Shale GR Value', type: 'number', default_value: 150, required: true },
-                { name: 'RT_CLEAN', label: 'Clean RT Value', type: 'number', default_value: 100, required: true },
-                { name: 'RT_SHALE', label: 'Shale RT Value', type: 'number', default_value: 2, required: true }
+                { name: 'SLIDING_WINDOW', location: 'Interval', mode: 'In_Out', description: 'Sliding window size for regression', unit: 'Points', type: 'number', default_value: 100, required: true, min: 20, max: 500 },
+                { name: 'GR', location: 'Log', mode: 'Input', description: 'Gamma ray log', unit: 'GAPI', type: 'select', options: ['GR', 'CGR', 'SGR'], default_value: 'GR', required: true },
+                { name: 'RES', location: 'Log', mode: 'Input', description: 'Resistivity log', unit: 'OHMM', type: 'select', options: ['RT', 'ILD', 'LLD', 'RD'], default_value: 'RT', required: true },
+                { name: 'RES_MIN', location: 'Interval', mode: 'In_Out', description: 'Minimum resistivity filter', unit: 'OHMM', type: 'number', default_value: 0.1, required: false, min: 0.01, max: 10 },
+                { name: 'RES_MAX', location: 'Interval', mode: 'In_Out', description: 'Maximum resistivity filter', unit: 'OHMM', type: 'number', default_value: 1000, required: false, min: 10, max: 10000 },
+                { name: 'LITH', location: 'Log', mode: 'Input', description: 'Lithology column (optional)', unit: '', type: 'select', options: ['LITHOLOGY', 'LITH', 'FACIES'], default_value: 'LITHOLOGY', required: false }
             ]
         },
         'dgsa': {
             title: 'Density Gamma Ray Shale Analysis (DGSA) Parameters',
             parameters: [
-                { name: 'GR_COLUMN', label: 'Gamma Ray Column', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
-                { name: 'RHOB_COLUMN', label: 'Density Column', type: 'select', options: ['RHOB', 'RHOZ'], default_value: 'RHOB', required: true },
-                { name: 'GR_CLEAN', label: 'Clean GR Value', type: 'number', default_value: 30, required: true },
-                { name: 'GR_SHALE', label: 'Shale GR Value', type: 'number', default_value: 150, required: true },
-                { name: 'RHOB_CLEAN', label: 'Clean Density Value', type: 'number', default_value: 2.65, required: true },
-                { name: 'RHOB_SHALE', label: 'Shale Density Value', type: 'number', default_value: 2.2, required: true }
+                { name: 'SLIDING_WINDOW', location: 'Interval', mode: 'In_Out', description: 'Sliding window size for regression', unit: 'Points', type: 'number', default_value: 100, required: true, min: 20, max: 500 },
+                { name: 'GR', location: 'Log', mode: 'Input', description: 'Gamma ray log', unit: 'GAPI', type: 'select', options: ['GR', 'CGR', 'SGR'], default_value: 'GR', required: true },
+                { name: 'DENS', location: 'Log', mode: 'Input', description: 'Density log', unit: 'G/C3', type: 'select', options: ['RHOB', 'RHOZ'], default_value: 'RHOB', required: true }
             ]
         },
         'ngsa': {
             title: 'Neutron Gamma Ray Shale Analysis (NGSA) Parameters',
             parameters: [
-                { name: 'GR_COLUMN', label: 'Gamma Ray Column', type: 'select', options: ['GR', 'CGR'], default_value: 'GR', required: true },
-                { name: 'NPHI_COLUMN', label: 'Neutron Column', type: 'select', options: ['NPHI', 'TNPH'], default_value: 'NPHI', required: true },
-                { name: 'GR_CLEAN', label: 'Clean GR Value', type: 'number', default_value: 30, required: true },
-                { name: 'GR_SHALE', label: 'Shale GR Value', type: 'number', default_value: 150, required: true },
-                { name: 'NPHI_CLEAN', label: 'Clean Neutron Value', type: 'number', default_value: 0.05, required: true },
-                { name: 'NPHI_SHALE', label: 'Shale Neutron Value', type: 'number', default_value: 0.35, required: true }
+                { name: 'SLIDING_WINDOW', location: 'Interval', mode: 'In_Out', description: 'Sliding window size for regression', unit: 'Points', type: 'number', default_value: 100, required: true, min: 20, max: 500 },
+                { name: 'GR', location: 'Log', mode: 'Input', description: 'Gamma ray log', unit: 'GAPI', type: 'select', options: ['GR', 'CGR', 'SGR'], default_value: 'GR', required: true },
+                { name: 'NEUT', location: 'Log', mode: 'Input', description: 'Neutron log', unit: 'V/V', type: 'select', options: ['NPHI', 'TNPH'], default_value: 'NPHI', required: true }
             ]
         },
         'vsh_calculation': {
@@ -2457,6 +2473,12 @@ function submitCalculationParameters() {
         handleSWSimandouxCalculation(finalParams);
     } else if (calculationType === 'water-resistivity' || calculationType === 'water-resistivity-calculation') {
         handleWaterResistivityCalculation(finalParams);
+    } else if (calculationType === 'rgsa') {
+        handleRGSACalculation(finalParams);
+    } else if (calculationType === 'dgsa') {
+        handleDGSACalculation(finalParams);
+    } else if (calculationType === 'ngsa') {
+        handleNGSACalculation(finalParams);
     } else {
         // For other calculations, use the generic calculation endpoint
         var payload = {
@@ -2770,6 +2792,159 @@ function handleWaterResistivityCalculation(params) {
         setIsLoading(false);
         showError('Error: ' + error.message);
         console.error('Water Resistivity Calculation error:', error);
+    });
+}
+
+function handleRGSACalculation(params) {
+    // Extract parameters from interval-specific format if available
+    var finalParams = params;
+    var intervalSpecific = null;
+    
+    if (params.intervals && Object.keys(params.intervals).length > 0) {
+        // Use first interval's parameters as default for main calculation
+        var firstInterval = Object.keys(params.intervals)[0];
+        finalParams = params.intervals[firstInterval];
+        intervalSpecific = params.intervals;
+    }
+    
+    var payload = {
+        calculation_type: 'rgsa',
+        params: {
+            SLIDING_WINDOW: parseInt(finalParams.SLIDING_WINDOW) || 100,
+            GR: finalParams.GR || 'GR',
+            RES: finalParams.RES || 'RT',
+            RES_MIN: parseFloat(finalParams.RES_MIN) || 0.1,
+            RES_MAX: parseFloat(finalParams.RES_MAX) || 1000,
+            LITH: finalParams.LITH || null,
+            intervals: intervalSpecific
+        },
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals,
+        selected_zones: appState.selectedZones
+    };
+    
+    console.log('🚀 RGSA Calculation payload:', payload);
+    
+    fetchJson('/run_calculation_endpoint', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(function(data) {
+        setIsLoading(false);
+        if (data.status === 'success') {
+            showSuccess('RGSA calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Create calculation plot to show results
+            createCalculationPlot('rgsa');
+        } else {
+            throw new Error(data.message || 'RGSA calculation failed');
+        }
+    })
+    .catch(function(error) {
+        setIsLoading(false);
+        showError('Error in RGSA calculation: ' + error.message);
+        console.error('RGSA Calculation error:', error);
+    });
+}
+
+function handleDGSACalculation(params) {
+    // Extract parameters from interval-specific format if available
+    var finalParams = params;
+    var intervalSpecific = null;
+    
+    if (params.intervals && Object.keys(params.intervals).length > 0) {
+        // Use first interval's parameters as default for main calculation
+        var firstInterval = Object.keys(params.intervals)[0];
+        finalParams = params.intervals[firstInterval];
+        intervalSpecific = params.intervals;
+    }
+    
+    var payload = {
+        calculation_type: 'dgsa',
+        params: {
+            SLIDING_WINDOW: parseInt(finalParams.SLIDING_WINDOW) || 100,
+            GR: finalParams.GR || 'GR',
+            DENS: finalParams.DENS || 'RHOB',
+            intervals: intervalSpecific
+        },
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals,
+        selected_zones: appState.selectedZones
+    };
+    
+    console.log('🚀 DGSA Calculation payload:', payload);
+    
+    fetchJson('/run_calculation_endpoint', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(function(data) {
+        setIsLoading(false);
+        if (data.status === 'success') {
+            showSuccess('DGSA calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Create calculation plot to show results
+            createCalculationPlot('dgsa');
+        } else {
+            throw new Error(data.message || 'DGSA calculation failed');
+        }
+    })
+    .catch(function(error) {
+        setIsLoading(false);
+        showError('Error in DGSA calculation: ' + error.message);
+        console.error('DGSA Calculation error:', error);
+    });
+}
+
+function handleNGSACalculation(params) {
+    // Extract parameters from interval-specific format if available
+    var finalParams = params;
+    var intervalSpecific = null;
+    
+    if (params.intervals && Object.keys(params.intervals).length > 0) {
+        // Use first interval's parameters as default for main calculation
+        var firstInterval = Object.keys(params.intervals)[0];
+        finalParams = params.intervals[firstInterval];
+        intervalSpecific = params.intervals;
+    }
+    
+    var payload = {
+        calculation_type: 'ngsa',
+        params: {
+            SLIDING_WINDOW: parseInt(finalParams.SLIDING_WINDOW) || 100,
+            GR: finalParams.GR || 'GR',
+            NEUT: finalParams.NEUT || 'NPHI',
+            intervals: intervalSpecific
+        },
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals,
+        selected_zones: appState.selectedZones
+    };
+    
+    console.log('🚀 NGSA Calculation payload:', payload);
+    
+    fetchJson('/run_calculation_endpoint', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(function(data) {
+        setIsLoading(false);
+        if (data.status === 'success') {
+            showSuccess('NGSA calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Create calculation plot to show results
+            createCalculationPlot('ngsa');
+        } else {
+            throw new Error(data.message || 'NGSA calculation failed');
+        }
+    })
+    .catch(function(error) {
+        setIsLoading(false);
+        showError('Error in NGSA calculation: ' + error.message);
+        console.error('NGSA Calculation error:', error);
     });
 }
 
@@ -3105,17 +3280,34 @@ function handleHistogram() {
 }
 
 function createCalculationPlot(calculationType) {
-    var wellName = appState.selectedWells.length > 0 ? appState.selectedWells[0] : null;
+    console.log('Creating calculation plot for:', calculationType);
+    
+    if (appState.selectedWells.length === 0) {
+        showError('No wells selected for plot generation');
+        return Promise.reject(new Error('No wells selected'));
+    }
+    
+    var wellName = appState.selectedWells[0];
     
     var requestData = {
         calculation_type: calculationType,
-        well_name: wellName
+        well_name: wellName,
+        selected_intervals: appState.selectedIntervals,
+        selected_zones: appState.selectedZones
     };
     
     // Add structure context if available
     if (appState.currentStructure) {
-        requestData.structure_context = appState.currentStructure;
+        requestData.structure_context = {
+            field_name: appState.currentStructure.fieldName,
+            structure_name: appState.currentStructure.structureName,
+            file_path: appState.currentStructure.filePath,
+            wells: appState.currentStructure.wells,
+            columns: appState.currentStructure.columns
+        };
     }
+    
+    console.log('🚀 Calculation plot request:', requestData);
     
     return fetchJson('/get_plot_for_calculation', {
         method: 'POST',
@@ -3123,13 +3315,46 @@ function createCalculationPlot(calculationType) {
     })
     .then(function(response) {
         if (response.status === 'success' && response.figure) {
-            createPlot(response.figure);
+            // Handle different response formats
+            var plotObject;
+            if (typeof response.figure === 'string') {
+                plotObject = JSON.parse(response.figure);
+            } else {
+                plotObject = response.figure;
+            }
+            
+            // Update plot state
+            appState.plotFigure = {
+                data: plotObject.data || [],
+                layout: plotObject.layout || {}
+            };
+            
+            createPlot(plotObject);
+            
+            var calculationName = calculationType.toUpperCase();
+            showSuccess(`${calculationName} plot created for well: ${wellName}`);
         } else {
             console.error('Failed to create calculation plot:', response.message);
+            showError('Failed to create calculation plot: ' + (response.message || 'Unknown error'));
+            
+            // Fallback: try to refresh current plot
+            if (appState.selectedWells.length > 0) {
+                console.log('Falling back to regular well plot...');
+                return loadWellPlot(appState.selectedWells[0]);
+            }
         }
     })
     .catch(function(error) {
         console.error('Error creating calculation plot:', error);
+        showError('Error creating calculation plot: ' + error.message);
+        
+        // Fallback: try to refresh current plot
+        if (appState.selectedWells.length > 0) {
+            console.log('Falling back to regular well plot...');
+            return loadWellPlot(appState.selectedWells[0]);
+        }
+        
+        throw error;
     });
 }
 
