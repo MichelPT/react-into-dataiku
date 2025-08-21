@@ -313,13 +313,21 @@ class WellLogAnalysis:
     def _folder_roots(self):
         base_dir = os.path.dirname(__file__)
         ds_fix = os.path.join(base_dir, 'dataset_fix')
-        if not (os.path.isdir(os.path.join(ds_fix, 'structures')) or os.path.isdir(os.path.join(ds_fix, 'wells'))):
-            # Alias: if dataset_fix is missing, use existing dataset_files structure as dataset_fix
-            ds_files = os.path.join(base_dir, 'dataset_files')
-            if os.path.isdir(ds_files):
-                print("Alias: mapping 'dataset_fix' to existing 'dataset_files' folder")
-                return [('dataset_fix', ds_files)]
-        return [('dataset_fix', ds_fix)]
+        ds_files = os.path.join(base_dir, 'dataset_files')
+        
+        # Check if dataset_fix folder exists with proper structure
+        if os.path.isdir(ds_fix) and (os.path.isdir(os.path.join(ds_fix, 'structures')) or os.path.isdir(os.path.join(ds_fix, 'wells'))):
+            print("Using dataset_fix folder")
+            return [('dataset_fix', ds_fix)]
+        
+        # Check if dataset_files folder exists with proper structure    
+        if os.path.isdir(ds_files) and (os.path.isdir(os.path.join(ds_files, 'structures')) or os.path.isdir(os.path.join(ds_files, 'wells'))):
+            print("Alias: mapping 'dataset_fix' to existing 'dataset_files' folder")
+            return [('dataset_fix', ds_files)]
+            
+        # Return empty if no valid folder structure found
+        print("No valid folder structure found for dataset_fix")
+        return []
 
     def _root_path(self, root_name: str):
         for name, path in self._folder_roots():
@@ -385,27 +393,18 @@ class WellLogAnalysis:
         return None
     
     def auto_load_default_dataset(self):
-        """Auto-load dataset_fix only (prefer folder mode, else Dataiku dataset named 'dataset_fix')."""
+        """Auto-load dataset_fix only (prefer folder mode, else skip Dataiku dataset entirely)."""
         try:
-            base_dir = os.path.dirname(__file__)
-            dsf_fix_struct = os.path.join(base_dir, 'dataset_fix', 'structures')
-            dsf_fix_wells = os.path.join(base_dir, 'dataset_fix', 'wells')
-            # Also consider alias mapping to dataset_files when dataset_fix is absent
-            ds_files = os.path.join(base_dir, 'dataset_files')
-            if os.path.isdir(dsf_fix_struct) or os.path.isdir(dsf_fix_wells) or os.path.isdir(ds_files):
+            # Check if we have valid folder structure
+            folder_roots = self._folder_roots()
+            if folder_roots:
                 result = self.select_dataset('dataset_fix')
                 if result.get('status') == 'success':
                     print('Successfully auto-loaded dataset: dataset_fix (folder)')
                     return
-            # Fallback: Dataiku dataset named 'dataset_fix'
-            try:
-                result = self.select_dataset('dataset_fix')
-                if result.get('status') == 'success':
-                    print('Successfully auto-loaded dataset: dataset_fix (Dataiku)')
-                    return
-            except Exception:
-                pass
-            print('dataset_fix not found as folder or Dataiku dataset')
+            
+            # If no folder structure found, don't try Dataiku dataset to avoid CSV parsing errors
+            print('No valid folder structure found for dataset_fix - skipping auto-load')
         except Exception as e:
             print(f"Error auto-loading dataset: {str(e)}")
     
@@ -468,11 +467,12 @@ class WellLogAnalysis:
         try:
             # Default to dataset_fix when not specified
             dataset_name = dataset_name or 'dataset_fix'
-            # Folder-mode special handling for dataset_fix (only if folder exists)
+            
+            # For dataset_fix, ONLY use folder-mode - never try Dataiku dataset
             if str(dataset_name).lower() == 'dataset_fix':
-                root_name = 'dataset_fix'
-                root_dir = self._root_path(root_name)
-                if root_dir and os.path.isdir(root_dir):
+                folder_roots = self._folder_roots()
+                if folder_roots:
+                    root_name, root_dir = folder_roots[0]
                     self.current_dataset = f"{root_name} (folder)"
                     self.current_well_data = None  # per-well CSVs will be loaded on demand
                     wells = self._list_wells_in_root(root_name)
@@ -485,9 +485,14 @@ class WellLogAnalysis:
                         "total_rows": None,
                         "message": f"Using {root_name} folder mode (per-well CSVs)"
                     }
+                else:
+                    return {
+                        "status": "error", 
+                        "message": "dataset_fix folder not found. Please ensure dataset_fix folder exists with structures/ or wells/ subdirectories."
+                    }
 
+            # For other dataset names, try Dataiku dataset
             df = None
-            # Try Dataiku dataset first
             try:
                 dataset = dataiku.Dataset(dataset_name)
                 df = dataset.get_dataframe()
@@ -495,31 +500,7 @@ class WellLogAnalysis:
                 self.current_well_data = df
             except Exception as di_err:
                 print(f"Dataiku load failed for {dataset_name}: {di_err}")
-                # If user requested 'dataset_fix', fall back to folder-mode alias when available
-                if str(dataset_name).lower().startswith('dataset_fix'):
-                    root_name = 'dataset_fix'
-                    root_dir = self._root_path(root_name)
-                    if root_dir and os.path.isdir(root_dir):
-                        self.current_dataset = f"{root_name} (folder)"
-                        self.current_well_data = None
-                        wells = self._list_wells_in_root(root_name)
-                        return {
-                            "status": "success",
-                            "dataset_name": self.current_dataset,
-                            "wells": wells,
-                            "markers": [],
-                            "columns": [],
-                            "total_rows": None,
-                            "message": f"Using {root_name} folder mode (per-well CSVs) after Dataiku load failure"
-                        }
-                # Otherwise propagate error handling below
                 raise
-            
-            # Store current dataset info if not already set by fallback
-            if self.current_dataset is None:
-                self.current_dataset = dataset_name
-            if self.current_well_data is None:
-                self.current_well_data = df
             
             # Get basic info - check for different well column names
             wells = []
