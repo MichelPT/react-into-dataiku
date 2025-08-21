@@ -312,9 +312,14 @@ class WellLogAnalysis:
     # --------------
     def _folder_roots(self):
         base_dir = os.path.dirname(__file__)
-        return [
-            ('dataset_fix', os.path.join(base_dir, 'dataset_fix')),
-        ]
+        ds_fix = os.path.join(base_dir, 'dataset_fix')
+        if not (os.path.isdir(os.path.join(ds_fix, 'structures')) or os.path.isdir(os.path.join(ds_fix, 'wells'))):
+            # Alias: if dataset_fix is missing, use existing dataset_files structure as dataset_fix
+            ds_files = os.path.join(base_dir, 'dataset_files')
+            if os.path.isdir(ds_files):
+                print("Alias: mapping 'dataset_fix' to existing 'dataset_files' folder")
+                return [('dataset_fix', ds_files)]
+        return [('dataset_fix', ds_fix)]
 
     def _root_path(self, root_name: str):
         for name, path in self._folder_roots():
@@ -363,18 +368,18 @@ class WellLogAnalysis:
                 if field and struct:
                     p1 = os.path.join(root_base, 'structures', str(field), str(struct), f"{well_name}.csv")
                     if os.path.isfile(p1):
-                        return pd.read_csv(p1)
+                        return pd.read_csv(p1, sep=',', engine='python', on_bad_lines='skip')
                     # recursive search inside that structure folder
                     struct_root = os.path.join(root_base, 'structures', str(field), str(struct))
                     if os.path.isdir(struct_root):
                         for r, _d, files in os.walk(struct_root):
                             for fn in files:
                                 if fn.lower() == f"{well_name.lower()}.csv":
-                                    return pd.read_csv(os.path.join(r, fn))
+                                    return pd.read_csv(os.path.join(r, fn), sep=',', engine='python', on_bad_lines='skip')
             # 2) Fallback to global wells folder
             p2 = os.path.join(root_base, 'wells', f"{well_name}.csv")
             if os.path.isfile(p2):
-                return pd.read_csv(p2)
+                return pd.read_csv(p2, sep=',', engine='python', on_bad_lines='skip')
         except Exception as e:
             print(f"Failed loading per-well CSV for {well_name} in root {root_name}: {e}")
         return None
@@ -385,7 +390,9 @@ class WellLogAnalysis:
             base_dir = os.path.dirname(__file__)
             dsf_fix_struct = os.path.join(base_dir, 'dataset_fix', 'structures')
             dsf_fix_wells = os.path.join(base_dir, 'dataset_fix', 'wells')
-            if os.path.isdir(dsf_fix_struct) or os.path.isdir(dsf_fix_wells):
+            # Also consider alias mapping to dataset_files when dataset_fix is absent
+            ds_files = os.path.join(base_dir, 'dataset_files')
+            if os.path.isdir(dsf_fix_struct) or os.path.isdir(dsf_fix_wells) or os.path.isdir(ds_files):
                 result = self.select_dataset('dataset_fix')
                 if result.get('status') == 'success':
                     print('Successfully auto-loaded dataset: dataset_fix (folder)')
@@ -443,7 +450,7 @@ class WellLogAnalysis:
                 for fname in sorted(os.listdir(wells_dir)):
                     if fname.lower().endswith('.csv'):
                         p = os.path.join(wells_dir, fname)
-                        return pd.read_csv(p, nrows=5).columns.tolist()
+                        return pd.read_csv(p, nrows=5, engine='python', on_bad_lines='skip').columns.tolist()
             # Fallback to recursive search in structures
             structures_dir = os.path.join(root_base, 'structures')
             if os.path.isdir(structures_dir):
@@ -451,7 +458,7 @@ class WellLogAnalysis:
                     for fname in files:
                         if fname.lower().endswith('.csv'):
                             p = os.path.join(r, fname)
-                            return pd.read_csv(p, nrows=5).columns.tolist()
+                            return pd.read_csv(p, nrows=5, engine='python', on_bad_lines='skip').columns.tolist()
         except Exception as e:
             print(f"Failed sampling columns from root {root_name}: {e}")
         return []
