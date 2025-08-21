@@ -29,6 +29,60 @@ try:
     from standardwebappv1.services.swgrad import process_swgrad
     from standardwebappv1.services.dns_dnsv import process_dns_dnsv
     from standardwebappv1.services.sw import calculate_sw
+    print("✅ All services imported successfully")
+except ImportError as e:
+    print(f"⚠️ Service import error: {e}")
+    # Define fallback functions to prevent NameError
+    def process_all_wells_rgsa(df, params, target_intervals=None, target_zones=None):
+        print("⚠️ Using fallback RGSA implementation")
+        # Simple moving average fallback
+        window = params.get('SLIDING_WINDOW', 100)
+        gr_col = params.get('GR', 'GR')
+        rt_col = params.get('RES', 'RT')
+        
+        if rt_col in df.columns:
+            df['RGSA'] = df[rt_col].rolling(window=window, center=True).mean()
+            df['GAS_EFFECT_RT'] = df[rt_col] > df['RGSA']
+            df['RT_RATIO'] = df[rt_col] / df['RGSA']
+            df['RT_DIFF'] = df[rt_col] - df['RGSA']
+        return df
+    
+    def process_all_wells_dgsa(df, params, target_intervals=None, target_zones=None):
+        print("⚠️ Using fallback DGSA implementation")
+        window = params.get('SLIDING_WINDOW', 100)
+        dens_col = params.get('DENS', 'RHOB')
+        if dens_col in df.columns:
+            df['DGSA'] = df[dens_col].rolling(window=window, center=True).mean()
+        return df
+    
+    def process_all_wells_ngsa(df, params, target_intervals=None, target_zones=None):
+        print("⚠️ Using fallback NGSA implementation")
+        window = params.get('SLIDING_WINDOW', 100)
+        neut_col = params.get('NEUT', 'NPHI')
+        if neut_col in df.columns:
+            df['NGSA'] = df[neut_col].rolling(window=window, center=True).mean()
+        return df
+    
+    # Define other fallback functions as needed
+    def process_rgbe_rpbe(df, params):
+        return df
+    def process_rt_r0(df, params):
+        return df
+    def process_swgrad(df):
+        return df
+    def process_dns_dnsv(df, params):
+        return df
+    def calculate_sw(df, params):
+        return df
+    def calculate_vsh_from_gr(df, params):
+        return df
+    def calculate_porosity(df, params):
+        return df
+    def depth_matching(df, params):
+        return df
+
+# Try to import additional services
+try:
     from standardwebappv1.services.rwa import calculate_rwa
     from standardwebappv1.services.vsh_dn import calculate_vsh_dn
     from standardwebappv1.services.histogram import plot_histogram
@@ -46,58 +100,54 @@ try:
         plot_sw_indo,
         plot_rwa_indo
     )
+    print("✅ Additional services imported successfully")
 except ImportError as e:
-    print(f"Warning: Some services not available: {e}")
-    # Create dummy functions for missing services
+    print(f"⚠️ Additional service import error: {e}")
+    # Define fallback functions for additional services
+    def calculate_rwa(df, params):
+        return df
+    def calculate_vsh_dn(df, params):
+        return df
+    def plot_histogram(df, params):
+        return {}
+    def generate_crossplot(df, params):
+        return {}
+    def trim_data_auto(df, params):
+        return df
+    
     def extract_markers_with_mean_depth(df):
         return df.groupby('MARKER')['DEPTH'].mean().reset_index() if 'MARKER' in df.columns else pd.DataFrame()
     
-    def normalize_xover(df, col1, col2):
+    def normalize_xover(df, params):
         return df
     
-    def plot_log_default(df, df_marker=None, df_well_marker=None):
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
-        
-        fig = make_subplots(
-            rows=1, cols=4,
-            subplot_titles=('Gamma Ray', 'Resistivity', 'Neutron', 'Density'),
-            shared_yaxes=True
-        )
-        
-        if 'DEPTH' in df.columns and 'GR' in df.columns:
-            fig.add_trace(go.Scatter(x=df['GR'], y=df['DEPTH'], mode='lines', name='GR'), row=1, col=1)
-        if 'DEPTH' in df.columns and 'RT' in df.columns:
-            fig.add_trace(go.Scatter(x=df['RT'], y=df['DEPTH'], mode='lines', name='RT'), row=1, col=2)
-        if 'DEPTH' in df.columns and 'NPHI' in df.columns:
-            fig.add_trace(go.Scatter(x=df['NPHI'], y=df['DEPTH'], mode='lines', name='NPHI'), row=1, col=3)
-        if 'DEPTH' in df.columns and 'RHOB' in df.columns:
-            fig.add_trace(go.Scatter(x=df['RHOB'], y=df['DEPTH'], mode='lines', name='RHOB'), row=1, col=4)
-        
-        if 'DEPTH' in df.columns and not df.empty:
-            min_depth = df['DEPTH'].min()
-            max_depth = df['DEPTH'].max()
-            # Add small padding to the depth range
-            depth_padding = (max_depth - min_depth) * 0.05
-            fig.update_yaxes(
-                autorange='reversed',
-                range=[max_depth + depth_padding, min_depth - depth_padding]
-            )
-        else:
-            fig.update_yaxes(autorange='reversed')
-        
-        fig.update_layout(height=800, title='Well Log Plot')
-        return fig
+    def plot_gsa_main(df, params):
+        return {}
+    
+    def plot_log_default(df, params):
+        return {}
+    
+    def plot_smoothing(df, params):
+        return {}
+    
+    def plot_phie_den(df, params):
+        return {}
+    
+    def plot_normalization(df, params):
+        return {}
+    
+    def plot_vsh_linear(df, params):
+        return {}
+    
+    def plot_sw_indo(df, params):
+        return {}
+    
+    def plot_rwa_indo(df, params):
+        return {}
 
-    # Minimal placeholders for plotting functions referenced below
-    def plot_vsh_linear(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
+# End of import fallback functions section
 
-    def plot_phie_den(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
-
-    def plot_gsa_main(df=None):
-        return plot_log_default(df)
+# Remaining constants and definitions
 
     def plot_normalization(df=None, df_marker=None, df_well_marker=None):
         return plot_log_default(df)
