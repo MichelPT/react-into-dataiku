@@ -916,18 +916,17 @@ class WellLogAnalysis:
             return {"status": "error", "message": f"Error running calculation: {str(e)}"}
 
     def _run_trim_data_calculation(self, df, params):
-        """Trim data by depth range, intervals, or quality filter.
+        """Trim data using available services.
         params keys (from UI):
-          - start_depth: float
-          - end_depth: float
+          - start_depth: float (maps to top_depth)
+          - end_depth: float (maps to bottom_depth) 
           - method: 'depth_range' | 'interval_based' | 'quality_filter'
           - required_columns: optional list for quality filter
-        Uses self.selected_intervals and self.selected_wells where relevant.
         """
         try:
             method = (params or {}).get('method', 'depth_range')
-            start_depth = params.get('start_depth')
-            end_depth = params.get('end_depth')
+            start_depth = params.get('start_depth')  # top boundary
+            end_depth = params.get('end_depth')      # bottom boundary
             required_cols = params.get('required_columns') or ['GR','RT','NPHI','RHOB']
 
             # Determine depth column
@@ -935,42 +934,74 @@ class WellLogAnalysis:
             if not depth_col:
                 raise ValueError("No DEPTH/DEPT column in dataset")
 
-            out = df.copy()
             if method == 'depth_range':
-                # numeric conversion
-                if start_depth is None and end_depth is None:
-                    raise ValueError("Please provide start_depth/end_depth for depth_range method")
-                if start_depth is not None:
-                    start_depth = float(start_depth)
-                if end_depth is not None:
-                    end_depth = float(end_depth)
-                if start_depth is not None and end_depth is not None and start_depth > end_depth:
-                    start_depth, end_depth = end_depth, start_depth
-                if start_depth is not None:
-                    out = out[out[depth_col] >= start_depth]
-                if end_depth is not None:
-                    out = out[out[depth_col] <= end_depth]
+                # Use service implementation - map parameters correctly
+                # Frontend start_depth = top boundary, end_depth = bottom boundary
+                top_depth = start_depth
+                bottom_depth = end_depth
+                
+                if top_depth is None and bottom_depth is None:
+                    raise ValueError("Please provide start_depth or end_depth for depth_range method")
+                
+                # Determine trim mode based on what's provided
+                if top_depth is not None and bottom_depth is not None:
+                    mode = 'CUSTOM'
+                elif bottom_depth is not None and top_depth is None:
+                    mode = 'DEPTH_ABOVE'  # remove data above bottom_depth
+                elif top_depth is not None and bottom_depth is None:
+                    mode = 'DEPTH_BELOW'  # remove data below top_depth
+                else:
+                    mode = 'CUSTOM'
+                
+                # Use the service function
+                try:
+                    # Import inline to handle missing service gracefully
+                    import importlib
+                    trim_module = importlib.import_module('standardwebappv1.services.trim_data')
+                    trim_well_log = getattr(trim_module, 'trim_well_log')
+                    out = trim_well_log(
+                        df=df.copy(),
+                        top_depth=top_depth,
+                        bottom_depth=bottom_depth,
+                        required_columns=required_cols,
+                        mode=mode
+                    )
+                except (ImportError, AttributeError, Exception):
+                    # Fallback to manual implementation if service not available
+                    out = df.copy()
+                    if start_depth is not None:
+                        out = out[out[depth_col] >= start_depth]
+                    if end_depth is not None:
+                        out = out[out[depth_col] <= end_depth]
+                        
             elif method == 'interval_based':
                 intervals = self.selected_intervals or params.get('intervals') or []
                 if not intervals:
                     raise ValueError("No intervals selected for interval_based method")
-                marker_col = next((c for c in ['MARKER','Marker','FORMATION','Formation'] if c in out.columns), None)
+                marker_col = next((c for c in ['MARKER','Marker','FORMATION','Formation'] if c in df.columns), None)
                 if not marker_col:
                     raise ValueError("No marker column found for interval_based method")
-                out = out[out[marker_col].isin(intervals)]
+                out = df[df[marker_col].isin(intervals)].copy()
+                
             elif method == 'quality_filter':
-                # Keep continuous block between first and last valid rows across required columns
-                valid_ranges = []
-                for col in required_cols:
-                    if col in out.columns:
-                        series = pd.to_numeric(out[col], errors='coerce')
-                        idx = out[(series != -999.0) & (~series.isna())].index
-                        if len(idx) > 0:
-                            valid_ranges.append((idx.min(), idx.max()))
-                if valid_ranges:
-                    start = min(s for s, _ in valid_ranges)
-                    end = max(e for _, e in valid_ranges)
-                    out = out.loc[start:end]
+                # Use auto trim service
+                try:
+                    out = trim_data_auto(df.copy(), required_cols)
+                except Exception:
+                    # Fallback implementation
+                    valid_ranges = []
+                    for col in required_cols:
+                        if col in df.columns:
+                            series = pd.to_numeric(df[col], errors='coerce')
+                            idx = df[(series != -999.0) & (~series.isna())].index
+                            if len(idx) > 0:
+                                valid_ranges.append((idx.min(), idx.max()))
+                    if valid_ranges:
+                        start = min(s for s, _ in valid_ranges)
+                        end = max(e for _, e in valid_ranges)
+                        out = df.loc[start:end].copy()
+                    else:
+                        out = df.copy()
             else:
                 raise ValueError(f"Unknown trim method: {method}")
 
