@@ -393,9 +393,9 @@ class WellLogAnalysis:
         return None
     
     def auto_load_default_dataset(self):
-        """Auto-load dataset_fix only (prefer folder mode, else skip Dataiku dataset entirely)."""
+        """Auto-load dataset_fix (prefer folder mode, else try Dataiku tabular dataset)."""
         try:
-            # Check if we have valid folder structure
+            # First try folder structure
             folder_roots = self._folder_roots()
             if folder_roots:
                 result = self.select_dataset('dataset_fix')
@@ -403,8 +403,16 @@ class WellLogAnalysis:
                     print('Successfully auto-loaded dataset: dataset_fix (folder)')
                     return
             
-            # If no folder structure found, don't try Dataiku dataset to avoid CSV parsing errors
-            print('No valid folder structure found for dataset_fix - skipping auto-load')
+            # If no folder structure, try Dataiku tabular dataset with robust parsing
+            try:
+                result = self.select_dataset('dataset_fix')
+                if result.get('status') == 'success':
+                    print('Successfully auto-loaded dataset: dataset_fix (Dataiku tabular)')
+                    return
+            except Exception as e:
+                print(f"Failed to load Dataiku dataset_fix: {e}")
+            
+            print('No valid dataset_fix found (folder or Dataiku)')
         except Exception as e:
             print(f"Error auto-loading dataset: {str(e)}")
     
@@ -468,8 +476,9 @@ class WellLogAnalysis:
             # Default to dataset_fix when not specified
             dataset_name = dataset_name or 'dataset_fix'
             
-            # For dataset_fix, ONLY use folder-mode - never try Dataiku dataset
+            # For dataset_fix, try folder-mode first, then Dataiku tabular dataset
             if str(dataset_name).lower() == 'dataset_fix':
+                # Try folder structure first
                 folder_roots = self._folder_roots()
                 if folder_roots:
                     root_name, root_dir = folder_roots[0]
@@ -485,10 +494,41 @@ class WellLogAnalysis:
                         "total_rows": None,
                         "message": f"Using {root_name} folder mode (per-well CSVs)"
                     }
-                else:
+                
+                # If no folder, try Dataiku tabular dataset with robust parsing
+                try:
+                    dataset = dataiku.Dataset(dataset_name)
+                    # Use robust CSV parsing settings
+                    df = dataset.get_dataframe(parse_dates=False, infer_datetime_format=False)
+                    self.current_dataset = f"{dataset_name} (tabular)"
+                    self.current_well_data = df
+                    
+                    # Get basic info
+                    wells = []
+                    for well_col in ['WELL_NAME', 'WELL', 'Well', 'well', 'WELLNAME']:
+                        if well_col in df.columns:
+                            wells = df[well_col].unique().tolist()
+                            break
+                    
+                    markers = []
+                    for marker_col in ['MARKER', 'Marker', 'marker', 'FORMATION', 'Formation']:
+                        if marker_col in df.columns:
+                            markers = df[marker_col].unique().tolist()
+                            break
+                    
+                    return {
+                        "status": "success",
+                        "dataset_name": self.current_dataset,
+                        "wells": wells,
+                        "markers": markers,
+                        "columns": df.columns.tolist(),
+                        "total_rows": len(df),
+                        "message": f"Using {dataset_name} tabular dataset"
+                    }
+                except Exception as tabular_err:
                     return {
                         "status": "error", 
-                        "message": "dataset_fix folder not found. Please ensure dataset_fix folder exists with structures/ or wells/ subdirectories."
+                        "message": f"dataset_fix not found as folder or tabular dataset. Tabular error: {str(tabular_err)}"
                     }
 
             # For other dataset names, try Dataiku dataset
@@ -543,18 +583,25 @@ class WellLogAnalysis:
         """Get list of wells from current dataset"""
         try:
             # Folder mode: list wells from selected root
-            if (self.current_dataset or '').startswith('dataset_fix') and self.current_well_data is None:
+            if (self.current_dataset or '').endswith('(folder)') and self.current_well_data is None:
                 wells = self._list_wells_in_root('dataset_fix')
                 return {"status": "success", "wells": wells, "count": len(wells)}
-            # dataset_files support removed
-
+            
+            # Tabular mode: get wells from loaded DataFrame
             if self.current_well_data is None:
                 return {"status": "error", "message": "No dataset selected"}
             
-            if 'WELL_NAME' not in self.current_well_data.columns:
-                return {"status": "error", "message": "WELL_NAME column not found in dataset"}
+            # Check for different well column names
+            well_col = None
+            for col in ['WELL_NAME', 'WELL', 'Well', 'well', 'WELLNAME']:
+                if col in self.current_well_data.columns:
+                    well_col = col
+                    break
             
-            wells = self.current_well_data['WELL_NAME'].unique().tolist()
+            if not well_col:
+                return {"status": "error", "message": "No well column found (WELL_NAME, WELL, etc.)"}
+            
+            wells = self.current_well_data[well_col].unique().tolist()
             return {
                 "status": "success",
                 "wells": wells,
@@ -572,34 +619,52 @@ class WellLogAnalysis:
             if structure_context:
                 print(f"Structure context: {structure_context.get('structure_name', 'N/A')}")
         
-            # If in folder mode, try per-well CSV from selected root
-            if self.current_well_data is None:
-                root_to_use = 'dataset_fix' if (self.current_dataset or '').startswith('dataset_fix') else None
-                if root_to_use:
-                    df_single = self._load_well_csv_from_root(root_to_use, well_name, structure_context)
-                    if df_single is None:
-                        return {"status": "error", "message": f"No per-well CSV found for {well_name} under {root_to_use}"}
-                    working_df = df_single
-                else:
-                    return {"status": "error", "message": "No dataset selected"}
-            else:
+            # Check if we're in folder mode or tabular mode
+            is_folder_mode = (self.current_dataset or '').endswith('(folder)') and self.current_well_data is None
+            is_tabular_mode = (self.current_dataset or '').endswith('(tabular)') and self.current_well_data is not None
+            
+            if is_folder_mode:
+                # Folder mode: try per-well CSV from selected root
+                df_single = self._load_well_csv_from_root('dataset_fix', well_name, structure_context)
+                if df_single is None:
+                    return {"status": "error", "message": f"No per-well CSV found for {well_name} under dataset_fix"}
+                working_df = df_single
+            elif is_tabular_mode or self.current_well_data is not None:
+                # Tabular mode: filter from loaded DataFrame
                 working_df = self.current_well_data
+            else:
+                return {"status": "error", "message": "No dataset selected"}
 
             # Get well data if not already singled out
+            well_col = None
             if 'WELL_NAME' in working_df.columns:
-                well_data = working_df[working_df['WELL_NAME'] == well_name]
+                well_col = 'WELL_NAME'
             else:
+                for col in ['WELL', 'Well', 'well', 'WELLNAME']:
+                    if col in working_df.columns:
+                        well_col = col
+                        break
+            
+            if well_col and well_col in working_df.columns:
+                well_data = working_df[working_df[well_col] == well_name]
+            else:
+                # If no well column found, assume single well data
                 well_data = working_df.copy()
+                
             print(f"Found {len(well_data)} rows for well {well_name}")
         
             if well_data.empty:
-                # Attempt loading per-well CSV from dataset_fix for robustness
-                df_single = self._load_well_csv_from_root('dataset_fix', well_name, structure_context)
-                if df_single is not None:
-                    well_data = df_single
-                    print(f"Loaded per-well CSV for {well_name} from dataset_fix: {len(well_data)} rows")
+                # Try loading per-well CSV as fallback for folder mode
+                if is_folder_mode:
+                    df_single = self._load_well_csv_from_root('dataset_fix', well_name, structure_context)
+                    if df_single is not None:
+                        well_data = df_single
+                        print(f"Loaded per-well CSV for {well_name} from dataset_fix: {len(well_data)} rows")
+                        
                 if well_data.empty:
-                    available_wells = working_df['WELL_NAME'].unique().tolist() if 'WELL_NAME' in working_df.columns else []
+                    available_wells = []
+                    if well_col and well_col in working_df.columns:
+                        available_wells = working_df[well_col].unique().tolist()
                     return {"status": "error", "message": f"No data found for well {well_name}. Available wells: {available_wells}"}
         
             # Filter by intervals if specified
@@ -610,7 +675,6 @@ class WellLogAnalysis:
                 print(f"After interval filtering: {len(well_data)} rows (was {original_count})")
             
             # Also support zone-based filtering if provided via request context
-            # Note: selected zones are passed at endpoint level (see get_well_plot)
             if hasattr(self, '_tmp_selected_zones'):
                 zones = getattr(self, '_tmp_selected_zones') or []
                 if zones:
@@ -624,14 +688,13 @@ class WellLogAnalysis:
                         print(f"After zone filtering: {len(well_data)} rows (was {original_count2})")
             
                 if well_data.empty:
-                    available_intervals = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]['MARKER'].unique().tolist()
+                    available_intervals = self.current_well_data[self.current_well_data[well_col] == well_name]['MARKER'].unique().tolist() if self.current_well_data is not None and well_col and 'MARKER' in self.current_well_data.columns else []
                     return {"status": "error", "message": f"No data found for well {well_name} in selected intervals {selected_intervals}. Available intervals: {available_intervals}"}
         
             if 'DEPTH' in well_data.columns:
                 well_data = well_data.sort_values('DEPTH')
         
             # Check if we have essential columns
-            required_cols = ['DEPTH']
             available_cols = [col for col in ['GR', 'RT', 'NPHI', 'RHOB'] if col in well_data.columns]
         
             if not available_cols:
