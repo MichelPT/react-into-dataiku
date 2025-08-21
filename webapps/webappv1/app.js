@@ -2457,6 +2457,20 @@ function submitCalculationParameters() {
         handleSWSimandouxCalculation(finalParams);
     } else if (calculationType === 'water-resistivity' || calculationType === 'water-resistivity-calculation') {
         handleWaterResistivityCalculation(finalParams);
+    } else if (calculationType === 'rgsa') {
+        handleRGSACalculation(finalParams);
+    } else if (calculationType === 'dgsa') {
+        handleDGSACalculation(finalParams);
+    } else if (calculationType === 'ngsa') {
+        handleNGSACalculation(finalParams);
+    } else if (calculationType === 'normalization') {
+        handleNormalizationCalculation(finalParams);
+    } else if (calculationType === 'trim-data') {
+        handleTrimDataCalculation(finalParams);
+    } else if (calculationType === 'smoothing') {
+        handleSmoothingCalculation(finalParams);
+    } else if (calculationType === 'sw') {
+        handleSWCalculation(finalParams);
     } else {
         // For other calculations, use the generic calculation endpoint
         var payload = {
@@ -2770,6 +2784,248 @@ function handleWaterResistivityCalculation(params) {
         setIsLoading(false);
         showError('Error: ' + error.message);
         console.error('Water Resistivity Calculation error:', error);
+    });
+}
+
+function handleRGSACalculation(params) {
+    var payload = {
+        method: 'rgsa',
+        parameters: params,
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetchJson('/rgsa_calculation', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(data => {
+        setIsLoading(false);
+        if (data.status === 'success' || data.success === true) {
+            showSuccess('RGSA calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'RGSA Calculation Results');
+            } else {
+                refreshCurrentPlot();
+            }
+        } else {
+            throw new Error(data.message || data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('RGSA Calculation error:', error);
+    });
+}
+
+function handleDGSACalculation(params) {
+    var payload = {
+        method: 'dgsa',
+        parameters: params,
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetchJson('/dgsa_calculation', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(data => {
+        setIsLoading(false);
+        if (data.status === 'success' || data.success === true) {
+            showSuccess('DGSA calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'DGSA Calculation Results');
+            } else {
+                refreshCurrentPlot();
+            }
+        } else {
+            throw new Error(data.message || data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('DGSA Calculation error:', error);
+    });
+}
+
+function handleNGSACalculation(params) {
+    var payload = {
+        method: 'ngsa',
+        parameters: params,
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetchJson('/ngsa_calculation', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(data => {
+        setIsLoading(false);
+        if (data.status === 'success' || data.success === true) {
+            showSuccess('NGSA calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'NGSA Calculation Results');
+            } else {
+                refreshCurrentPlot();
+            }
+        } else {
+            throw new Error(data.message || data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('NGSA Calculation error:', error);
+    });
+}
+
+function handleNormalizationCalculation(params) {
+    var payload = {
+        parameters: params,
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetchJson('/normalization_calculation', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(data => {
+        setIsLoading(false);
+        if (data.status === 'success' || data.success === true) {
+            showSuccess('Normalization completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'Normalization Results');
+            } else {
+                refreshCurrentPlot();
+            }
+        } else {
+            throw new Error(data.message || data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('Normalization Calculation error:', error);
+    });
+}
+
+function handleTrimDataCalculation(params) {
+    var payload = {
+        parameters: params,
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetchJson('/trim_data_calculation', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(data => {
+        setIsLoading(false);
+        if (data.status === 'success' || data.success === true) {
+            showSuccess('Trim Data completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'Trim Data Results');
+            } else {
+                refreshCurrentPlot();
+            }
+        } else {
+            throw new Error(data.message || data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('Trim Data Calculation error:', error);
+    });
+}
+
+function handleSmoothingCalculation(params) {
+    var payload = {
+        parameters: params,
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetchJson('/smoothing_calculation', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(data => {
+        setIsLoading(false);
+        if (data.status === 'success' || data.success === true) {
+            showSuccess('Smoothing completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'Smoothing Results');
+            } else {
+                refreshCurrentPlot();
+            }
+        } else {
+            throw new Error(data.message || data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('Smoothing Calculation error:', error);
+    });
+}
+
+function handleSWCalculation(params) {
+    var payload = {
+        method: 'sw',
+        parameters: params,
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    };
+    
+    fetchJson('/sw_calculation', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(data => {
+        setIsLoading(false);
+        if (data.status === 'success' || data.success === true) {
+            showSuccess('SW calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Display calculation results as plot
+            if (data.plot_data) {
+                displayCalculationPlot(data.plot_data, 'SW Calculation Results');
+            } else {
+                refreshCurrentPlot();
+            }
+        } else {
+            throw new Error(data.message || data.error || 'Calculation failed');
+        }
+    })
+    .catch(error => {
+        setIsLoading(false);
+        showError('Error: ' + error.message);
+        console.error('SW Calculation error:', error);
     });
 }
 
