@@ -346,7 +346,7 @@ except ImportError as e:
 
 class WellLogAnalysis:
     def __init__(self, project_key=None):
-        """Initialize with optional project key and auto-load fix_pass_qc dataset"""
+        """Initialize with optional project key"""
         self.project_key = project_key
         if project_key:
             self.project = dataiku.Project(project_key)
@@ -358,8 +358,8 @@ class WellLogAnalysis:
         self.selected_zones = []
         self.selected_wells = []
 
-        # Auto-load the fix_pass_qc dataset
-        self.auto_load_default_dataset()
+        # Don't auto-load dataset on init to prevent timeout
+        # self.auto_load_default_dataset()
 
     # -----------------------------
     # Internal helpers
@@ -2035,6 +2035,13 @@ def first_api_call():
     """First API call endpoint for webapp initialization"""
     try:
         analysis = get_analysis_instance()
+        
+        # Auto-load dataset if not already loaded
+        if analysis.current_dataset is None:
+            try:
+                analysis.auto_load_default_dataset()
+            except Exception as e:
+                print(f"Warning: Could not auto-load dataset: {e}")
         
         result = {
             "status": "success",
