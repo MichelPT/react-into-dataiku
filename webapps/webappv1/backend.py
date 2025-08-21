@@ -1824,6 +1824,15 @@ def get_wells():
     """API endpoint to get wells from selected dataset"""
     try:
         analysis = get_analysis_instance()
+        
+        # Auto-load dataset if not already loaded (lazy loading)
+        if analysis.current_dataset is None or analysis.current_well_data is None:
+            try:
+                analysis.auto_load_default_dataset()
+            except Exception as e:
+                print(f"Warning: Could not auto-load dataset: {e}")
+                return json.dumps({"status": "error", "message": f"No dataset available: {str(e)}"})
+        
         result = analysis.get_well_list()
         return json.dumps(result)
     except Exception as e:
