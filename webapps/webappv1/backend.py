@@ -525,21 +525,23 @@ class WellLogAnalysis:
     def select_dataset(self, dataset_name):
         """Select a dataset and load its basic info"""
         try:
-            # Folder-mode special handling for dataset_fix and dataset_files
+            # Folder-mode special handling for dataset_fix and dataset_files (only if folder exists)
             if str(dataset_name).lower() in ('dataset_fix', 'dataset_files'):
                 root_name = 'dataset_fix' if str(dataset_name).lower() == 'dataset_fix' else 'dataset_files'
-                self.current_dataset = f"{root_name} (folder)"
-                self.current_well_data = None  # per-well CSVs will be loaded on demand
-                wells = self._list_wells_in_root(root_name)
-                return {
-                    "status": "success",
-                    "dataset_name": self.current_dataset,
-                    "wells": wells,
-                    "markers": [],
-                    "columns": [],
-                    "total_rows": None,
-                    "message": f"Using {root_name} folder mode (per-well CSVs)"
-                }
+                root_dir = self._root_path(root_name)
+                if root_dir and os.path.isdir(root_dir):
+                    self.current_dataset = f"{root_name} (folder)"
+                    self.current_well_data = None  # per-well CSVs will be loaded on demand
+                    wells = self._list_wells_in_root(root_name)
+                    return {
+                        "status": "success",
+                        "dataset_name": self.current_dataset,
+                        "wells": wells,
+                        "markers": [],
+                        "columns": [],
+                        "total_rows": None,
+                        "message": f"Using {root_name} folder mode (per-well CSVs)"
+                    }
 
             df = None
             # Try Dataiku dataset first
@@ -1496,8 +1498,12 @@ def find_raw_data_dataset(structure_name=None):
                     print(f"Found matching dataset with structure name: {name}")
                     return name
         
-        # Fallback to general dataset discovery - prioritize fix_pass_qc
+        # Fallback to general dataset discovery - prioritize dataset_fix
         search_patterns = [
+            'dataset_fix',
+            'dataset_files',
+            'dataset_files_stacked',
+            'dataset_files_1',
             'fix_pass_qc',
             'raw_data_well',
             'raw_well_data', 
@@ -1746,13 +1752,14 @@ def select_dataset():
     """API endpoint to select a dataset"""
     try:
         data = request.get_json()
-        dataset_name = data.get('fix_pass_qc')
+        # Accept both new and legacy key
+        dataset_name = data.get('dataset_name') or data.get('fix_pass_qc')
         structure_name = data.get('structure_name')  # Optional structure name
-        
+
         print(f"Dataset selection request - dataset_name: {dataset_name}, structure_name: {structure_name}")
-        
+
         analysis = get_analysis_instance()
-        
+
         # If dataset_name indicates a structure pattern, try to find the actual dataset
         if dataset_name and 'raw_well_data_' in dataset_name:
             # Extract structure name from dataset_name
@@ -1773,13 +1780,13 @@ def select_dataset():
                 if fallback_dataset:
                     dataset_name = fallback_dataset
                     print(f"Using fallback dataset: {fallback_dataset}")
-        
+
         if not dataset_name:
             # Last resort: try to find any suitable dataset
             dataset_name = find_raw_data_dataset()
             if not dataset_name:
                 return json.dumps({"status": "error", "message": "No suitable dataset found in project"})
-        
+
         print(f"Final dataset selection: {dataset_name}")
         result = analysis.select_dataset(dataset_name)
         return json.dumps(result)
