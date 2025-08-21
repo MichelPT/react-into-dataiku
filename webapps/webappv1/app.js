@@ -4971,7 +4971,42 @@ function runCrossplot() {
     }
     
     console.log('Generating crossplot:', { xColumn, yColumn, files: dataPrepState.selectedFiles });
-    showSuccess(`Generating crossplot: ${xColumn} vs ${yColumn}...`);
+    updateStatusText('Generating crossplot...');
+    
+    // Prepare crossplot parameters
+    var crossplotParams = {
+        x: xColumn,
+        y: yColumn,
+        bins: parseInt(document.querySelector('[name="BINS"]')?.value || 25),
+        gr_ma: parseFloat(document.querySelector('[name="GR_MA"]')?.value || 30),
+        gr_sh: parseFloat(document.querySelector('[name="GR_SH"]')?.value || 120),
+        rho_ma: parseFloat(document.querySelector('[name="RHO_MA"]')?.value || 2.65),
+        rho_sh: parseFloat(document.querySelector('[name="RHO_SH"]')?.value || 2.3),
+        nphi_ma: parseFloat(document.querySelector('[name="NPHI_MA"]')?.value || 0.0),
+        nphi_sh: parseFloat(document.querySelector('[name="NPHI_SH"]')?.value || 0.4),
+        prcnt_qz: parseFloat(document.querySelector('[name="PRCNT_QZ"]')?.value || 10),
+        prcnt_wtr: parseFloat(document.querySelector('[name="PRCNT_WTR"]')?.value || 10),
+        selected_wells: appState.selectedWells || [],
+        selected_intervals: appState.selectedIntervals || [],
+        selected_zones: appState.selectedZones || []
+    };
+    
+    return fetchJson('/crossplot', crossplotParams)
+        .then(function(response) {
+            if (response && response.status === 'success' && response.figure) {
+                displayCalculationPlot(response.figure, `Crossplot: ${xColumn} vs ${yColumn}`);
+                showSuccess(`Crossplot generated: ${xColumn} vs ${yColumn}`);
+            } else {
+                showError(response?.message || 'Crossplot generation failed');
+            }
+        })
+        .catch(function(error) {
+            console.error('Crossplot error:', error);
+            showError('Crossplot error: ' + (error?.message || error));
+        })
+        .finally(function() {
+            updateStatusText('Ready');
+        });
 }
 
 function runQualityControl() {

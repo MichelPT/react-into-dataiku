@@ -1096,8 +1096,15 @@ class WellLogAnalysis:
             raise Exception(f"NGSA calculation error: {str(e)}")
 
     def _run_rgbe_rpbe_calculation(self, df, params):
+        """Run RGBE-RPBE calculation using the actual service"""
         try:
-            return process_rgbe_rpbe(df, params)
+            result_df = process_rgbe_rpbe(
+                df=df,
+                params=params,
+                target_intervals=self.selected_intervals,
+                target_zones=None
+            )
+            return result_df
         except Exception as e:
             raise Exception(f"RGBE-RPBE calculation error: {str(e)}")
 
@@ -1242,6 +1249,8 @@ class WellLogAnalysis:
                 return self._create_sw_plot(df)
             elif calculation_type == "rwa":
                 return self._create_rwa_plot(df)
+            elif calculation_type == "rgbe_rpbe":
+                return self._create_rgbe_rpbe_plot(df)
             elif calculation_type == "smoothing":
                 return self._create_smoothing_plot(df)
             else:
@@ -1527,6 +1536,27 @@ class WellLogAnalysis:
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
             return {"status": "error", "message": f"Error creating RWA plot: {str(e)}"}
+
+    def _create_rgbe_rpbe_plot(self, df):
+        """Create RGBE-RPBE plot"""
+        try:
+            # Check for RGBE-RPBE specific columns
+            rgbe_rpbe_cols = [c for c in ['RGBE', 'RPBE', 'NOD', 'R_RGBE', 'R_RPBE'] if c in df.columns]
+            
+            if len(rgbe_rpbe_cols) == 0:
+                # Fall back to dashboard plot if no RGBE-RPBE columns found
+                print("No RGBE-RPBE columns found, falling back to dashboard plot")
+                df_normalized = self._ensure_crossplot_norms(df)
+                fig = self._plot_dashboard_log(df_normalized)
+                return {"status": "success", "figure": fig.to_dict()}
+            
+            # Use enhanced dashboard that includes RGBE-RPBE columns
+            df_normalized = self._ensure_crossplot_norms(df)
+            fig = self._plot_dashboard_log(df_normalized)
+            return {"status": "success", "figure": fig.to_dict()}
+                
+        except Exception as e:
+            return {"status": "error", "message": f"Error creating RGBE-RPBE plot: {str(e)}"}
 
     def _create_smoothing_plot(self, df):
         """Create smoothing plot"""
