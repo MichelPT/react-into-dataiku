@@ -495,6 +495,24 @@ class WellLogAnalysis:
                 self.current_well_data = df
             except Exception as di_err:
                 print(f"Dataiku load failed for {dataset_name}: {di_err}")
+                # If user requested 'dataset_fix', fall back to folder-mode alias when available
+                if str(dataset_name).lower().startswith('dataset_fix'):
+                    root_name = 'dataset_fix'
+                    root_dir = self._root_path(root_name)
+                    if root_dir and os.path.isdir(root_dir):
+                        self.current_dataset = f"{root_name} (folder)"
+                        self.current_well_data = None
+                        wells = self._list_wells_in_root(root_name)
+                        return {
+                            "status": "success",
+                            "dataset_name": self.current_dataset,
+                            "wells": wells,
+                            "markers": [],
+                            "columns": [],
+                            "total_rows": None,
+                            "message": f"Using {root_name} folder mode (per-well CSVs) after Dataiku load failure"
+                        }
+                # Otherwise propagate error handling below
                 raise
             
             # Store current dataset info if not already set by fallback
