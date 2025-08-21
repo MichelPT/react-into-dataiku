@@ -31,6 +31,9 @@ try:
     from standardwebappv1.services.sw import calculate_sw
     from standardwebappv1.services.rwa import calculate_rwa
     from standardwebappv1.services.vsh_dn import calculate_vsh_dn
+    from standardwebappv1.services.iqual import calculate_iqual
+    from standardwebappv1.services.fill_missing import flag_missing_values
+    from standardwebappv1.services.splicing import perform_splicing
     from standardwebappv1.services.histogram import plot_histogram
     from standardwebappv1.services.crossplot import generate_crossplot
     from standardwebappv1.services.data_processing import trim_data_auto
@@ -852,6 +855,14 @@ class WellLogAnalysis:
                 result_df = self._run_trim_data_calculation(df, processed_params)
             elif calculation_type == "smoothing":
                 result_df = self._run_smoothing_calculation(df, processed_params)
+            elif calculation_type == "iqual":
+                result_df = self._run_iqual_calculation(df, processed_params)
+            elif calculation_type == "vsh_dn":
+                result_df = self._run_vsh_dn_calculation(df, processed_params)
+            elif calculation_type == "fill_missing":
+                result_df = self._run_fill_missing_calculation(df, processed_params)
+            elif calculation_type == "splicing":
+                result_df = self._run_splicing_calculation(df, processed_params)
             else:
                 return {"status": "error", "message": f"Unknown calculation type: {calculation_type}"}
             
@@ -932,34 +943,6 @@ class WellLogAnalysis:
         except Exception as e:
             raise Exception(f"Trim Data error: {str(e)}")
     
-    def _run_smoothing_calculation(self, df, params):
-        """Run smoothing calculation using moving average"""
-        try:
-            method = params.get('METHOD', 'MOVING_AVG')
-            window_size = int(params.get('WINDOW', 5))
-            log_in_col = params.get('LOG_IN', 'GR')
-            log_out_col = params.get('LOG_OUT', f'{log_in_col}_SM')
-            
-            if log_in_col not in df.columns:
-                raise ValueError(f"Input log {log_in_col} not found in dataset")
-            
-            # Ensure window size is odd and minimum 3
-            if window_size % 2 == 0:
-                window_size += 1
-            if window_size < 3:
-                window_size = 3
-            
-            # Apply smoothing
-            if method == 'MOVING_AVG':
-                df[log_out_col] = df[log_in_col].rolling(window=window_size, center=True, min_periods=1).mean()
-            else:
-                # Default to moving average if method not recognized
-                df[log_out_col] = df[log_in_col].rolling(window=window_size, center=True, min_periods=1).mean()
-            
-            return df
-        except Exception as e:
-            raise Exception(f"Smoothing error: {str(e)}")
-    
     def _run_vsh_calculation(self, df, params):
         """Run VSH calculation"""
         try:
@@ -978,6 +961,106 @@ class WellLogAnalysis:
             return df
         except Exception as e:
             raise Exception(f"VSH calculation error: {str(e)}")
+    
+    def _run_smoothing_calculation(self, df, params):
+        """Run smoothing calculation using rolling window"""
+        try:
+            window_size = int(params.get('window_size', 5))
+            column = params.get('column', 'GR')
+            output_column = params.get('output_column', f'{column}_SMOOTH')
+            method = params.get('method', 'mean')  # mean, median, min, max
+            
+            if column not in df.columns:
+                raise ValueError(f"Column {column} not found in dataset")
+            
+            if method == 'mean':
+                df[output_column] = df[column].rolling(window=window_size, center=True).mean()
+            elif method == 'median':
+                df[output_column] = df[column].rolling(window=window_size, center=True).median()
+            elif method == 'min':
+                df[output_column] = df[column].rolling(window=window_size, center=True).min()
+            elif method == 'max':
+                df[output_column] = df[column].rolling(window=window_size, center=True).max()
+            else:
+                raise ValueError(f"Unknown smoothing method: {method}")
+            
+            return df
+        except Exception as e:
+            raise Exception(f"Smoothing calculation error: {str(e)}")
+    
+    def _run_iqual_calculation(self, df, params):
+        """Run IQUAL calculation"""
+        try:
+            # Implement IQUAL calculation directly
+            df = df.copy()
+            if 'PHIE' in df.columns and 'VSH' in df.columns:
+                df['IQUAL'] = np.where((df['PHIE'] >= 0.1) & (df['VSH'] <= 0.5), 1, 0)
+            else:
+                df['IQUAL'] = 0
+            return df
+        except Exception as e:
+            raise Exception(f"IQUAL calculation error: {str(e)}")
+    
+    def _run_vsh_dn_calculation(self, df, params):
+        """Run VSH DN calculation"""
+        try:
+            # Basic VSH from density-neutron calculation
+            RHO_MA = float(params.get('RHO_MA', 2.645))
+            RHO_SH = float(params.get('RHO_SH', 2.61))
+            NPHI_MA = float(params.get('NPHI_MA', -0.02))
+            NPHI_SH = float(params.get('NPHI_SH', 0.398))
+            
+            rho_col = params.get('RHOB', 'RHOB')
+            nphi_col = params.get('NPHI', 'NPHI')
+            output_col = params.get('VSH', 'VSH_DN')
+            
+            if rho_col not in df.columns or nphi_col not in df.columns:
+                raise ValueError(f"Required columns {rho_col} or {nphi_col} not found")
+            
+            # Simple VSH calculation from density-neutron
+            df[output_col] = ((df[rho_col] - RHO_MA) / (RHO_SH - RHO_MA) + 
+                              (df[nphi_col] - NPHI_MA) / (NPHI_SH - NPHI_MA)) / 2
+            df[output_col] = df[output_col].clip(0, 1)
+            
+            return df
+        except Exception as e:
+            raise Exception(f"VSH DN calculation error: {str(e)}")
+    
+    def _run_fill_missing_calculation(self, df, params):
+        """Run fill missing calculation"""
+        try:
+            logs_to_check = params.get('logs_to_check', ['GR', 'RT', 'NPHI', 'RHOB'])
+            df = df.copy()
+            
+            # Create missing flag
+            if 'MISSING_FLAG' not in df.columns:
+                df['MISSING_FLAG'] = 0
+            
+            # Check for missing values in specified logs
+            missing_mask = df[logs_to_check].isnull().any(axis=1)
+            df.loc[missing_mask, 'MISSING_FLAG'] = 1
+            
+            return df
+        except Exception as e:
+            raise Exception(f"Fill missing calculation error: {str(e)}")
+    
+    def _run_splicing_calculation(self, df, params):
+        """Run splicing calculation"""
+        try:
+            # Basic splicing implementation
+            source_col = params.get('source_column', 'RT')
+            target_col = params.get('target_column', 'RT_SPLICED')
+            method = params.get('method', 'linear')
+            
+            if source_col not in df.columns:
+                raise ValueError(f"Source column {source_col} not found")
+            
+            # Simple interpolation for missing values
+            df[target_col] = df[source_col].interpolate(method=method)
+            
+            return df
+        except Exception as e:
+            raise Exception(f"Splicing calculation error: {str(e)}")
     
     def _run_porosity_calculation(self, df, params):
         """Run porosity calculation"""
@@ -1079,37 +1162,24 @@ class WellLogAnalysis:
         try:
             log_in_col = params.get('LOG_IN', 'GR')
             log_out_col = params.get('LOG_OUT', 'GR_NORM')
-            low_in = float(params.get('LOW_IN', 5))
-            high_in = float(params.get('HIGH_IN', 95))
-            low_ref = float(params.get('LOW_REF', 40))
-            high_ref = float(params.get('HIGH_REF', 140))
-            cutoff_min = float(params.get('CUTOFF_MIN', 0))
-            cutoff_max = float(params.get('CUTOFF_MAX', 250))
+            intervals = params.get('intervals', [])
             
             if log_in_col not in df.columns:
                 raise ValueError(f"Input log {log_in_col} not found")
             
-            # Filter data within cutoff range
-            valid_data = df[(df[log_in_col] >= cutoff_min) & (df[log_in_col] <= cutoff_max)]
-            
-            if len(valid_data) == 0:
-                raise ValueError("No valid data within cutoff range")
-            
-            # Calculate percentiles from valid data
-            p_low = np.percentile(valid_data[log_in_col].dropna(), low_in)
-            p_high = np.percentile(valid_data[log_in_col].dropna(), high_in)
-            
             # Initialize output column
             df[log_out_col] = df[log_in_col].copy()
             
-            # Apply normalization transformation
-            if p_high != p_low:
-                # Linear transformation: map [p_low, p_high] to [low_ref, high_ref]
-                slope = (high_ref - low_ref) / (p_high - p_low)
-                df[log_out_col] = low_ref + slope * (df[log_in_col] - p_low)
-                
-                # Clip to reference range
-                df[log_out_col] = df[log_out_col].clip(low_ref, high_ref)
+            # Simple normalization for each interval
+            for interval in intervals:
+                interval_mask = df['MARKER'] == interval
+                if interval_mask.sum() > 0:
+                    interval_data = df.loc[interval_mask, log_in_col]
+                    # Simple min-max normalization
+                    min_val = interval_data.min()
+                    max_val = interval_data.max()
+                    if max_val > min_val:
+                        df.loc[interval_mask, log_out_col] = (interval_data - min_val) / (max_val - min_val)
             
             return df
         except Exception as e:
@@ -2306,24 +2376,19 @@ def crossplot_endpoint():
         traceback.print_exc()
         return json.dumps({"status": "error", "message": str(e)})
 
-
+# -----------------------------
+# RGSA Calculation endpoint
+# -----------------------------
 @app.route('/rgsa_calculation', methods=['POST'])
 def rgsa_calculation_endpoint():
-    """RGSA calculation endpoint"""
+    """Endpoint for RGSA calculation"""
     try:
         data = request.get_json() or {}
-        method = data.get('method', 'rgsa')
         parameters = data.get('parameters', {})
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         
         analysis = get_analysis_instance()
-        
-        # Set selections for processing
-        analysis.selected_wells = selected_wells
-        analysis.selected_intervals = selected_intervals
-        
-        # Run RGSA calculation
         result = analysis.run_calculation('rgsa', parameters)
         
         if result.get('status') == 'success':
@@ -2337,24 +2402,19 @@ def rgsa_calculation_endpoint():
         traceback.print_exc()
         return json.dumps({"status": "error", "message": str(e)})
 
-
+# -----------------------------
+# DGSA Calculation endpoint
+# -----------------------------
 @app.route('/dgsa_calculation', methods=['POST'])
 def dgsa_calculation_endpoint():
-    """DGSA calculation endpoint"""
+    """Endpoint for DGSA calculation"""
     try:
         data = request.get_json() or {}
-        method = data.get('method', 'dgsa')
         parameters = data.get('parameters', {})
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         
         analysis = get_analysis_instance()
-        
-        # Set selections for processing
-        analysis.selected_wells = selected_wells
-        analysis.selected_intervals = selected_intervals
-        
-        # Run DGSA calculation
         result = analysis.run_calculation('dgsa', parameters)
         
         if result.get('status') == 'success':
@@ -2368,24 +2428,19 @@ def dgsa_calculation_endpoint():
         traceback.print_exc()
         return json.dumps({"status": "error", "message": str(e)})
 
-
+# -----------------------------
+# NGSA Calculation endpoint
+# -----------------------------
 @app.route('/ngsa_calculation', methods=['POST'])
 def ngsa_calculation_endpoint():
-    """NGSA calculation endpoint"""
+    """Endpoint for NGSA calculation"""
     try:
         data = request.get_json() or {}
-        method = data.get('method', 'ngsa')
         parameters = data.get('parameters', {})
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         
         analysis = get_analysis_instance()
-        
-        # Set selections for processing
-        analysis.selected_wells = selected_wells
-        analysis.selected_intervals = selected_intervals
-        
-        # Run NGSA calculation
         result = analysis.run_calculation('ngsa', parameters)
         
         if result.get('status') == 'success':
@@ -2399,72 +2454,12 @@ def ngsa_calculation_endpoint():
         traceback.print_exc()
         return json.dumps({"status": "error", "message": str(e)})
 
-
-@app.route('/sw_calculation', methods=['POST'])
-def sw_calculation_endpoint():
-    """Water Saturation calculation endpoint"""
-    try:
-        data = request.get_json() or {}
-        method = data.get('method', 'sw_indonesia')
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        
-        # Set selections for processing
-        analysis.selected_wells = selected_wells
-        analysis.selected_intervals = selected_intervals
-        
-        # Run SW calculation
-        result = analysis.run_calculation('sw', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('sw', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-
-@app.route('/rwa_calculation', methods=['POST'])
-def rwa_calculation_endpoint():
-    """RWA calculation endpoint"""
-    try:
-        data = request.get_json() or {}
-        method = data.get('method', 'rwa')
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        
-        # Set selections for processing
-        analysis.selected_wells = selected_wells
-        analysis.selected_intervals = selected_intervals
-        
-        # Run RWA calculation
-        result = analysis.run_calculation('rwa', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('rwa', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-
+# -----------------------------
+# Normalization Calculation endpoint
+# -----------------------------
 @app.route('/normalization_calculation', methods=['POST'])
 def normalization_calculation_endpoint():
-    """Normalization calculation endpoint"""
+    """Endpoint for normalization calculation"""
     try:
         data = request.get_json() or {}
         parameters = data.get('parameters', {})
@@ -2472,12 +2467,6 @@ def normalization_calculation_endpoint():
         selected_intervals = data.get('selected_intervals', [])
         
         analysis = get_analysis_instance()
-        
-        # Set selections for processing
-        analysis.selected_wells = selected_wells
-        analysis.selected_intervals = selected_intervals
-        
-        # Run normalization
         result = analysis.run_calculation('normalization', parameters)
         
         if result.get('status') == 'success':
@@ -2491,10 +2480,12 @@ def normalization_calculation_endpoint():
         traceback.print_exc()
         return json.dumps({"status": "error", "message": str(e)})
 
-
+# -----------------------------
+# Trim Data Calculation endpoint
+# -----------------------------
 @app.route('/trim_data_calculation', methods=['POST'])
 def trim_data_calculation_endpoint():
-    """Trim data calculation endpoint"""
+    """Endpoint for trim data calculation"""
     try:
         data = request.get_json() or {}
         parameters = data.get('parameters', {})
@@ -2502,17 +2493,11 @@ def trim_data_calculation_endpoint():
         selected_intervals = data.get('selected_intervals', [])
         
         analysis = get_analysis_instance()
-        
-        # Set selections for processing
-        analysis.selected_wells = selected_wells
-        analysis.selected_intervals = selected_intervals
-        
-        # Run trim data
         result = analysis.run_calculation('trim_data', parameters)
         
         if result.get('status') == 'success':
             # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('default', selected_wells[0] if selected_wells else None)
+            plot_result = analysis.create_plot_for_calculation('trim_data', selected_wells[0] if selected_wells else None)
             if plot_result.get('status') == 'success':
                 result['plot_data'] = plot_result.get('figure')
         
@@ -2521,10 +2506,12 @@ def trim_data_calculation_endpoint():
         traceback.print_exc()
         return json.dumps({"status": "error", "message": str(e)})
 
-
+# -----------------------------
+# Smoothing Calculation endpoint
+# -----------------------------
 @app.route('/smoothing_calculation', methods=['POST'])
 def smoothing_calculation_endpoint():
-    """Smoothing calculation endpoint"""
+    """Endpoint for smoothing calculation"""
     try:
         data = request.get_json() or {}
         parameters = data.get('parameters', {})
@@ -2532,17 +2519,115 @@ def smoothing_calculation_endpoint():
         selected_intervals = data.get('selected_intervals', [])
         
         analysis = get_analysis_instance()
-        
-        # Set selections for processing
-        analysis.selected_wells = selected_wells
-        analysis.selected_intervals = selected_intervals
-        
-        # Add smoothing to run_calculation method
         result = analysis.run_calculation('smoothing', parameters)
         
         if result.get('status') == 'success':
             # Create plot for visualization
             plot_result = analysis.create_plot_for_calculation('smoothing', selected_wells[0] if selected_wells else None)
+            if plot_result.get('status') == 'success':
+                result['plot_data'] = plot_result.get('figure')
+        
+        return json.dumps(result)
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"status": "error", "message": str(e)})
+
+# -----------------------------
+# IQUAL Calculation endpoint
+# -----------------------------
+@app.route('/iqual_calculation', methods=['POST'])
+def iqual_calculation_endpoint():
+    """Endpoint for IQUAL calculation"""
+    try:
+        data = request.get_json() or {}
+        parameters = data.get('parameters', {})
+        selected_wells = data.get('selected_wells', [])
+        selected_intervals = data.get('selected_intervals', [])
+        
+        analysis = get_analysis_instance()
+        result = analysis.run_calculation('iqual', parameters)
+        
+        if result.get('status') == 'success':
+            # Create plot for visualization
+            plot_result = analysis.create_plot_for_calculation('iqual', selected_wells[0] if selected_wells else None)
+            if plot_result.get('status') == 'success':
+                result['plot_data'] = plot_result.get('figure')
+        
+        return json.dumps(result)
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"status": "error", "message": str(e)})
+
+# -----------------------------
+# VSH DN Calculation endpoint
+# -----------------------------
+@app.route('/vsh_dn_calculation', methods=['POST'])
+def vsh_dn_calculation_endpoint():
+    """Endpoint for VSH DN calculation"""
+    try:
+        data = request.get_json() or {}
+        parameters = data.get('parameters', {})
+        selected_wells = data.get('selected_wells', [])
+        selected_intervals = data.get('selected_intervals', [])
+        
+        analysis = get_analysis_instance()
+        result = analysis.run_calculation('vsh_dn', parameters)
+        
+        if result.get('status') == 'success':
+            # Create plot for visualization
+            plot_result = analysis.create_plot_for_calculation('vsh_dn', selected_wells[0] if selected_wells else None)
+            if plot_result.get('status') == 'success':
+                result['plot_data'] = plot_result.get('figure')
+        
+        return json.dumps(result)
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"status": "error", "message": str(e)})
+
+# -----------------------------
+# Fill Missing Calculation endpoint
+# -----------------------------
+@app.route('/fill_missing_calculation', methods=['POST'])
+def fill_missing_calculation_endpoint():
+    """Endpoint for fill missing calculation"""
+    try:
+        data = request.get_json() or {}
+        parameters = data.get('parameters', {})
+        selected_wells = data.get('selected_wells', [])
+        selected_intervals = data.get('selected_intervals', [])
+        
+        analysis = get_analysis_instance()
+        result = analysis.run_calculation('fill_missing', parameters)
+        
+        if result.get('status') == 'success':
+            # Create plot for visualization
+            plot_result = analysis.create_plot_for_calculation('fill_missing', selected_wells[0] if selected_wells else None)
+            if plot_result.get('status') == 'success':
+                result['plot_data'] = plot_result.get('figure')
+        
+        return json.dumps(result)
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"status": "error", "message": str(e)})
+
+# -----------------------------
+# Splicing Calculation endpoint
+# -----------------------------
+@app.route('/splicing_calculation', methods=['POST'])
+def splicing_calculation_endpoint():
+    """Endpoint for splicing calculation"""
+    try:
+        data = request.get_json() or {}
+        parameters = data.get('parameters', {})
+        selected_wells = data.get('selected_wells', [])
+        selected_intervals = data.get('selected_intervals', [])
+        
+        analysis = get_analysis_instance()
+        result = analysis.run_calculation('splicing', parameters)
+        
+        if result.get('status') == 'success':
+            # Create plot for visualization
+            plot_result = analysis.create_plot_for_calculation('splicing', selected_wells[0] if selected_wells else None)
             if plot_result.get('status') == 'success':
                 result['plot_data'] = plot_result.get('figure')
         
