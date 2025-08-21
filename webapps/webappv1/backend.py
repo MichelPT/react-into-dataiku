@@ -403,14 +403,16 @@ class WellLogAnalysis:
                     print('Successfully auto-loaded dataset: dataset_fix (folder)')
                     return
             
-            # If no folder structure, try Dataiku tabular dataset with robust parsing
-            try:
-                result = self.select_dataset('dataset_fix')
-                if result.get('status') == 'success':
+                # If no folder structure, try Dataiku tabular dataset
+                try:
+                    dataset = dataiku.Dataset('dataset_fix')
+                    df = dataset.get_dataframe()  # No additional arguments
+                    self.current_dataset = 'dataset_fix (tabular)'
+                    self.current_well_data = df
                     print('Successfully auto-loaded dataset: dataset_fix (Dataiku tabular)')
                     return
-            except Exception as e:
-                print(f"Failed to load Dataiku dataset_fix: {e}")
+                except Exception as e:
+                    print(f"Failed to load Dataiku dataset_fix: {e}")
             
             print('No valid dataset_fix found (folder or Dataiku)')
         except Exception as e:
@@ -495,11 +497,10 @@ class WellLogAnalysis:
                         "message": f"Using {root_name} folder mode (per-well CSVs)"
                     }
                 
-                # If no folder, try Dataiku tabular dataset with robust parsing
+                # If no folder, try Dataiku tabular dataset
                 try:
                     dataset = dataiku.Dataset(dataset_name)
-                    # Use robust CSV parsing settings
-                    df = dataset.get_dataframe(parse_dates=False, infer_datetime_format=False)
+                    df = dataset.get_dataframe()  # No additional arguments
                     self.current_dataset = f"{dataset_name} (tabular)"
                     self.current_well_data = df
                     
