@@ -250,7 +250,7 @@ except ImportError as e:
 
 class WellLogAnalysis:
     def __init__(self, project_key=None):
-        """Initialize with optional project key and auto-load fix_pass_qc dataset"""
+        """Initialize with optional project key and auto-load dataset_fix only"""
         self.project_key = project_key
         if project_key:
             self.project = dataiku.Project(project_key)
@@ -262,7 +262,7 @@ class WellLogAnalysis:
         self.selected_zones = []
         self.selected_wells = []
 
-        # Auto-load the fix_pass_qc dataset
+    # Auto-load the dataset_fix dataset (folder preferred)
         self.auto_load_default_dataset()
 
     # -----------------------------
@@ -305,35 +305,15 @@ class WellLogAnalysis:
                 new_df['GR_NORM_RT'] = self._normalize_series(new_df['GR'])
         return new_df
     
-    def _local_csv_path(self, name='fix_pass_qc.csv'):
-        """Resolve a local path relative to this backend file.
-        backend.py is at webapps/webappv1/backend.py; paths are at dataiku_native/<name>.
-        """
-        base_dir = os.path.dirname(__file__)
-        target_path = os.path.normpath(os.path.join(base_dir, '..', '..', name))
-        return target_path
-
-    def _load_local_fix_pass_qc(self):
-        """Load fix_pass_qc.csv if present locally; return DataFrame or None."""
-        try:
-            csv_path = self._local_csv_path('fix_pass_qc.csv')
-            if os.path.isfile(csv_path):
-                df = pd.read_csv(csv_path)
-                self.current_dataset = 'fix_pass_qc (csv)'
-                self.current_well_data = df
-                return df
-        except Exception as e:
-            print(f"Failed loading local fix_pass_qc.csv: {e}")
-        return None
+    # Removed legacy local CSV helpers
 
     # --------------
-    # Folder-mode helpers (dataset_fix / dataset_files)
+    # Folder-mode helpers (dataset_fix only)
     # --------------
     def _folder_roots(self):
         base_dir = os.path.dirname(__file__)
         return [
             ('dataset_fix', os.path.join(base_dir, 'dataset_fix')),
-            ('dataset_files', os.path.join(base_dir, 'dataset_files')),
         ]
 
     def _root_path(self, root_name: str):
@@ -367,7 +347,7 @@ class WellLogAnalysis:
         return sorted(list(wells))
 
     def _load_well_csv_from_root(self, root_name: str, well_name: str, structure_context: dict | None = None):
-        """Load a single-well CSV from a specific root (dataset_fix or dataset_files).
+        """Load a single-well CSV from dataset_fix root.
         Preferred order:
           1) <root>/structures/<field>/<structure>/<well_name>.csv when context present
           2) <root>/wells/<well_name>.csv
@@ -400,9 +380,8 @@ class WellLogAnalysis:
         return None
     
     def auto_load_default_dataset(self):
-        """Auto-load data with priority to folder roots (dataset_fix -> dataset_files) then Dataiku datasets."""
+        """Auto-load dataset_fix only (prefer folder mode, else Dataiku dataset named 'dataset_fix')."""
         try:
-            # 1) Prefer folder roots
             base_dir = os.path.dirname(__file__)
             dsf_fix_struct = os.path.join(base_dir, 'dataset_fix', 'structures')
             dsf_fix_wells = os.path.join(base_dir, 'dataset_fix', 'wells')
@@ -411,55 +390,15 @@ class WellLogAnalysis:
                 if result.get('status') == 'success':
                     print('Successfully auto-loaded dataset: dataset_fix (folder)')
                     return
-
-            dsf_files_struct = os.path.join(base_dir, 'dataset_files', 'structures')
-            dsf_files_wells = os.path.join(base_dir, 'dataset_files', 'wells')
-            if os.path.isdir(dsf_files_struct) or os.path.isdir(dsf_files_wells):
-                result = self.select_dataset('dataset_files')
+            # Fallback: Dataiku dataset named 'dataset_fix'
+            try:
+                result = self.select_dataset('dataset_fix')
                 if result.get('status') == 'success':
-                    print('Successfully auto-loaded dataset: dataset_files (folder)')
+                    print('Successfully auto-loaded dataset: dataset_fix (Dataiku)')
                     return
-
-            # 2) Try Dataiku dataset named 'dataset_files'
-            try:
-                available_datasets = self.get_available_datasets()
-                if available_datasets.get('status') == 'success':
-                    datasets = available_datasets.get('datasets', [])
-                    dsf = [ds for ds in datasets if str(ds).lower() == 'dataset_files']
-                    if dsf:
-                        result = self.select_dataset(dsf[0])
-                        if result.get('status') == 'success':
-                            print('Successfully auto-loaded dataset: dataset_files')
-                            return
-            except Exception as e:
-                print(f"Dataset_files selection attempt failed: {e}")
-
-            # 3) Then explicit fix_pass_qc
-            dataset_name = 'fix_pass_qc'
-            result = self.select_dataset(dataset_name)
-            if result.get('status') == 'success':
-                print(f'Successfully auto-loaded dataset: {dataset_name}')
-                return
-
-            # 4) Fallback discovery
-            try:
-                available_datasets = self.get_available_datasets()
-                if available_datasets.get('status') == 'success':
-                    datasets = available_datasets.get('datasets', [])
-                    raw_datasets = [ds for ds in datasets if 'raw' in str(ds).lower() and ('well' in str(ds).lower() or 'data' in str(ds).lower())]
-                    if raw_datasets:
-                        fallback_dataset = raw_datasets[0]
-                        result = self.select_dataset(fallback_dataset)
-                        if result.get('status') == 'success':
-                            print(f'Successfully auto-loaded fallback dataset: {fallback_dataset}')
-                        else:
-                            print(f'Failed to auto-load fallback dataset {fallback_dataset}')
-                    else:
-                        print('No raw well data dataset found')
-                else:
-                    print('Failed to get available datasets for fallback')
-            except Exception as fallback_error:
-                print(f"Error during fallback dataset loading: {str(fallback_error)}")
+            except Exception:
+                pass
+            print('dataset_fix not found as folder or Dataiku dataset')
         except Exception as e:
             print(f"Error auto-loading dataset: {str(e)}")
     
@@ -479,15 +418,10 @@ class WellLogAnalysis:
             except Exception as _:
                 # Ignore Dataiku API errors in local mode
                 pass
-            # Ensure fix_pass_qc appears if local CSV exists
-            if os.path.isfile(self._local_csv_path('fix_pass_qc.csv')) and 'fix_pass_qc' not in [d.lower() for d in self.available_datasets]:
-                self.available_datasets.append('fix_pass_qc')
-            # Add folder roots when present so UI can select them
+            # Add dataset_fix folder when present so UI can select it
             base_dir = os.path.dirname(__file__)
             if os.path.isdir(os.path.join(base_dir, 'dataset_fix')) and 'dataset_fix' not in [str(d).lower() for d in self.available_datasets]:
                 self.available_datasets.append('dataset_fix')
-            if os.path.isdir(os.path.join(base_dir, 'dataset_files')) and 'dataset_files' not in [str(d).lower() for d in self.available_datasets]:
-                self.available_datasets.append('dataset_files')
             
             return {
                 "status": "success",
@@ -525,9 +459,11 @@ class WellLogAnalysis:
     def select_dataset(self, dataset_name):
         """Select a dataset and load its basic info"""
         try:
-            # Folder-mode special handling for dataset_fix and dataset_files (only if folder exists)
-            if str(dataset_name).lower() in ('dataset_fix', 'dataset_files'):
-                root_name = 'dataset_fix' if str(dataset_name).lower() == 'dataset_fix' else 'dataset_files'
+            # Default to dataset_fix when not specified
+            dataset_name = dataset_name or 'dataset_fix'
+            # Folder-mode special handling for dataset_fix (only if folder exists)
+            if str(dataset_name).lower() == 'dataset_fix':
+                root_name = 'dataset_fix'
                 root_dir = self._root_path(root_name)
                 if root_dir and os.path.isdir(root_dir):
                     self.current_dataset = f"{root_name} (folder)"
@@ -552,13 +488,7 @@ class WellLogAnalysis:
                 self.current_well_data = df
             except Exception as di_err:
                 print(f"Dataiku load failed for {dataset_name}: {di_err}")
-                # Fallback to local CSV if requesting fix_pass_qc
-                if str(dataset_name).lower() == 'fix_pass_qc':
-                    df = self._load_local_fix_pass_qc()
-                    if df is None:
-                        raise
-                else:
-                    raise
+                raise
             
             # Store current dataset info if not already set by fallback
             if self.current_dataset is None:
@@ -598,9 +528,6 @@ class WellLogAnalysis:
                 user_msg = f"Dataset '{dataset_name}' does not exist in the project. Please check the dataset name or create the dataset first."
             elif 'unable to fetch schema' in error_msg.lower():
                 user_msg = f"Unable to access dataset '{dataset_name}'. The dataset may not exist or you may not have permission to access it."
-            elif os.path.isfile(self._local_csv_path('fix_pass_qc.csv')) and str(dataset_name).lower() == 'fix_pass_qc':
-                # Provide local CSV hint
-                user_msg = "Loaded local CSV for fix_pass_qc failed unexpectedly. Please verify fix_pass_qc.csv format."
             else:
                 user_msg = f"Error accessing dataset '{dataset_name}': {error_msg}"
             
@@ -613,9 +540,7 @@ class WellLogAnalysis:
             if (self.current_dataset or '').startswith('dataset_fix') and self.current_well_data is None:
                 wells = self._list_wells_in_root('dataset_fix')
                 return {"status": "success", "wells": wells, "count": len(wells)}
-            if (self.current_dataset or '').startswith('dataset_files') and self.current_well_data is None:
-                wells = self._list_wells_in_root('dataset_files')
-                return {"status": "success", "wells": wells, "count": len(wells)}
+            # dataset_files support removed
 
             if self.current_well_data is None:
                 return {"status": "error", "message": "No dataset selected"}
@@ -643,11 +568,7 @@ class WellLogAnalysis:
         
             # If in folder mode, try per-well CSV from selected root
             if self.current_well_data is None:
-                root_to_use = None
-                if (self.current_dataset or '').startswith('dataset_fix'):
-                    root_to_use = 'dataset_fix'
-                elif (self.current_dataset or '').startswith('dataset_files'):
-                    root_to_use = 'dataset_files'
+                root_to_use = 'dataset_fix' if (self.current_dataset or '').startswith('dataset_fix') else None
                 if root_to_use:
                     df_single = self._load_well_csv_from_root(root_to_use, well_name, structure_context)
                     if df_single is None:
@@ -666,13 +587,11 @@ class WellLogAnalysis:
             print(f"Found {len(well_data)} rows for well {well_name}")
         
             if well_data.empty:
-                # Attempt loading per-well CSV from any known root for robustness
-                for root_try in ('dataset_fix', 'dataset_files'):
-                    df_single = self._load_well_csv_from_root(root_try, well_name, structure_context)
-                    if df_single is not None:
-                        well_data = df_single
-                        print(f"Loaded per-well CSV for {well_name} from {root_try}: {len(well_data)} rows")
-                        break
+                # Attempt loading per-well CSV from dataset_fix for robustness
+                df_single = self._load_well_csv_from_root('dataset_fix', well_name, structure_context)
+                if df_single is not None:
+                    well_data = df_single
+                    print(f"Loaded per-well CSV for {well_name} from dataset_fix: {len(well_data)} rows")
                 if well_data.empty:
                     available_wells = working_df['WELL_NAME'].unique().tolist() if 'WELL_NAME' in working_df.columns else []
                     return {"status": "error", "message": f"No data found for well {well_name}. Available wells: {available_wells}"}
@@ -1498,17 +1417,9 @@ def find_raw_data_dataset(structure_name=None):
                     print(f"Found matching dataset with structure name: {name}")
                     return name
         
-        # Fallback to general dataset discovery - prioritize dataset_fix
+        # Fallback to general dataset discovery - prefer dataset_fix as the single source
         search_patterns = [
-            'dataset_fix',
-            'dataset_files',
-            'dataset_files_stacked',
-            'dataset_files_1',
-            'fix_pass_qc',
-            'raw_data_well',
-            'raw_well_data', 
-            'well_data',
-            'data_well'
+            'dataset_fix'
         ]
         
         for pattern in search_patterns:
@@ -1632,7 +1543,7 @@ def get_structures_index():
     try:
         base_dir = os.path.dirname(__file__)
 
-        # 1) Prefer dataset-driven index from fix_pass_qc if available
+    # 1) Prefer dataset-driven index from currently loaded data if available
         try:
             analysis = get_analysis_instance()
             df = getattr(analysis, 'current_well_data', None)
@@ -1696,7 +1607,7 @@ def get_structures_index():
             # If dataset build fails, fall back to static files
             print(f"Dataset-driven structures build failed: {build_err}")
 
-        # 2) Fallback: use static index.json if present
+    # 2) Fallback: use static index.json if present
         candidates = [
             os.path.join(base_dir, 'data', 'structures', 'index.json'),
             os.path.join(base_dir, 'structures', 'index.json')
@@ -1752,8 +1663,8 @@ def select_dataset():
     """API endpoint to select a dataset"""
     try:
         data = request.get_json()
-        # Accept both new and legacy key
-        dataset_name = data.get('dataset_name') or data.get('fix_pass_qc')
+        # Accept only the unified key
+        dataset_name = data.get('dataset_name')
         structure_name = data.get('structure_name')  # Optional structure name
 
         print(f"Dataset selection request - dataset_name: {dataset_name}, structure_name: {structure_name}")
@@ -1782,7 +1693,7 @@ def select_dataset():
                     print(f"Using fallback dataset: {fallback_dataset}")
 
         if not dataset_name:
-            # Last resort: try to find any suitable dataset
+            # Last resort: try to find any suitable dataset (dataset_fix preferred)
             dataset_name = find_raw_data_dataset()
             if not dataset_name:
                 return json.dumps({"status": "error", "message": "No suitable dataset found in project"})
@@ -1937,13 +1848,10 @@ def get_data_prep_columns():
         dataset_name = files[0] if files else (analysis.current_dataset or find_raw_data_dataset())
         if not dataset_name:
             return json.dumps({"status": "error", "message": "No dataset available"})
-        # Folder-mode roots
+    # Folder-mode roots
         name_l = str(dataset_name).lower()
         if name_l.startswith('dataset_fix'):
             cols = analysis._sample_columns_from_root('dataset_fix')
-            return json.dumps({"status": "success", "columns": cols})
-        if name_l.startswith('dataset_files'):
-            cols = analysis._sample_columns_from_root('dataset_files')
             return json.dumps({"status": "success", "columns": cols})
         # Dataiku dataset fallback
         df = dataiku.Dataset(dataset_name).get_dataframe()
@@ -2074,10 +1982,10 @@ def vsh_calculation_endpoint():
             if first_interval and first_interval in interval_specific_params:
                 final_params = interval_specific_params[first_interval]
                 print(f"Using interval-specific params for {first_interval}: {final_params}")
-        # Prefer the currently loaded dataset; else find one (prioritize fix_pass_qc)
+        # Prefer the currently loaded dataset; else find one (dataset_fix preferred)
         raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'fix_pass_qc' or a similar well log dataset."})
+            return json.dumps({"success": False, "error": "Raw well data not found. Ensure 'dataset_fix' folder/dataset exists."})
 
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
@@ -2158,11 +2066,11 @@ def porosity_calculation_endpoint():
         parameters = data.get('parameters', {})
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
-        # Prefer the currently loaded dataset; else find one (prioritize fix_pass_qc)
+        # Prefer the currently loaded dataset; else find one (dataset_fix preferred)
         analysis = get_analysis_instance()
         raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'fix_pass_qc' or a similar well log dataset."})
+            return json.dumps({"success": False, "error": "Raw well data not found. Ensure 'dataset_fix' folder/dataset exists."})
 
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
@@ -2205,11 +2113,11 @@ def sw_calculation_endpoint():
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         
-        # Prefer the currently loaded dataset; else find one (prioritize fix_pass_qc)
+        # Prefer the currently loaded dataset; else find one (dataset_fix preferred)
         analysis = get_analysis_instance()
         raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'fix_pass_qc' or a similar well log dataset."})
+            return json.dumps({"success": False, "error": "Raw well data not found. Ensure 'dataset_fix' folder/dataset exists."})
 
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)
@@ -2302,11 +2210,11 @@ def rwa_calculation_endpoint():
         selected_wells = data.get('selected_wells', [])
         selected_intervals = data.get('selected_intervals', [])
         
-        # Prefer the currently loaded dataset; else find one (prioritize fix_pass_qc)
+        # Prefer the currently loaded dataset; else find one (dataset_fix preferred)
         analysis = get_analysis_instance()
         raw_data_name = analysis.current_dataset or find_raw_data_dataset()
         if not raw_data_name:
-            return json.dumps({"success": False, "error": "Raw well data dataset not found. Please ensure you have a dataset named 'fix_pass_qc' or a similar well log dataset."})
+            return json.dumps({"success": False, "error": "Raw well data not found. Ensure 'dataset_fix' folder/dataset exists."})
 
         print(f"Using dataset: {raw_data_name}")
         dataset = dataiku.Dataset(raw_data_name)

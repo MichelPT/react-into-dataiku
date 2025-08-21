@@ -188,9 +188,9 @@ function initializeStructuresPage() {
         });
 }
 
-// Load structures definition, preferring backend dataset (fix_pass_qc) then falling back to static JSON
+// Load structures definition, preferring backend (dataset_fix) then falling back to static JSON
 function loadStructuresFromFolder() {
-    // 1) Try backend first (dataset-driven from fix_pass_qc)
+    // 1) Try backend first (dataset-driven from dataset_fix)
     return fetchJson('/get_structures_index')
         .then(function(resp){
             if (resp && resp.status === 'success' && resp.data && Array.isArray(resp.data.fields)) {
@@ -3302,20 +3302,15 @@ function initializeApp() {
 function autoLoadDefaultDataset() {
     // Check if user has selected a structure from structures page
     var selectedStructure = appState.currentStructure;
-    var datasetName = 'fix_pass_qc'; // default dataset
+    var datasetName = 'dataset_fix'; // default single source
     var payload = { dataset_name: datasetName };
     
     if (selectedStructure && selectedStructure.name) {
-        // Create dataset name based on selected structure
-        // e.g., "Adera" -> "raw_well_data_adera"
-        datasetName = 'fix_pass_qc_' + selectedStructure.name.toLowerCase();
-        payload = {
-            dataset_name: datasetName,
-            structure_name: selectedStructure.name
-        };
-        console.log('Auto-loading dataset for structure:', selectedStructure.name, '- Dataset:', datasetName);
+        // Always use dataset_fix regardless of structure; backend prefers folder-mode
+        payload = { dataset_name: 'dataset_fix', structure_name: selectedStructure.name };
+        console.log('Auto-loading dataset for structure (folder mode):', selectedStructure.name, '- Dataset: dataset_fix');
     } else {
-        console.log('Auto-loading default fix_pass_qc dataset...');
+        console.log('Auto-loading default dataset_fix dataset...');
     }
     
     return fetchJson('/select_dataset', {
@@ -3353,13 +3348,13 @@ function autoLoadDefaultDataset() {
         
         // More specific error handling
         var errorMessage = error.message;
-        if (errorMessage.includes('dataset does not exist')) {
+    if (errorMessage.includes('dataset does not exist')) {
             if (selectedStructure) {
                 errorMessage = 'Dataset for structure "' + selectedStructure.name + '" not found. Trying fallback dataset...';
                 showError(errorMessage);
                 return autoLoadFallbackDataset();
             } else {
-                errorMessage = 'Default dataset not found. Please check if fix_pass_qc dataset exists in your Dataiku project.';
+        errorMessage = 'Default dataset not found. Please check that dataset_fix folder or dataset exists.';
             }
         }
         
@@ -3374,11 +3369,11 @@ function autoLoadDefaultDataset() {
 }
 
 function autoLoadFallbackDataset() {
-    console.log('Loading fallback dataset: fix_pass_qc');
+    console.log('Loading fallback dataset: dataset_fix');
     
     return fetchJson('/select_dataset', {
         method: 'POST',
-    body: JSON.stringify({ dataset_name: 'fix_pass_qc' })
+        body: JSON.stringify({ dataset_name: 'dataset_fix' })
     })
     .then(function(response) {
         if (response.status === 'success') {
@@ -3403,7 +3398,7 @@ function autoLoadFallbackDataset() {
     })
     .catch(function(error) {
         console.error('Error loading fallback dataset:', error);
-        showError('Error loading fallback dataset: ' + error.message + '. Please ensure at least one dataset exists in your Dataiku project.');
+        showError('Error loading fallback dataset: ' + error.message + '. Ensure dataset_fix folder/dataset exists.');
     });
 }
 
