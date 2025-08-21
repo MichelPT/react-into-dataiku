@@ -4189,6 +4189,9 @@ function loadDataPrepModule(moduleName) {
         case 'crossplot':
             loadCrossplotModule(moduleArea);
             break;
+        case 'rgbe-rpbe':
+            loadRgbeRpbeModule(moduleArea);
+            break;
         default:
             loadDefaultModule(moduleArea, moduleName);
             break;
@@ -4520,21 +4523,77 @@ function loadCrossplotModule(container) {
                                     <td>Input</td>
                                     <td>X-axis column</td>
                                     <td>X_COLUMN</td>
-                                    <td><select class="param-input log-select"><option>Select X column</option></select></td>
+                                    <td><select name="X_COLUMN" class="param-input log-select"><option>Select X column</option></select></td>
                                 </tr>
                                 <tr class="param-row bg-cyan-400">
                                     <td>Log</td>
                                     <td>Input</td>
                                     <td>Y-axis column</td>
                                     <td>Y_COLUMN</td>
-                                    <td><select class="param-input log-select"><option>Select Y column</option></select></td>
+                                    <td><select name="Y_COLUMN" class="param-input log-select"><option>Select Y column</option></select></td>
                                 </tr>
-                                <tr class="param-row bg-cyan-400">
-                                    <td>Log</td>
-                                    <td>Input</td>
-                                    <td>Color by column (optional)</td>
-                                    <td>COLOR_COLUMN</td>
-                                    <td><select class="param-input log-select"><option value="">None</option></select></td>
+                                <tr class="param-row">
+                                    <td>Interval</td>
+                                    <td>In_Out</td>
+                                    <td>Number of bins</td>
+                                    <td>BINS</td>
+                                    <td><input name="BINS" type="number" class="param-input" value="25" min="10" max="100"></td>
+                                </tr>
+                                <tr class="param-row">
+                                    <td>Interval</td>
+                                    <td>In_Out</td>
+                                    <td>Clean Gamma Ray</td>
+                                    <td>GR_MA</td>
+                                    <td><input name="GR_MA" type="number" class="param-input" value="30" step="0.1"></td>
+                                </tr>
+                                <tr class="param-row">
+                                    <td>Interval</td>
+                                    <td>In_Out</td>
+                                    <td>Shale Gamma Ray</td>
+                                    <td>GR_SH</td>
+                                    <td><input name="GR_SH" type="number" class="param-input" value="120" step="0.1"></td>
+                                </tr>
+                                <tr class="param-row">
+                                    <td>Interval</td>
+                                    <td>In_Out</td>
+                                    <td>Matrix Density</td>
+                                    <td>RHO_MA</td>
+                                    <td><input name="RHO_MA" type="number" class="param-input" value="2.65" step="0.01"></td>
+                                </tr>
+                                <tr class="param-row">
+                                    <td>Interval</td>
+                                    <td>In_Out</td>
+                                    <td>Shale Density</td>
+                                    <td>RHO_SH</td>
+                                    <td><input name="RHO_SH" type="number" class="param-input" value="2.3" step="0.01"></td>
+                                </tr>
+                                <tr class="param-row">
+                                    <td>Interval</td>
+                                    <td>In_Out</td>
+                                    <td>Matrix Neutron</td>
+                                    <td>NPHI_MA</td>
+                                    <td><input name="NPHI_MA" type="number" class="param-input" value="0.0" step="0.01"></td>
+                                </tr>
+                                <tr class="param-row">
+                                    <td>Interval</td>
+                                    <td>In_Out</td>
+                                    <td>Shale Neutron</td>
+                                    <td>NPHI_SH</td>
+                                    <td><input name="NPHI_SH" type="number" class="param-input" value="0.4" step="0.01"></td>
+                                </tr>
+                                <tr class="param-row">
+                                    <td>Interval</td>
+                                    <td>In_Out</td>
+                                    <td>Quartz Percentile</td>
+                                    <td>PRCNT_QZ</td>
+                                    <td><input name="PRCNT_QZ" type="number" class="param-input" value="10" min="1" max="50"></td>
+                                </tr>
+                                <tr class="param-row">
+                                    <td>Interval</td>
+                                    <td>In_Out</td>
+                                    <td>Water Percentile</td>
+                                    <td>PRCNT_WTR</td>
+                                    <td><input name="PRCNT_WTR" type="number" class="param-input" value="10" min="1" max="50"></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -4547,6 +4606,8 @@ function loadCrossplotModule(container) {
             </div>
         </div>
     `;
+    
+    // Column options will be populated when data is loaded
 }
 
 function loadNormalizationModule(container) {
@@ -5007,6 +5068,144 @@ function runCrossplot() {
         .finally(function() {
             updateStatusText('Ready');
         });
+}
+
+function loadRgbeRpbeModule(container) {
+    container.innerHTML = `
+        <div class="data-prep-module-container">
+            <h3>Petrophysical Analysis: RGBE-RPBE</h3>
+            <div class="module-content">
+                <div class="parameters-section">
+                    <h4>RGBE-RPBE Parameters</h4>
+                    <div class="info-box">
+                        <p><strong>RGBE-RPBE Analysis</strong> calculates regression-based gas effects and porosity-based effects from well log data.</p>
+                        <p>Requires: GR, RT, PHIE columns and IQUAL > 0 intervals</p>
+                    </div>
+                    <div class="parameters-table-container">
+                        <table class="parameters-table">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Mode</th>
+                                    <th>Comment</th>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="param-row">
+                                    <td>Interval</td>
+                                    <td>In_Out</td>
+                                    <td>Minimum interval size</td>
+                                    <td>MIN_INTERVAL_SIZE</td>
+                                    <td><input name="MIN_INTERVAL_SIZE" type="number" class="param-input" value="10" min="5" max="100"></td>
+                                </tr>
+                                <tr class="param-row">
+                                    <td>Interval</td>
+                                    <td>In_Out</td>
+                                    <td>R-squared threshold</td>
+                                    <td>R_SQUARED_THRESHOLD</td>
+                                    <td><input name="R_SQUARED_THRESHOLD" type="number" class="param-input" value="0.5" min="0" max="1" step="0.1"></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Gamma Ray Log</td>
+                                    <td>GR_COLUMN</td>
+                                    <td><select name="GR_COLUMN" class="param-input log-select">
+                                        <option value="GR">GR</option>
+                                        <option value="CGR">CGR</option>
+                                    </select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Resistivity Log</td>
+                                    <td>RT_COLUMN</td>
+                                    <td><select name="RT_COLUMN" class="param-input log-select">
+                                        <option value="RT">RT</option>
+                                        <option value="ILD">ILD</option>
+                                        <option value="RD">RD</option>
+                                    </select></td>
+                                </tr>
+                                <tr class="param-row bg-cyan-400">
+                                    <td>Log</td>
+                                    <td>Input</td>
+                                    <td>Effective Porosity Log</td>
+                                    <td>PHIE_COLUMN</td>
+                                    <td><select name="PHIE_COLUMN" class="param-input log-select">
+                                        <option value="PHIE">PHIE</option>
+                                        <option value="PHID">PHID</option>
+                                        <option value="PHIT">PHIT</option>
+                                    </select></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="actions-section">
+                    <button class="btn-secondary" onclick="showDataPrepEmptyState()">Cancel</button>
+                    <button class="btn-primary" onclick="runRgbeRpbe()">Calculate RGBE-RPBE</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function runRgbeRpbe() {
+    if (appState.selectedWells.length === 0) {
+        showWarning('Please select at least one well');
+        return;
+    }
+    
+    // Collect parameters from form
+    var params = {
+        MIN_INTERVAL_SIZE: parseInt(document.querySelector('[name="MIN_INTERVAL_SIZE"]')?.value || '10'),
+        R_SQUARED_THRESHOLD: parseFloat(document.querySelector('[name="R_SQUARED_THRESHOLD"]')?.value || '0.5'),
+        GR_COLUMN: document.querySelector('[name="GR_COLUMN"]')?.value || 'GR',
+        RT_COLUMN: document.querySelector('[name="RT_COLUMN"]')?.value || 'RT',
+        PHIE_COLUMN: document.querySelector('[name="PHIE_COLUMN"]')?.value || 'PHIE',
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals,
+        selected_zones: appState.selectedZones || []
+    };
+    
+    console.log('Running RGBE-RPBE calculation with parameters:', params);
+    updateStatusText('Calculating RGBE-RPBE...');
+    
+    return fetchJson('/run_calculation_endpoint', {
+        calculation_type: 'rgbe_rpbe',
+        parameters: params,
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals
+    })
+    .then(function(response) {
+        if (response && response.status === 'success') {
+            showSuccess('RGBE-RPBE calculation completed successfully');
+            
+            // Get the plot
+            return fetchJson('/get_plot_endpoint', {
+                calculation_type: 'rgbe_rpbe',
+                selected_wells: appState.selectedWells
+            });
+        } else {
+            throw new Error(response?.message || 'RGBE-RPBE calculation failed');
+        }
+    })
+    .then(function(plotResponse) {
+        if (plotResponse && plotResponse.status === 'success' && plotResponse.figure) {
+            displayCalculationPlot(plotResponse.figure, 'RGBE-RPBE Analysis');
+        } else {
+            showWarning('RGBE-RPBE calculation completed but plot generation failed');
+        }
+    })
+    .catch(function(error) {
+        console.error('RGBE-RPBE error:', error);
+        showError('RGBE-RPBE error: ' + (error?.message || error));
+    })
+    .finally(function() {
+        updateStatusText('Ready');
+    });
 }
 
 function runQualityControl() {
