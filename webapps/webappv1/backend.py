@@ -19,120 +19,21 @@ import os
 # Import your services (assuming they exist)
 try:
     from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr
-except ImportError:
-    def calculate_vsh_from_gr(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.porosity import calculate_porosity
-except ImportError:
-    def calculate_porosity(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.depth_matching import depth_matching
-except ImportError:
-    def depth_matching(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.rgsa import process_all_wells_rgsa
-except ImportError:
-    def process_all_wells_rgsa(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.dgsa import process_all_wells_dgsa
-except ImportError:
-    def process_all_wells_dgsa(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.ngsa import process_all_wells_ngsa
-except ImportError:
-    def process_all_wells_ngsa(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.rgbe_rpbe import process_rgbe_rpbe
-except ImportError:
-    def process_rgbe_rpbe(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.rt_r0 import process_rt_r0
-except ImportError:
-    def process_rt_r0(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.swgrad import process_swgrad
-except ImportError:
-    def process_swgrad(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.dns_dnsv import process_dns_dnsv
-except ImportError:
-    def process_dns_dnsv(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.sw import calculate_sw
-except ImportError:
-    def calculate_sw(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.rwa import calculate_rwa
-except ImportError:
-    def calculate_rwa(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.vsh_dn import calculate_vsh_dn
-except ImportError:
-    def calculate_vsh_dn(*args, **kwargs):
-        return {}
-
-try:
-    from standardwebappv1.services.iqual import calculate_iqual
-except ImportError:
-    def calculate_iqual(*args, **kwargs):
-        return {}
-
-try:
-    from standardwebappv1.services.fill_missing import flag_missing_values
-except ImportError:
-    def flag_missing_values(*args, **kwargs):
-        return {}
-
-try:
-    from standardwebappv1.services.splicing import perform_splicing
-except ImportError:
-    def perform_splicing(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.histogram import plot_histogram
-except ImportError:
-    def plot_histogram(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.crossplot import generate_crossplot
-except ImportError:
-    def generate_crossplot(*args, **kwargs):
-        import plotly.graph_objects as go
-        return go.Figure()
-
-try:
     from standardwebappv1.services.data_processing import trim_data_auto
-except ImportError:
-    def trim_data_auto(*args, **kwargs):
-        return {}
-
-try:
     from standardwebappv1.services.plotting_service import (
         extract_markers_with_mean_depth,
         normalize_xover,
@@ -146,17 +47,13 @@ try:
         plot_rwa_indo
     )
 except ImportError as e:
-    print(f"Warning: Some plotting services not available: {e}")
-    # Create dummy functions for missing plotting services
+    print(f"Warning: Some services not available: {e}")
+    # Create dummy functions for missing services
     def extract_markers_with_mean_depth(df):
         return df.groupby('MARKER')['DEPTH'].mean().reset_index() if 'MARKER' in df.columns else pd.DataFrame()
     
     def normalize_xover(df, col1, col2):
         return df
-    
-    def plot_gsa_main(*args, **kwargs):
-        import plotly.graph_objects as go
-        return go.Figure()
     
     def plot_log_default(df, df_marker=None, df_well_marker=None):
         import plotly.graph_objects as go
@@ -178,36 +75,43 @@ except ImportError as e:
             fig.add_trace(go.Scatter(x=df['RHOB'], y=df['DEPTH'], mode='lines', name='RHOB'), row=1, col=4)
         
         if 'DEPTH' in df.columns and not df.empty:
-            fig.update_layout(yaxis=dict(autorange='reversed'))
+            min_depth = df['DEPTH'].min()
+            max_depth = df['DEPTH'].max()
+            # Add small padding to the depth range
+            depth_padding = (max_depth - min_depth) * 0.05
+            fig.update_yaxes(
+                autorange='reversed',
+                range=[max_depth + depth_padding, min_depth - depth_padding]
+            )
+        else:
+            fig.update_yaxes(autorange='reversed')
         
+        fig.update_layout(height=800, title='Well Log Plot')
         return fig
-    
-    def plot_smoothing(*args, **kwargs):
-        import plotly.graph_objects as go
-        return go.Figure()
-    
-    def plot_phie_den(*args, **kwargs):
-        import plotly.graph_objects as go
-        return go.Figure()
-    
-    def plot_normalization(*args, **kwargs):
-        import plotly.graph_objects as go
-        return go.Figure()
-    
-    def plot_vsh_linear(*args, **kwargs):
-        import plotly.graph_objects as go
-        return go.Figure()
-    
-    def plot_sw_indo(*args, **kwargs):
-        import plotly.graph_objects as go
-        return go.Figure()
-    
-    def plot_rwa_indo(*args, **kwargs):
-        import plotly.graph_objects as go
-        return go.Figure()
 
+    # Minimal placeholders for plotting functions referenced below
+    def plot_vsh_linear(df=None, df_marker=None, df_well_marker=None):
+        return plot_log_default(df)
 
-# Fallback histogram and crossplot generators
+    def plot_phie_den(df=None, df_marker=None, df_well_marker=None):
+        return plot_log_default(df)
+
+    def plot_gsa_main(df=None):
+        return plot_log_default(df)
+
+    def plot_normalization(df=None, df_marker=None, df_well_marker=None):
+        return plot_log_default(df)
+
+    def plot_sw_indo(df=None, df_marker=None, df_well_marker=None):
+        return plot_log_default(df)
+
+    def plot_rwa_indo(df=None, df_marker=None, df_well_marker=None):
+        return plot_log_default(df)
+
+    def plot_smoothing(df=None, df_marker=None, df_well_marker=None):
+        return plot_log_default(df)
+
+    # Fallback histogram and crossplot generators
     def plot_histogram(df: pd.DataFrame, log_column: str, n_bins: int):
         import plotly.graph_objects as go
         s = pd.to_numeric(df.get(log_column), errors='coerce').dropna()
@@ -346,7 +250,7 @@ except ImportError as e:
 
 class WellLogAnalysis:
     def __init__(self, project_key=None):
-        """Initialize with optional project key"""
+        """Initialize with optional project key and auto-load fix_pass_qc dataset"""
         self.project_key = project_key
         if project_key:
             self.project = dataiku.Project(project_key)
@@ -358,8 +262,8 @@ class WellLogAnalysis:
         self.selected_zones = []
         self.selected_wells = []
 
-        # Don't auto-load dataset on init to prevent timeout
-        # self.auto_load_default_dataset()
+        # Auto-load the fix_pass_qc dataset
+        self.auto_load_default_dataset()
 
     # -----------------------------
     # Internal helpers
@@ -946,16 +850,6 @@ class WellLogAnalysis:
                 result_df = self._run_interval_normalization(df, processed_params)
             elif calculation_type == "trim_data":
                 result_df = self._run_trim_data_calculation(df, processed_params)
-            elif calculation_type == "smoothing":
-                result_df = self._run_smoothing_calculation(df, processed_params)
-            elif calculation_type == "iqual":
-                result_df = self._run_iqual_calculation(df, processed_params)
-            elif calculation_type == "vsh_dn":
-                result_df = self._run_vsh_dn_calculation(df, processed_params)
-            elif calculation_type == "fill_missing":
-                result_df = self._run_fill_missing_calculation(df, processed_params)
-            elif calculation_type == "splicing":
-                result_df = self._run_splicing_calculation(df, processed_params)
             else:
                 return {"status": "error", "message": f"Unknown calculation type: {calculation_type}"}
             
@@ -1054,106 +948,6 @@ class WellLogAnalysis:
             return df
         except Exception as e:
             raise Exception(f"VSH calculation error: {str(e)}")
-    
-    def _run_smoothing_calculation(self, df, params):
-        """Run smoothing calculation using rolling window"""
-        try:
-            window_size = int(params.get('window_size', 5))
-            column = params.get('column', 'GR')
-            output_column = params.get('output_column', f'{column}_SMOOTH')
-            method = params.get('method', 'mean')  # mean, median, min, max
-            
-            if column not in df.columns:
-                raise ValueError(f"Column {column} not found in dataset")
-            
-            if method == 'mean':
-                df[output_column] = df[column].rolling(window=window_size, center=True).mean()
-            elif method == 'median':
-                df[output_column] = df[column].rolling(window=window_size, center=True).median()
-            elif method == 'min':
-                df[output_column] = df[column].rolling(window=window_size, center=True).min()
-            elif method == 'max':
-                df[output_column] = df[column].rolling(window=window_size, center=True).max()
-            else:
-                raise ValueError(f"Unknown smoothing method: {method}")
-            
-            return df
-        except Exception as e:
-            raise Exception(f"Smoothing calculation error: {str(e)}")
-    
-    def _run_iqual_calculation(self, df, params):
-        """Run IQUAL calculation"""
-        try:
-            # Implement IQUAL calculation directly
-            df = df.copy()
-            if 'PHIE' in df.columns and 'VSH' in df.columns:
-                df['IQUAL'] = np.where((df['PHIE'] >= 0.1) & (df['VSH'] <= 0.5), 1, 0)
-            else:
-                df['IQUAL'] = 0
-            return df
-        except Exception as e:
-            raise Exception(f"IQUAL calculation error: {str(e)}")
-    
-    def _run_vsh_dn_calculation(self, df, params):
-        """Run VSH DN calculation"""
-        try:
-            # Basic VSH from density-neutron calculation
-            RHO_MA = float(params.get('RHO_MA', 2.645))
-            RHO_SH = float(params.get('RHO_SH', 2.61))
-            NPHI_MA = float(params.get('NPHI_MA', -0.02))
-            NPHI_SH = float(params.get('NPHI_SH', 0.398))
-            
-            rho_col = params.get('RHOB', 'RHOB')
-            nphi_col = params.get('NPHI', 'NPHI')
-            output_col = params.get('VSH', 'VSH_DN')
-            
-            if rho_col not in df.columns or nphi_col not in df.columns:
-                raise ValueError(f"Required columns {rho_col} or {nphi_col} not found")
-            
-            # Simple VSH calculation from density-neutron
-            df[output_col] = ((df[rho_col] - RHO_MA) / (RHO_SH - RHO_MA) + 
-                              (df[nphi_col] - NPHI_MA) / (NPHI_SH - NPHI_MA)) / 2
-            df[output_col] = df[output_col].clip(0, 1)
-            
-            return df
-        except Exception as e:
-            raise Exception(f"VSH DN calculation error: {str(e)}")
-    
-    def _run_fill_missing_calculation(self, df, params):
-        """Run fill missing calculation"""
-        try:
-            logs_to_check = params.get('logs_to_check', ['GR', 'RT', 'NPHI', 'RHOB'])
-            df = df.copy()
-            
-            # Create missing flag
-            if 'MISSING_FLAG' not in df.columns:
-                df['MISSING_FLAG'] = 0
-            
-            # Check for missing values in specified logs
-            missing_mask = df[logs_to_check].isnull().any(axis=1)
-            df.loc[missing_mask, 'MISSING_FLAG'] = 1
-            
-            return df
-        except Exception as e:
-            raise Exception(f"Fill missing calculation error: {str(e)}")
-    
-    def _run_splicing_calculation(self, df, params):
-        """Run splicing calculation"""
-        try:
-            # Basic splicing implementation
-            source_col = params.get('source_column', 'RT')
-            target_col = params.get('target_column', 'RT_SPLICED')
-            method = params.get('method', 'linear')
-            
-            if source_col not in df.columns:
-                raise ValueError(f"Source column {source_col} not found")
-            
-            # Simple interpolation for missing values
-            df[target_col] = df[source_col].interpolate(method=method)
-            
-            return df
-        except Exception as e:
-            raise Exception(f"Splicing calculation error: {str(e)}")
     
     def _run_porosity_calculation(self, df, params):
         """Run porosity calculation"""
@@ -1824,15 +1618,6 @@ def get_wells():
     """API endpoint to get wells from selected dataset"""
     try:
         analysis = get_analysis_instance()
-        
-        # Auto-load dataset if not already loaded (lazy loading)
-        if analysis.current_dataset is None or analysis.current_well_data is None:
-            try:
-                analysis.auto_load_default_dataset()
-            except Exception as e:
-                print(f"Warning: Could not auto-load dataset: {e}")
-                return json.dumps({"status": "error", "message": f"No dataset available: {str(e)}"})
-        
         result = analysis.get_well_list()
         return json.dumps(result)
     except Exception as e:
@@ -2044,13 +1829,6 @@ def first_api_call():
     """First API call endpoint for webapp initialization"""
     try:
         analysis = get_analysis_instance()
-        
-        # Auto-load dataset if not already loaded
-        if analysis.current_dataset is None:
-            try:
-                analysis.auto_load_default_dataset()
-            except Exception as e:
-                print(f"Warning: Could not auto-load dataset: {e}")
         
         result = {
             "status": "success",
@@ -2484,267 +2262,3 @@ def crossplot_endpoint():
     except Exception as e:
         traceback.print_exc()
         return json.dumps({"status": "error", "message": str(e)})
-
-# -----------------------------
-# RGSA Calculation endpoint
-# -----------------------------
-@app.route('/rgsa_calculation', methods=['POST'])
-def rgsa_calculation_endpoint():
-    """Endpoint for RGSA calculation"""
-    try:
-        data = request.get_json() or {}
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        result = analysis.run_calculation('rgsa', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('rgsa', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-# -----------------------------
-# DGSA Calculation endpoint
-# -----------------------------
-@app.route('/dgsa_calculation', methods=['POST'])
-def dgsa_calculation_endpoint():
-    """Endpoint for DGSA calculation"""
-    try:
-        data = request.get_json() or {}
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        result = analysis.run_calculation('dgsa', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('dgsa', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-# -----------------------------
-# NGSA Calculation endpoint
-# -----------------------------
-@app.route('/ngsa_calculation', methods=['POST'])
-def ngsa_calculation_endpoint():
-    """Endpoint for NGSA calculation"""
-    try:
-        data = request.get_json() or {}
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        result = analysis.run_calculation('ngsa', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('ngsa', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-# -----------------------------
-# Normalization Calculation endpoint
-# -----------------------------
-@app.route('/normalization_calculation', methods=['POST'])
-def normalization_calculation_endpoint():
-    """Endpoint for normalization calculation"""
-    try:
-        data = request.get_json() or {}
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        result = analysis.run_calculation('normalization', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('normalization', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-# -----------------------------
-# Trim Data Calculation endpoint
-# -----------------------------
-@app.route('/trim_data_calculation', methods=['POST'])
-def trim_data_calculation_endpoint():
-    """Endpoint for trim data calculation"""
-    try:
-        data = request.get_json() or {}
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        result = analysis.run_calculation('trim_data', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('trim_data', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-# -----------------------------
-# Smoothing Calculation endpoint
-# -----------------------------
-@app.route('/smoothing_calculation', methods=['POST'])
-def smoothing_calculation_endpoint():
-    """Endpoint for smoothing calculation"""
-    try:
-        data = request.get_json() or {}
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        result = analysis.run_calculation('smoothing', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('smoothing', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-# -----------------------------
-# IQUAL Calculation endpoint
-# -----------------------------
-@app.route('/iqual_calculation', methods=['POST'])
-def iqual_calculation_endpoint():
-    """Endpoint for IQUAL calculation"""
-    try:
-        data = request.get_json() or {}
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        result = analysis.run_calculation('iqual', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('iqual', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-# -----------------------------
-# VSH DN Calculation endpoint
-# -----------------------------
-@app.route('/vsh_dn_calculation', methods=['POST'])
-def vsh_dn_calculation_endpoint():
-    """Endpoint for VSH DN calculation"""
-    try:
-        data = request.get_json() or {}
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        result = analysis.run_calculation('vsh_dn', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('vsh_dn', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-# -----------------------------
-# Fill Missing Calculation endpoint
-# -----------------------------
-@app.route('/fill_missing_calculation', methods=['POST'])
-def fill_missing_calculation_endpoint():
-    """Endpoint for fill missing calculation"""
-    try:
-        data = request.get_json() or {}
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        result = analysis.run_calculation('fill_missing', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('fill_missing', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-# -----------------------------
-# Splicing Calculation endpoint
-# -----------------------------
-@app.route('/splicing_calculation', methods=['POST'])
-def splicing_calculation_endpoint():
-    """Endpoint for splicing calculation"""
-    try:
-        data = request.get_json() or {}
-        parameters = data.get('parameters', {})
-        selected_wells = data.get('selected_wells', [])
-        selected_intervals = data.get('selected_intervals', [])
-        
-        analysis = get_analysis_instance()
-        result = analysis.run_calculation('splicing', parameters)
-        
-        if result.get('status') == 'success':
-            # Create plot for visualization
-            plot_result = analysis.create_plot_for_calculation('splicing', selected_wells[0] if selected_wells else None)
-            if plot_result.get('status') == 'success':
-                result['plot_data'] = plot_result.get('figure')
-        
-        return json.dumps(result)
-    except Exception as e:
-        traceback.print_exc()
-        return json.dumps({"status": "error", "message": str(e)})
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
