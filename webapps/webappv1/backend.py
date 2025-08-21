@@ -28,7 +28,7 @@ try:
     from standardwebappv1.services.rt_r0 import process_rt_r0
     from standardwebappv1.services.swgrad import process_swgrad
     from standardwebappv1.services.dns_dnsv import process_dns_dnsv
-    from standardwebappv1.services.sw import calculate_sw
+    from standardwebappv1.services.sw import calculate_sw, calculate_sw_simandoux
     print("✅ All services imported successfully")
 except ImportError as e:
     print(f"⚠️ Service import error: {e}")
@@ -874,6 +874,8 @@ class WellLogAnalysis:
             # Run calculation based on type
             if calculation_type == "vsh":
                 result_df = self._run_vsh_calculation(df, processed_params)
+            elif calculation_type == "vsh-dn":
+                result_df = self._run_vsh_dn_calculation(df, processed_params)
             elif calculation_type == "porosity":
                 result_df = self._run_porosity_calculation(df, processed_params)
             elif calculation_type == "gsa":
@@ -916,17 +918,18 @@ class WellLogAnalysis:
             return {"status": "error", "message": f"Error running calculation: {str(e)}"}
 
     def _run_trim_data_calculation(self, df, params):
-        """Trim data using available services.
+        """Trim data by depth range, intervals, or quality filter.
         params keys (from UI):
-          - start_depth: float (maps to top_depth)
-          - end_depth: float (maps to bottom_depth) 
+          - start_depth: float
+          - end_depth: float
           - method: 'depth_range' | 'interval_based' | 'quality_filter'
           - required_columns: optional list for quality filter
+        Uses self.selected_intervals and self.selected_wells where relevant.
         """
         try:
             method = (params or {}).get('method', 'depth_range')
-            start_depth = params.get('start_depth')  # top boundary
-            end_depth = params.get('end_depth')      # bottom boundary
+            start_depth = params.get('start_depth')
+            end_depth = params.get('end_depth')
             required_cols = params.get('required_columns') or ['GR','RT','NPHI','RHOB']
 
             # Determine depth column
@@ -934,74 +937,42 @@ class WellLogAnalysis:
             if not depth_col:
                 raise ValueError("No DEPTH/DEPT column in dataset")
 
+            out = df.copy()
             if method == 'depth_range':
-                # Use service implementation - map parameters correctly
-                # Frontend start_depth = top boundary, end_depth = bottom boundary
-                top_depth = start_depth
-                bottom_depth = end_depth
-                
-                if top_depth is None and bottom_depth is None:
-                    raise ValueError("Please provide start_depth or end_depth for depth_range method")
-                
-                # Determine trim mode based on what's provided
-                if top_depth is not None and bottom_depth is not None:
-                    mode = 'CUSTOM'
-                elif bottom_depth is not None and top_depth is None:
-                    mode = 'DEPTH_ABOVE'  # remove data above bottom_depth
-                elif top_depth is not None and bottom_depth is None:
-                    mode = 'DEPTH_BELOW'  # remove data below top_depth
-                else:
-                    mode = 'CUSTOM'
-                
-                # Use the service function
-                try:
-                    # Import inline to handle missing service gracefully
-                    import importlib
-                    trim_module = importlib.import_module('standardwebappv1.services.trim_data')
-                    trim_well_log = getattr(trim_module, 'trim_well_log')
-                    out = trim_well_log(
-                        df=df.copy(),
-                        top_depth=top_depth,
-                        bottom_depth=bottom_depth,
-                        required_columns=required_cols,
-                        mode=mode
-                    )
-                except (ImportError, AttributeError, Exception):
-                    # Fallback to manual implementation if service not available
-                    out = df.copy()
-                    if start_depth is not None:
-                        out = out[out[depth_col] >= start_depth]
-                    if end_depth is not None:
-                        out = out[out[depth_col] <= end_depth]
-                        
+                # numeric conversion
+                if start_depth is None and end_depth is None:
+                    raise ValueError("Please provide start_depth/end_depth for depth_range method")
+                if start_depth is not None:
+                    start_depth = float(start_depth)
+                if end_depth is not None:
+                    end_depth = float(end_depth)
+                if start_depth is not None and end_depth is not None and start_depth > end_depth:
+                    start_depth, end_depth = end_depth, start_depth
+                if start_depth is not None:
+                    out = out[out[depth_col] >= start_depth]
+                if end_depth is not None:
+                    out = out[out[depth_col] <= end_depth]
             elif method == 'interval_based':
                 intervals = self.selected_intervals or params.get('intervals') or []
                 if not intervals:
                     raise ValueError("No intervals selected for interval_based method")
-                marker_col = next((c for c in ['MARKER','Marker','FORMATION','Formation'] if c in df.columns), None)
+                marker_col = next((c for c in ['MARKER','Marker','FORMATION','Formation'] if c in out.columns), None)
                 if not marker_col:
                     raise ValueError("No marker column found for interval_based method")
-                out = df[df[marker_col].isin(intervals)].copy()
-                
+                out = out[out[marker_col].isin(intervals)]
             elif method == 'quality_filter':
-                # Use auto trim service
-                try:
-                    out = trim_data_auto(df.copy(), required_cols)
-                except Exception:
-                    # Fallback implementation
-                    valid_ranges = []
-                    for col in required_cols:
-                        if col in df.columns:
-                            series = pd.to_numeric(df[col], errors='coerce')
-                            idx = df[(series != -999.0) & (~series.isna())].index
-                            if len(idx) > 0:
-                                valid_ranges.append((idx.min(), idx.max()))
-                    if valid_ranges:
-                        start = min(s for s, _ in valid_ranges)
-                        end = max(e for _, e in valid_ranges)
-                        out = df.loc[start:end].copy()
-                    else:
-                        out = df.copy()
+                # Keep continuous block between first and last valid rows across required columns
+                valid_ranges = []
+                for col in required_cols:
+                    if col in out.columns:
+                        series = pd.to_numeric(out[col], errors='coerce')
+                        idx = out[(series != -999.0) & (~series.isna())].index
+                        if len(idx) > 0:
+                            valid_ranges.append((idx.min(), idx.max()))
+                if valid_ranges:
+                    start = min(s for s, _ in valid_ranges)
+                    end = max(e for _, e in valid_ranges)
+                    out = out.loc[start:end]
             else:
                 raise ValueError(f"Unknown trim method: {method}")
 
@@ -1012,36 +983,78 @@ class WellLogAnalysis:
             raise Exception(f"Trim Data error: {str(e)}")
     
     def _run_vsh_calculation(self, df, params):
-        """Run VSH calculation"""
+        """Run VSH calculation using the actual service"""
         try:
-            gr_ma = float(params.get('GR_MA', 30))
-            gr_sh = float(params.get('GR_SH', 120))
-            input_log = params.get('input_log', 'GR')
-            output_log = params.get('output_log', 'VSH_GR')
+            # Map frontend parameters to service parameters
+            gr_ma = float(params.get('GR_CLEAN', params.get('GR_MA', 30)))
+            gr_sh = float(params.get('GR_SHALE', params.get('GR_SH', 120)))
+            gr_log = params.get('GR_COLUMN', params.get('GR', 'GR'))
+            output_col = params.get('output_log', 'VSH_GR')
             
-            if input_log not in df.columns:
-                raise ValueError(f"Input log {input_log} not found in dataset")
+            # Use the actual service function
+            result_df = calculate_vsh_from_gr(
+                df=df,
+                gr_log=gr_log,
+                gr_ma=gr_ma,
+                gr_sh=gr_sh,
+                output_col=output_col,
+                target_intervals=self.selected_intervals,
+                target_zones=None
+            )
             
-            # Simple VSH calculation
-            df[output_log] = (df[input_log] - gr_ma) / (gr_sh - gr_ma)
-            df[output_log] = df[output_log].clip(0, 1)
-            
-            return df
+            return result_df
         except Exception as e:
             raise Exception(f"VSH calculation error: {str(e)}")
     
-    def _run_porosity_calculation(self, df, params):
-        """Run porosity calculation"""
+    def _run_vsh_dn_calculation(self, df, params):
+        """Run VSH-DN calculation using the actual service"""
         try:
-            method = params.get('PHIE_METHOD', 'density')
-            rho_ma = float(params.get('RHO_MA', 2.65))
-            rho_fl = float(params.get('RHO_FL', 1.0))
+            # Map frontend parameters to service parameters
+            service_params = {
+                'RHOB_MA': float(params.get('RHOB_MA', 2.65)),
+                'RHOB_SH': float(params.get('RHOB_SH', 2.61)),
+                'RHOB_FL': float(params.get('RHOB_FL', 0.85)),
+                'NPHI_MA': float(params.get('NPHI_MA', -0.02)),
+                'NPHI_SH': float(params.get('NPHI_SH', 0.398)),
+                'NPHI_FL': float(params.get('NPHI_FL', 0.85)),
+                'RHOB': params.get('RHOB', 'RHOB'),
+                'NPHI': params.get('NPHI', 'NPHI'),
+                'VSH': params.get('VSH', 'VSH_DN')
+            }
             
-            if method == 'density' and 'RHOB' in df.columns:
-                df['PHIE'] = (rho_ma - df['RHOB']) / (rho_ma - rho_fl)
-                df['PHIE'] = df['PHIE'].clip(0, 1)
+            # Use the actual service function
+            result_df = calculate_vsh_dn(
+                df=df,
+                params=service_params,
+                target_intervals=self.selected_intervals,
+                target_zones=None
+            )
             
-            return df
+            return result_df
+        except Exception as e:
+            raise Exception(f"VSH-DN calculation error: {str(e)}")
+
+    def _run_porosity_calculation(self, df, params):
+        """Run porosity calculation using the actual service"""
+        try:
+            # Map frontend parameters to service parameters
+            service_params = {
+                'rho_fl': float(params.get('FLUID_DENSITY', params.get('RHO_FL', 1.0))),
+                'rho_ma': float(params.get('MATRIX_DENSITY', params.get('RHO_MA', 2.65))),
+                'method': params.get('POROSITY_METHOD', 'Neutron-Density'),
+                'rhob_col': params.get('RHOB_COLUMN', 'RHOB'),
+                'nphi_col': params.get('NPHI_COLUMN', 'NPHI')
+            }
+            
+            # Use the actual service function
+            result_df = calculate_porosity(
+                df=df,
+                params=service_params,
+                target_intervals=self.selected_intervals,
+                target_zones=None
+            )
+            
+            return result_df
         except Exception as e:
             raise Exception(f"Porosity calculation error: {str(e)}")
     
@@ -1107,24 +1120,66 @@ class WellLogAnalysis:
             raise Exception(f"DNS-DNSV calculation error: {str(e)}")
     
     def _run_sw_calculation(self, df, params):
-        """Run water saturation calculation"""
+        """Run water saturation calculation using the actual service"""
         try:
-            rw = float(params.get('rw', 0.1))
-            a = float(params.get('a', 1.0))
-            m = float(params.get('m', 2.0))
-            n = float(params.get('n', 2.0))
+            # Map frontend parameters to service parameters
+            method = params.get('SW_METHOD', 'Archie')
+            service_params = {
+                'RW': float(params.get('RW', 0.05)),
+                'A': float(params.get('A', 1.0)),
+                'M': float(params.get('M', 2.0)),
+                'N': float(params.get('N', 2.0)),
+                'RT': params.get('RT_COLUMN', 'RT'),
+                'PHIE': params.get('POROSITY_COLUMN', 'PHIE'),
+                'RT_SH': float(params.get('RT_SH', 2.2))
+            }
             
-            if 'RT' not in df.columns or 'PHIE' not in df.columns:
-                raise ValueError("RT and PHIE columns required for SW calculation")
+            # Use the appropriate service function based on method
+            if method.lower() in ['simandoux', 'indonesia']:
+                result_df = calculate_sw_simandoux(
+                    df=df,
+                    params=service_params,
+                    target_intervals=self.selected_intervals,
+                    target_zones=None
+                )
+            else:
+                # Use the general SW calculation service for Archie
+                result_df = calculate_sw(
+                    df=df,
+                    params=service_params,
+                    target_intervals=self.selected_intervals,
+                    target_zones=None
+                )
             
-            # Archie's equation
-            df['SW'] = ((a * rw) / (df['RT'] * df['PHIE'] ** m)) ** (1/n)
-            df['SW'] = df['SW'].clip(0, 1)
-            
-            return df
+            return result_df
         except Exception as e:
             raise Exception(f"SW calculation error: {str(e)}")
     
+    def _run_rwa_calculation(self, df, params):
+        """Run RWA calculation using the actual service"""
+        try:
+            # Map frontend parameters to service parameters
+            service_params = {
+                'RT': params.get('RT_COLUMN', 'RT'),
+                'PHIE': params.get('POROSITY_COLUMN', 'PHIE'),
+                'VSH': params.get('VSH_COLUMN', 'VSH'),
+                'A': float(params.get('A', 1.0)),
+                'M': float(params.get('M', 2.0)),
+                'method': params.get('method', 'full')
+            }
+            
+            # Use the actual service function
+            result_df = calculate_rwa(
+                df=df,
+                params=service_params,
+                target_intervals=self.selected_intervals,
+                target_zones=None
+            )
+            
+            return result_df
+        except Exception as e:
+            raise Exception(f"RWA calculation error: {str(e)}")
+
     def _run_interval_normalization(self, df, params):
         """Run interval normalization"""
         try:
@@ -1172,6 +1227,8 @@ class WellLogAnalysis:
                 return self._create_default_log_plot(df)
             elif calculation_type == "vsh":
                 return self._create_vsh_plot(df)
+            elif calculation_type == "vsh-dn":
+                return self._create_vsh_plot(df)  # Same plotting as VSH
             elif calculation_type == "porosity":
                 return self._create_porosity_plot(df)
             elif calculation_type == "gsa":

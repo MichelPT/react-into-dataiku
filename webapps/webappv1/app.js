@@ -3806,9 +3806,6 @@ function showTrimDataModal() {
     if (modal) {
         modal.classList.remove('hidden');
         console.log('🔧 Trim Data modal shown');
-        
-        // Add click outside to close
-        modal.addEventListener('click', handleTrimModalOutsideClick);
     } else {
         console.error('🔧 Trim Data modal not found in DOM');
         showError('Trim Data modal not found');
@@ -3841,40 +3838,17 @@ function setupTrimDataModalEvents() {
     var closeBtn = document.getElementById('closeTrimDataModal');
     var cancelBtn = document.getElementById('cancelTrimData');
     var runBtn = document.getElementById('runTrimData');
-    
-    if (closeBtn) {
-        closeBtn.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            closeTrimDataModal();
-        };
-    }
-    
-    if (cancelBtn) {
-        cancelBtn.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            closeTrimDataModal();
-        };
-    }
+    if (closeBtn) closeBtn.onclick = closeTrimDataModal;
+    if (cancelBtn) cancelBtn.onclick = closeTrimDataModal;
     if (runBtn) {
         runBtn.onclick = function() {
-            var startDepthValue = document.getElementById('trimStartDepth')?.value || '';
-            var endDepthValue = document.getElementById('trimEndDepth')?.value || '';
-            var startDepth = startDepthValue ? parseFloat(startDepthValue) : null;
-            var endDepth = endDepthValue ? parseFloat(endDepthValue) : null;
+            var startDepth = parseFloat(document.getElementById('trimStartDepth')?.value || '');
+            var endDepth = parseFloat(document.getElementById('trimEndDepth')?.value || '');
             var method = document.getElementById('trimMethod')?.value || 'depth_range';
             var suffix = document.getElementById('trimOutputSuffix')?.value || '_TRIM';
             var preserveBadHoles = !!document.getElementById('trimPreserveBadHoles')?.checked;
             var interpolateGaps = !!document.getElementById('trimInterpolateGaps')?.checked;
             var validateDepthsValue = !!document.getElementById('trimValidateDepths')?.checked;
-            
-            // Validate required fields based on method
-            if (method === 'depth_range' && (!startDepth && !endDepth)) {
-                showError('Please provide at least start depth or end depth for depth range method');
-                return;
-            }
-            
             var payload = {
                 calculation_type: 'trim_data',
                 params: {
@@ -3907,26 +3881,6 @@ function setupTrimDataModalEvents() {
                 })
                 .finally(function(){ setIsLoading(false); });
         };
-    }
-}
-
-function closeTrimDataModal() {
-    console.log('🔧 Closing Trim Data modal');
-    var modal = document.getElementById('trimDataModal');
-    if (modal) {
-        modal.classList.add('hidden');
-        console.log('🔧 Trim Data modal closed');
-        
-        // Remove click outside event listener
-        modal.removeEventListener('click', handleTrimModalOutsideClick);
-    } else {
-        console.error('🔧 Trim Data modal not found for closing');
-    }
-}
-
-function handleTrimModalOutsideClick(e) {
-    if (e.target.id === 'trimDataModal') {
-        closeTrimDataModal();
     }
 }
 
