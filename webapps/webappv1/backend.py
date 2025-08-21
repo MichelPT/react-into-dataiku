@@ -19,24 +19,120 @@ import os
 # Import your services (assuming they exist)
 try:
     from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr
+except ImportError:
+    def calculate_vsh_from_gr(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.porosity import calculate_porosity
+except ImportError:
+    def calculate_porosity(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.depth_matching import depth_matching
+except ImportError:
+    def depth_matching(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.rgsa import process_all_wells_rgsa
+except ImportError:
+    def process_all_wells_rgsa(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.dgsa import process_all_wells_dgsa
+except ImportError:
+    def process_all_wells_dgsa(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.ngsa import process_all_wells_ngsa
+except ImportError:
+    def process_all_wells_ngsa(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.rgbe_rpbe import process_rgbe_rpbe
+except ImportError:
+    def process_rgbe_rpbe(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.rt_r0 import process_rt_r0
+except ImportError:
+    def process_rt_r0(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.swgrad import process_swgrad
+except ImportError:
+    def process_swgrad(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.dns_dnsv import process_dns_dnsv
+except ImportError:
+    def process_dns_dnsv(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.sw import calculate_sw
+except ImportError:
+    def calculate_sw(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.rwa import calculate_rwa
+except ImportError:
+    def calculate_rwa(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.vsh_dn import calculate_vsh_dn
+except ImportError:
+    def calculate_vsh_dn(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.iqual import calculate_iqual
+except ImportError:
+    def calculate_iqual(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.fill_missing import flag_missing_values
+except ImportError:
+    def flag_missing_values(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.splicing import perform_splicing
+except ImportError:
+    def perform_splicing(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.histogram import plot_histogram
+except ImportError:
+    def plot_histogram(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.crossplot import generate_crossplot
+except ImportError:
+    def generate_crossplot(*args, **kwargs):
+        import plotly.graph_objects as go
+        return go.Figure()
+
+try:
     from standardwebappv1.services.data_processing import trim_data_auto
+except ImportError:
+    def trim_data_auto(*args, **kwargs):
+        return {}
+
+try:
     from standardwebappv1.services.plotting_service import (
         extract_markers_with_mean_depth,
         normalize_xover,
@@ -50,13 +146,17 @@ try:
         plot_rwa_indo
     )
 except ImportError as e:
-    print(f"Warning: Some services not available: {e}")
-    # Create dummy functions for missing services
+    print(f"Warning: Some plotting services not available: {e}")
+    # Create dummy functions for missing plotting services
     def extract_markers_with_mean_depth(df):
         return df.groupby('MARKER')['DEPTH'].mean().reset_index() if 'MARKER' in df.columns else pd.DataFrame()
     
     def normalize_xover(df, col1, col2):
         return df
+    
+    def plot_gsa_main(*args, **kwargs):
+        import plotly.graph_objects as go
+        return go.Figure()
     
     def plot_log_default(df, df_marker=None, df_well_marker=None):
         import plotly.graph_objects as go
@@ -78,43 +178,36 @@ except ImportError as e:
             fig.add_trace(go.Scatter(x=df['RHOB'], y=df['DEPTH'], mode='lines', name='RHOB'), row=1, col=4)
         
         if 'DEPTH' in df.columns and not df.empty:
-            min_depth = df['DEPTH'].min()
-            max_depth = df['DEPTH'].max()
-            # Add small padding to the depth range
-            depth_padding = (max_depth - min_depth) * 0.05
-            fig.update_yaxes(
-                autorange='reversed',
-                range=[max_depth + depth_padding, min_depth - depth_padding]
-            )
-        else:
-            fig.update_yaxes(autorange='reversed')
+            fig.update_layout(yaxis=dict(autorange='reversed'))
         
-        fig.update_layout(height=800, title='Well Log Plot')
         return fig
+    
+    def plot_smoothing(*args, **kwargs):
+        import plotly.graph_objects as go
+        return go.Figure()
+    
+    def plot_phie_den(*args, **kwargs):
+        import plotly.graph_objects as go
+        return go.Figure()
+    
+    def plot_normalization(*args, **kwargs):
+        import plotly.graph_objects as go
+        return go.Figure()
+    
+    def plot_vsh_linear(*args, **kwargs):
+        import plotly.graph_objects as go
+        return go.Figure()
+    
+    def plot_sw_indo(*args, **kwargs):
+        import plotly.graph_objects as go
+        return go.Figure()
+    
+    def plot_rwa_indo(*args, **kwargs):
+        import plotly.graph_objects as go
+        return go.Figure()
 
-    # Minimal placeholders for plotting functions referenced below
-    def plot_vsh_linear(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
 
-    def plot_phie_den(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
-
-    def plot_gsa_main(df=None):
-        return plot_log_default(df)
-
-    def plot_normalization(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
-
-    def plot_sw_indo(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
-
-    def plot_rwa_indo(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
-
-    def plot_smoothing(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
-
-    # Fallback histogram and crossplot generators
+# Fallback histogram and crossplot generators
     def plot_histogram(df: pd.DataFrame, log_column: str, n_bins: int):
         import plotly.graph_objects as go
         s = pd.to_numeric(df.get(log_column), errors='coerce').dropna()
