@@ -4022,8 +4022,8 @@ function runCrossplotSidebar(kind) {
     else if (kind === 'nphi_rhob') { x = 'NPHI'; y = 'RHOB'; }
     else if (kind === 'rt_gr') { x = 'RT'; y = 'GR'; }
     else if (kind === 'rt_nphi') { x = 'RT'; y = 'NPHI'; }
-    else if (kind === 'photoelectric_rhob') { x = 'PHOTOELECTRIC'; y = 'RHOB'; }
-    else if (kind === 'cali_nphi') { x = 'CALI'; y = 'NPHI'; }
+    else if (kind === 'rhob_gr') { x = 'RHOB'; y = 'GR'; }
+    else if (kind === 'nphi_gr') { x = 'NPHI'; y = 'GR'; }
     else { showWarning('Unknown crossplot'); return Promise.resolve(); }
 
     setIsLoading(true);

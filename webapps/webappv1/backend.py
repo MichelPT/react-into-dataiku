@@ -2529,6 +2529,19 @@ def crossplot_endpoint():
             return json.dumps({"status": "error", "message": "No dataset available"})
 
         df = dataiku.Dataset(raw_data_name).get_dataframe()
+        
+        # Validate columns exist in dataset
+        available_columns = df.columns.tolist()
+        if x_col not in available_columns:
+            return json.dumps({
+                "status": "error", 
+                "message": f"Column '{x_col}' not found. Available columns: {available_columns}"
+            })
+        if y_col not in available_columns:
+            return json.dumps({
+                "status": "error", 
+                "message": f"Column '{y_col}' not found. Available columns: {available_columns}"
+            })
 
         # Filter wells
         if selected_wells:
@@ -2562,6 +2575,38 @@ def crossplot_endpoint():
             nbins=nbins
         )
         return json.dumps({"status": "success", "figure": fig.to_dict()})
+    except Exception as e:
+        traceback.print_exc()
+        return json.dumps({"status": "error", "message": str(e)})
+
+
+@app.route('/available-columns', methods=['GET'])
+def available_columns_endpoint():
+    """Get list of available columns in the current dataset."""
+    try:
+        analysis = get_analysis_instance()
+        raw_data_name = analysis.current_dataset or find_raw_data_dataset()
+        if not raw_data_name:
+            return json.dumps({"status": "error", "message": "No dataset available"})
+
+        df = dataiku.Dataset(raw_data_name).get_dataframe()
+        columns = df.columns.tolist()
+        
+        # Kategorikan kolom berdasarkan nama umum
+        common_columns = {
+            'RT': 'RT' in columns,
+            'RHOB': 'RHOB' in columns,
+            'NPHI': 'NPHI' in columns,
+            'GR': 'GR' in columns or 'GR_RAW_NORM' in columns,
+            'PHOTOELECTRIC': 'PHOTOELECTRIC' in columns or 'PE' in columns,
+            'CALI': 'CALI' in columns or 'CALIPER' in columns
+        }
+        
+        return json.dumps({
+            "status": "success", 
+            "columns": columns,
+            "common_columns": common_columns
+        })
     except Exception as e:
         traceback.print_exc()
         return json.dumps({"status": "error", "message": str(e)})
