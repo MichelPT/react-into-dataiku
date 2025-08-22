@@ -256,21 +256,60 @@ def generate_crossplot(df, x_col, y_col, gr_ma, gr_sh, rho_ma, rho_sh, nphi_ma, 
             bins=nbins
         )
 
-        # B. Ganti semua nilai 0 dengan 'nan' agar tidak digambar
-        counts[counts == 0] = np.nan
+        # B. Normalisasi untuk distribusi warna yang lebih baik
+        # Ganti nilai 0 dengan NaN dan normalisasi untuk gradasi yang lebih baik
+        counts_normalized = counts.copy().astype(float)
+        counts_normalized[counts_normalized == 0] = np.nan
+        
+        # Jika ada data, normalisasi untuk rentang 0-1
+        if not np.all(np.isnan(counts_normalized)):
+            valid_counts = counts_normalized[~np.isnan(counts_normalized)]
+            if len(valid_counts) > 0:
+                min_count = valid_counts.min()
+                max_count = valid_counts.max()
+                if max_count > min_count:
+                    # Normalisasi dengan log scale untuk distribusi yang lebih baik
+                    counts_normalized[~np.isnan(counts_normalized)] = np.log1p(
+                        counts_normalized[~np.isnan(counts_normalized)] - min_count + 1
+                    )
+                    # Normalisasi ke 0-1
+                    valid_normalized = counts_normalized[~np.isnan(counts_normalized)]
+                    norm_min, norm_max = valid_normalized.min(), valid_normalized.max()
+                    if norm_max > norm_min:
+                        counts_normalized[~np.isnan(counts_normalized)] = (
+                            (valid_normalized - norm_min) / (norm_max - norm_min)
+                        )
 
         # C. Hitung titik tengah bin untuk sumbu plot heatmap
         x_centers = (x_edges[:-1] + x_edges[1:]) / 2
         y_centers = (y_edges[:-1] + y_edges[1:]) / 2
 
-        # D. Tambahkan trace go.Heatmap
+        # D. Tambahkan trace go.Heatmap dengan colorscale yang lebih baik
         fig.add_trace(go.Heatmap(
             x=x_centers,
             y=y_centers,
-            z=counts.T,  # Matriks 'counts' perlu di-transpose (.T)
-            colorscale='Jet',
-            colorbar=dict(title=color_label, orientation='h',
-                          y=-0.2, x=0.5, xanchor='center', len=1)
+            z=counts_normalized.T,  # Menggunakan counts yang sudah dinormalisasi
+            colorscale=[
+                [0.0, '#000080'],    # Dark Blue (lowest)
+                [0.2, '#0000FF'],    # Blue
+                [0.4, '#00FFFF'],    # Cyan
+                [0.6, '#FFFF00'],    # Yellow
+                [0.8, '#FF8000'],    # Orange
+                [1.0, '#FF0000']     # Red (highest)
+            ],
+            colorbar=dict(
+                title=color_label, 
+                orientation='h',
+                y=-0.2, 
+                x=0.5, 
+                xanchor='center', 
+                len=1,
+                tickmode='linear',
+                tick0=0,
+                dtick=0.2
+            ),
+            hoverongaps=False,  # Tidak menampilkan hover pada area kosong
+            showscale=True
         ))
 
         # E. Jika ini plot NPHI vs GR, tambahkan garis overlay spesifiknya
