@@ -4021,20 +4021,33 @@ function runCrossplotSidebar(kind) {
     if (kind === 'rt_rhob') { x = 'RT'; y = 'RHOB'; }
     else if (kind === 'nphi_rhob') { x = 'NPHI'; y = 'RHOB'; }
     else if (kind === 'rt_gr') { x = 'RT'; y = 'GR'; }
+    else if (kind === 'rt_nphi') { x = 'RT'; y = 'NPHI'; }
+    else if (kind === 'photoelectric_rhob') { x = 'PHOTOELECTRIC'; y = 'RHOB'; }
+    else if (kind === 'cali_nphi') { x = 'CALI'; y = 'NPHI'; }
     else { showWarning('Unknown crossplot'); return Promise.resolve(); }
 
     setIsLoading(true);
     updateStatusText('Generating crossplot...');
-    return fetchJson('/crossplot', {
-        method: 'POST',
-        body: JSON.stringify({
-            x: x,
-            y: y,
-            selected_wells: appState.selectedWells,
-            selected_intervals: appState.selectedIntervals,
-            selected_zones: appState.selectedZones
-        })
-    }).then(function(resp){
+    
+    // Prepare complete crossplot parameters with defaults
+    var crossplotParams = {
+        x: x,
+        y: y,
+        bins: 25,
+        gr_ma: 30,
+        gr_sh: 120,
+        rho_ma: 2.65,
+        rho_sh: 2.3,
+        nphi_ma: 0.0,
+        nphi_sh: 0.4,
+        prcnt_qz: 10,
+        prcnt_wtr: 10,
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals,
+        selected_zones: appState.selectedZones
+    };
+    
+    return fetchJson('/crossplot', crossplotParams).then(function(resp){
         if (resp && resp.status === 'success' && resp.figure) {
             displayCalculationPlot(resp.figure, 'Crossplot ' + x + ' vs ' + y);
         } else {
