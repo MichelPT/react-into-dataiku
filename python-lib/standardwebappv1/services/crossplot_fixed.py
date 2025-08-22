@@ -84,7 +84,8 @@ def generate_crossplot(df, x_col, y_col, gr_ma, gr_sh, rho_ma, rho_sh, nphi_ma, 
     # --- Blok 1: Logika untuk Plot NPHI vs RHOB ---
     if x_col == "NPHI" and y_col == "RHOB":
         # Urutkan data berdasarkan warna untuk layering plot
-        df_clean = df_clean.sort_values(by=color_col, ascending=True)
+        if color_col:
+            df_clean = df_clean.sort_values(by=color_col, ascending=True)
 
         # Buat scatter plot dasar
         fig = px.scatter(
@@ -381,83 +382,13 @@ def generate_crossplot(df, x_col, y_col, gr_ma, gr_sh, rho_ma, rho_sh, nphi_ma, 
                 showscale=True
             ))
 
-            # E. Jika ini plot NPHI vs GR, tambahkan garis overlay spesifiknya
-            if x_col == "NPHI" and (y_col == "GR" or y_col == "GR_RAW_NORM"):
-                fig.add_shape(type="line", x0=1, y0=0, x1=-0.02, y1=gr_ma,
-                              line=dict(color="red", width=2, dash="solid"))
-                fig.add_shape(type="line", x0=-0.02, y0=gr_ma, x1=0.4,
-                              y1=gr_sh, line=dict(color="red", width=2, dash="solid"))
-                fig.add_shape(type="line", x0=0.4, y0=gr_sh, x1=1,
-                              y1=0, line=dict(color="red", width=2, dash="solid"))
-
             # F. Atur layout akhir secara dinamis
             fig.update_layout(
                 title=f"Crossplot {x_col} vs {y_col}",
                 plot_bgcolor='white', margin=dict(l=20, r=20, t=60, b=40),
                 xaxis=dict(title=x_col, showgrid=True, gridcolor="lightgrey"),
                 yaxis=dict(title=y_col, showgrid=True, gridcolor="lightgrey"),
-                max_count = valid_counts.max()
-                if max_count > min_count:
-                    # Normalisasi dengan log scale untuk distribusi yang lebih baik
-                    counts_normalized[~np.isnan(counts_normalized)] = np.log1p(
-                        counts_normalized[~np.isnan(counts_normalized)] - min_count + 1
-                    )
-                    # Normalisasi ke 0-1
-                    valid_normalized = counts_normalized[~np.isnan(counts_normalized)]
-                    norm_min, norm_max = valid_normalized.min(), valid_normalized.max()
-                    if norm_max > norm_min:
-                        counts_normalized[~np.isnan(counts_normalized)] = (
-                            (valid_normalized - norm_min) / (norm_max - norm_min)
-                        )
-
-        # C. Hitung titik tengah bin untuk sumbu plot heatmap
-        x_centers = (x_edges[:-1] + x_edges[1:]) / 2
-        y_centers = (y_edges[:-1] + y_edges[1:]) / 2
-
-        # D. Tambahkan trace go.Heatmap dengan colorscale yang lebih baik
-        fig.add_trace(go.Heatmap(
-            x=x_centers,
-            y=y_centers,
-            z=counts_normalized.T,  # Menggunakan counts yang sudah dinormalisasi
-            colorscale=[
-                [0.0, '#000080'],    # Dark Blue (lowest)
-                [0.2, '#0000FF'],    # Blue
-                [0.4, '#00FFFF'],    # Cyan
-                [0.6, '#FFFF00'],    # Yellow
-                [0.8, '#FF8000'],    # Orange
-                [1.0, '#FF0000']     # Red (highest)
-            ],
-            colorbar=dict(
-                title=color_label, 
-                orientation='h',
-                y=-0.2, 
-                x=0.5, 
-                xanchor='center', 
-                len=1,
-                tickmode='linear',
-                tick0=0,
-                dtick=0.2
-            ),
-            hoverongaps=False,  # Tidak menampilkan hover pada area kosong
-            showscale=True
-        ))
-
-        # E. Jika ini plot NPHI vs GR, tambahkan garis overlay spesifiknya
-        if x_col == "NPHI" and (y_col == "GR" or y_col == "GR_RAW_NORM"):
-            fig.add_shape(type="line", x0=1, y0=0, x1=-0.02, y1=gr_ma,
-                          line=dict(color="red", width=2, dash="solid"))
-            fig.add_shape(type="line", x0=-0.02, y0=gr_ma, x1=0.4,
-                          y1=gr_sh, line=dict(color="red", width=2, dash="solid"))
-            fig.add_shape(type="line", x0=0.4, y0=gr_sh, x1=1,
-                          y1=0, line=dict(color="red", width=2, dash="solid"))
-
-        # F. Atur layout akhir secara dinamis
-        fig.update_layout(
-            title=f"Crossplot {x_col} vs {y_col}",
-            plot_bgcolor='white', margin=dict(l=20, r=20, t=60, b=40),
-            xaxis=dict(title=x_col, showgrid=True, gridcolor="lightgrey"),
-            yaxis=dict(title=y_col, showgrid=True, gridcolor="lightgrey"),
-            showlegend=False
-        )
+                showlegend=False
+            )
 
     return fig
