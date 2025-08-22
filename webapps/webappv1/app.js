@@ -1405,6 +1405,8 @@ function getPlotEndpoint(plotType) {
             return '/api/get-module2-plot';
         case 'rpbe-rgbe':
             return '/api/get-rgbe-rpbe-plot';
+        case 'rgbe_rpbe':
+            return '/api/get-rgbe-rpbe-plot';
         case 'iqual':
             return '/api/get-iqual';
         case 'swgrad':
@@ -2191,6 +2193,16 @@ function getCalculationParameters(calculationType) {
                 { name: 'M', location: 'Interval', mode: 'In_Out', description: 'Cementation Factor', unit: '', type: 'number', default_value: 2.0, required: true },
                 { name: 'RT_SH', location: 'Interval', mode: 'In_Out', description: 'Shale resistivity', unit: 'OHMM', type: 'number', default_value: 2.2, required: true }
             ]
+        },
+        'rgbe-rpbe': {
+            title: 'RGBE-RPBE Analysis Parameters',
+            parameters: [
+                { name: 'MIN_INTERVAL_SIZE', location: 'Interval', mode: 'In_Out', description: 'Minimum interval size for analysis', unit: 'Points', type: 'number', default_value: 10, required: true, min: 5, max: 100 },
+                { name: 'R_SQUARED_THRESHOLD', location: 'Interval', mode: 'In_Out', description: 'R-squared threshold for regression quality', unit: '', type: 'number', default_value: 0.5, required: true, min: 0.1, max: 1.0, step: 0.1 },
+                { name: 'GR_COLUMN', location: 'Log', mode: 'Input', description: 'Gamma ray log column', unit: 'GAPI', type: 'select', options: ['GR', 'CGR', 'SGR'], default_value: 'GR', required: true },
+                { name: 'RT_COLUMN', location: 'Log', mode: 'Input', description: 'Resistivity log column', unit: 'OHMM', type: 'select', options: ['RT', 'ILD', 'LLD', 'RD'], default_value: 'RT', required: true },
+                { name: 'PHIE_COLUMN', location: 'Log', mode: 'Input', description: 'Effective porosity column', unit: 'V/V', type: 'select', options: ['PHIE', 'PHID', 'NPHI'], default_value: 'PHIE', required: true }
+            ]
         }
     };
     
@@ -2479,6 +2491,8 @@ function submitCalculationParameters() {
         handleDGSACalculation(finalParams);
     } else if (calculationType === 'ngsa') {
         handleNGSACalculation(finalParams);
+    } else if (calculationType === 'rgbe-rpbe') {
+        handleRgbeRpbeCalculation(finalParams);
     } else {
         // For other calculations, use the generic calculation endpoint
         var payload = {
@@ -2948,6 +2962,58 @@ function handleNGSACalculation(params) {
     });
 }
 
+function handleRgbeRpbeCalculation(params) {
+    // Extract parameters from interval-specific format if available
+    var finalParams = params;
+    var intervalSpecific = null;
+    
+    if (params.intervals && Object.keys(params.intervals).length > 0) {
+        // Use first interval's parameters as default for main calculation
+        var firstInterval = Object.keys(params.intervals)[0];
+        finalParams = params.intervals[firstInterval];
+        intervalSpecific = params.intervals;
+    }
+    
+    var payload = {
+        calculation_type: 'rgbe_rpbe',
+        params: {
+            MIN_INTERVAL_SIZE: parseInt(finalParams.MIN_INTERVAL_SIZE) || 10,
+            R_SQUARED_THRESHOLD: parseFloat(finalParams.R_SQUARED_THRESHOLD) || 0.5,
+            GR_COLUMN: finalParams.GR_COLUMN || 'GR',
+            RT_COLUMN: finalParams.RT_COLUMN || 'RT',
+            PHIE_COLUMN: finalParams.PHIE_COLUMN || 'PHIE',
+            intervals: intervalSpecific
+        },
+        selected_wells: appState.selectedWells,
+        selected_intervals: appState.selectedIntervals,
+        selected_zones: appState.selectedZones
+    };
+    
+    console.log('🚀 RGBE-RPBE Calculation payload:', payload);
+    
+    fetchJson('/run_calculation_endpoint', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(function(data) {
+        setIsLoading(false);
+        if (data.status === 'success') {
+            showSuccess('RGBE-RPBE calculation completed successfully!');
+            document.getElementById('parameterForm').classList.add('hidden');
+            
+            // Create calculation plot to show results
+            createCalculationPlot('rgbe_rpbe');
+        } else {
+            throw new Error(data.message || 'RGBE-RPBE calculation failed');
+        }
+    })
+    .catch(function(error) {
+        setIsLoading(false);
+        showError('Error in RGBE-RPBE calculation: ' + error.message);
+        console.error('RGBE-RPBE Calculation error:', error);
+    });
+}
+
 // Module Management Functions
 function loadModule(moduleName) {
     if (appState.selectedWells.length === 0) {
@@ -3001,6 +3067,9 @@ function loadModule(moduleName) {
             break;
         case 'water-resistivity-calculation':
             openWaterResistivityCalculationForm();
+            break;
+        case 'rgbe-rpbe':
+            openRgbeRpbeCalculationForm();
             break;
         case 'trim-data':
             showTrimDataModal();
@@ -3271,6 +3340,18 @@ function openWaterResistivityCalculationForm() {
         .catch(function(error) {
             hideLoading(); // Hide loading on error
             showError('Error getting Water Resistivity parameters: ' + error.message);
+        });
+}
+
+function openRgbeRpbeCalculationForm() {
+    getCalculationParameters('rgbe-rpbe')
+        .then(function(parameters) {
+            hideLoading(); // Hide loading when showing parameter form
+            showParameterForm('rgbe-rpbe', parameters);
+        })
+        .catch(function(error) {
+            hideLoading(); // Hide loading on error
+            showError('Error getting RGBE-RPBE parameters: ' + error.message);
         });
 }
 
