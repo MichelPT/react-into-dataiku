@@ -64,7 +64,7 @@ except ImportError as e:
         return df
     
     # Define other fallback functions as needed
-    def process_rgbe_rpbe(df, params):
+    def process_rgbe_rpbe(df, params, target_intervals=None, target_zones=None):
         return df
     def process_rt_r0(df, params):
         return df
@@ -1098,12 +1098,24 @@ class WellLogAnalysis:
     def _run_rgbe_rpbe_calculation(self, df, params):
         """Run RGBE-RPBE calculation using the actual service"""
         try:
-            result_df = process_rgbe_rpbe(
-                df=df,
-                params=params,
-                target_intervals=self.selected_intervals,
-                target_zones=None
-            )
+            # Ensure we handle both service function signatures
+            import inspect
+            sig = inspect.signature(process_rgbe_rpbe)
+            
+            if 'target_intervals' in sig.parameters:
+                # Get zones from temporary attribute or instance attribute
+                target_zones = getattr(self, '_tmp_selected_zones', None) or getattr(self, 'selected_zones', None)
+                
+                result_df = process_rgbe_rpbe(
+                    df=df,
+                    params=params,
+                    target_intervals=self.selected_intervals,
+                    target_zones=target_zones
+                )
+            else:
+                # Fallback for simpler function signature
+                result_df = process_rgbe_rpbe(df=df, params=params)
+            
             return result_df
         except Exception as e:
             raise Exception(f"RGBE-RPBE calculation error: {str(e)}")
