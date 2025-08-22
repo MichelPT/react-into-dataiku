@@ -4047,7 +4047,10 @@ function runCrossplotSidebar(kind) {
         selected_zones: appState.selectedZones
     };
     
-    return fetchJson('/crossplot', crossplotParams).then(function(resp){
+    return fetchJson('/crossplot', {
+        method: 'POST',
+        body: JSON.stringify(crossplotParams)
+    }).then(function(resp){
         if (resp && resp.status === 'success' && resp.figure) {
             displayCalculationPlot(resp.figure, 'Crossplot ' + x + ' vs ' + y);
         } else {
@@ -5146,7 +5149,10 @@ function runCrossplot() {
         selected_zones: appState.selectedZones || []
     };
     
-    return fetchJson('/crossplot', crossplotParams)
+    return fetchJson('/crossplot', {
+        method: 'POST',
+        body: JSON.stringify(crossplotParams)
+    })
         .then(function(response) {
             if (response && response.status === 'success' && response.figure) {
                 displayCalculationPlot(response.figure, `Crossplot: ${xColumn} vs ${yColumn}`);
