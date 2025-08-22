@@ -27,46 +27,14 @@ def generate_crossplot(df, x_col, y_col, gr_ma, gr_sh, rho_ma, rho_sh, nphi_ma, 
         if col not in df_filtered.columns:
             raise ValueError(f"Kolom {col} tidak ditemukan dalam data.")
 
-    # Tentukan kolom warna berdasarkan kombinasi x dan y
+    # Tentukan kolom warna awal jika NPHI vs RHOB
     color_col = None
-    color_label = "Value"
-    
-    # Untuk plot dengan pewarnaan GR
-    if (x_col == "NPHI" and y_col == "RHOB") or (x_col == "RT" and y_col == "RHOB"):
+    color_label = "Gamma Ray (API)"
+    if x_col == "NPHI" and y_col == "RHOB":
         if "GR_RAW_NORM" in df_filtered.columns:
             color_col = "GR_RAW_NORM"
-            color_label = "Gamma Ray (API)"
         elif "GR" in df_filtered.columns:
             color_col = "GR"
-            color_label = "Gamma Ray (API)"
-    
-    # Untuk plot RT vs parameter lain, gunakan RHOB sebagai pewarna jika tersedia
-    elif x_col == "RT" and y_col in ["NPHI", "GR", "GR_RAW_NORM"]:
-        if "RHOB" in df_filtered.columns:
-            color_col = "RHOB"
-            color_label = "Bulk Density (g/cc)"
-    
-    # Untuk plot RHOB vs parameter lain, gunakan NPHI sebagai pewarna jika tersedia  
-    elif x_col == "RHOB" and y_col in ["GR", "GR_RAW_NORM"]:
-        if "NPHI" in df_filtered.columns:
-            color_col = "NPHI"
-            color_label = "Neutron Porosity (V/V)"
-    
-    # Untuk plot NPHI vs GR, gunakan RT sebagai pewarna jika tersedia
-    elif x_col == "NPHI" and y_col in ["GR", "GR_RAW_NORM"]:
-        if "RT" in df_filtered.columns:
-            color_col = "RT"
-            color_label = "Resistivity (ohm.m)"
-    
-    # Fallback: gunakan salah satu sumbu sebagai pewarna jika tidak ada kolom lain
-    if not color_col:
-        # Coba gunakan parameter ketiga yang tersedia
-        available_color_cols = ["GR", "GR_RAW_NORM", "RT", "RHOB", "NPHI"]
-        for col in available_color_cols:
-            if col in df_filtered.columns and col not in [x_col, y_col]:
-                color_col = col
-                color_label = f"{col}"
-                break
 
     # Bersihkan data
     if color_col and color_col in df_filtered.columns:
@@ -274,128 +242,30 @@ def generate_crossplot(df, x_col, y_col, gr_ma, gr_sh, rho_ma, rho_sh, nphi_ma, 
 
     # --- Blok 3: Fallback untuk Plot Lainnya ---
     else:
-        # Jika ada color_col, buat scatter plot berwarna
-        if color_col and color_col in df_filtered.columns:
-            df_clean = df_filtered[[x_col, y_col, color_col]].dropna()
-            if df_clean.empty:
-                raise ValueError(f"Tidak ada data valid untuk crossplot {x_col} vs {y_col}.")
-            
-            # Buat scatter plot dengan pewarnaan
-            fig = px.scatter(
-                df_clean,
-                x=x_col,
-                y=y_col,
-                color=color_col,
-                color_continuous_scale=[
-                    [0.0, "blue"], [0.25, "cyan"], [0.5, "yellow"], [
-                        0.75, "orange"], [1.0, "red"]
-                ],
-                labels={x_col: x_col, y_col: y_col, color_col: color_label},
-                height=600,
-            )
-            
-            fig.update_layout(
-                title=f"Crossplot {x_col} vs {y_col}",
-                plot_bgcolor='white', 
-                margin=dict(l=20, r=20, t=60, b=40),
-                xaxis=dict(title=x_col, showgrid=True, gridcolor="lightgrey"),
-                yaxis=dict(title=y_col, showgrid=True, gridcolor="lightgrey"),
-                coloraxis_colorbar=dict(
-                    title=dict(text=color_label, side='bottom'),
-                    orientation='h', 
-                    y=-0.3, 
-                    x=0.5, 
-                    xanchor='center', 
-                    len=1
-                ),
-            )
+        df_clean = df_filtered[[x_col, y_col]].dropna()
+        if df_clean.empty:
+            raise ValueError(
+                f"Tidak ada data valid untuk crossplot {x_col} vs {y_col}.")
+
+        color_label = "Point Count"
+
+        # A. Hitung histogram 2D secara manual dengan NumPy
+        counts, x_edges, y_edges = np.histogram2d(
+            df_clean[x_col],
+            df_clean[y_col],
+            bins=nbins
+        )
+
+        # B. Normalisasi untuk distribusi warna yang lebih baik
+        # Ganti nilai 0 dengan NaN dan normalisasi untuk gradasi yang lebih baik
+        counts_normalized = counts.copy().astype(float)
+        counts_normalized[counts_normalized == 0] = np.nan
         
-        # Jika tidak ada color_col, buat heatmap
-        else:
-            df_clean = df_filtered[[x_col, y_col]].dropna()
-            if df_clean.empty:
-                raise ValueError(f"Tidak ada data valid untuk crossplot {x_col} vs {y_col}.")
-
-            color_label = "Point Count"
-
-            # A. Hitung histogram 2D secara manual dengan NumPy
-            counts, x_edges, y_edges = np.histogram2d(
-                df_clean[x_col],
-                df_clean[y_col],
-                bins=nbins
-            )
-
-            # B. Normalisasi untuk distribusi warna yang lebih baik
-            # Ganti nilai 0 dengan NaN dan normalisasi untuk gradasi yang lebih baik
-            counts_normalized = counts.copy().astype(float)
-            counts_normalized[counts_normalized == 0] = np.nan
-            
-            # Jika ada data, normalisasi untuk rentang 0-1
-            if not np.all(np.isnan(counts_normalized)):
-                valid_counts = counts_normalized[~np.isnan(counts_normalized)]
-                if len(valid_counts) > 0:
-                    min_count = valid_counts.min()
-                    max_count = valid_counts.max()
-                    if max_count > min_count:
-                        # Normalisasi dengan log scale untuk distribusi yang lebih baik
-                        counts_normalized[~np.isnan(counts_normalized)] = np.log1p(
-                            counts_normalized[~np.isnan(counts_normalized)] - min_count + 1
-                        )
-                        # Normalisasi ke 0-1
-                        valid_normalized = counts_normalized[~np.isnan(counts_normalized)]
-                        norm_min, norm_max = valid_normalized.min(), valid_normalized.max()
-                        if norm_max > norm_min:
-                            counts_normalized[~np.isnan(counts_normalized)] = (
-                                (valid_normalized - norm_min) / (norm_max - norm_min)
-                            )
-
-            # C. Hitung titik tengah bin untuk sumbu plot heatmap
-            x_centers = (x_edges[:-1] + x_edges[1:]) / 2
-            y_centers = (y_edges[:-1] + y_edges[1:]) / 2
-
-            # D. Tambahkan trace go.Heatmap dengan colorscale yang lebih baik
-            fig.add_trace(go.Heatmap(
-                x=x_centers,
-                y=y_centers,
-                z=counts_normalized.T,  # Menggunakan counts yang sudah dinormalisasi
-                colorscale=[
-                    [0.0, '#000080'],    # Dark Blue (lowest)
-                    [0.2, '#0000FF'],    # Blue
-                    [0.4, '#00FFFF'],    # Cyan
-                    [0.6, '#FFFF00'],    # Yellow
-                    [0.8, '#FF8000'],    # Orange
-                    [1.0, '#FF0000']     # Red (highest)
-                ],
-                colorbar=dict(
-                    title=color_label, 
-                    orientation='h',
-                    y=-0.2, 
-                    x=0.5, 
-                    xanchor='center', 
-                    len=1,
-                    tickmode='linear',
-                    tick0=0,
-                    dtick=0.2
-                ),
-                hoverongaps=False,  # Tidak menampilkan hover pada area kosong
-                showscale=True
-            ))
-
-            # E. Jika ini plot NPHI vs GR, tambahkan garis overlay spesifiknya
-            if x_col == "NPHI" and (y_col == "GR" or y_col == "GR_RAW_NORM"):
-                fig.add_shape(type="line", x0=1, y0=0, x1=-0.02, y1=gr_ma,
-                              line=dict(color="red", width=2, dash="solid"))
-                fig.add_shape(type="line", x0=-0.02, y0=gr_ma, x1=0.4,
-                              y1=gr_sh, line=dict(color="red", width=2, dash="solid"))
-                fig.add_shape(type="line", x0=0.4, y0=gr_sh, x1=1,
-                              y1=0, line=dict(color="red", width=2, dash="solid"))
-
-            # F. Atur layout akhir secara dinamis
-            fig.update_layout(
-                title=f"Crossplot {x_col} vs {y_col}",
-                plot_bgcolor='white', margin=dict(l=20, r=20, t=60, b=40),
-                xaxis=dict(title=x_col, showgrid=True, gridcolor="lightgrey"),
-                yaxis=dict(title=y_col, showgrid=True, gridcolor="lightgrey"),
+        # Jika ada data, normalisasi untuk rentang 0-1
+        if not np.all(np.isnan(counts_normalized)):
+            valid_counts = counts_normalized[~np.isnan(counts_normalized)]
+            if len(valid_counts) > 0:
+                min_count = valid_counts.min()
                 max_count = valid_counts.max()
                 if max_count > min_count:
                     # Normalisasi dengan log scale untuk distribusi yang lebih baik
