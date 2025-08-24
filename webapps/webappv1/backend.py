@@ -377,21 +377,21 @@ class WellLogAnalysis:
         return None
     
     def auto_load_default_dataset(self):
-        """Automatically load the fix_pass_bng dataset on initialization"""
+        """Automatically load the fix_pass_qc dataset on initialization"""
         try:
-            # Prefer explicit fix_pass_bng first as requested
-            dataset_name = "fix_pass_bng"
+            # Prefer explicit fix_pass_qc first as requested
+            dataset_name = "fix_pass_qc"
             result = self.select_dataset(dataset_name)
             if result.get("status") == "success":
                 print(f"Successfully auto-loaded dataset: {dataset_name}")
             else:
-                # If fix_pass_bng not found, try to find any dataset with 'raw' and 'well' in name
+                # If fix_pass_qc not found, try to find any dataset with 'raw' and 'well' in name
                 try:
                     available_datasets = self.get_available_datasets()
                     if available_datasets.get("status") == "success":
                         datasets = available_datasets.get("datasets", [])
-                        # Try exact/partial fix_pass_bng first among discovered datasets
-                        fx = [ds for ds in datasets if ds.lower() == 'fix_pass_bng']
+                        # Try exact/partial fix_pass_qc first among discovered datasets
+                        fx = [ds for ds in datasets if ds.lower() == 'fix_pass_qc']
                         if fx:
                             fallback_dataset = fx[0]
                             result = self.select_dataset(fallback_dataset)
