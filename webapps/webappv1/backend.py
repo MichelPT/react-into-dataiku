@@ -434,10 +434,10 @@ class WellLogAnalysis:
             except Exception as _:
                 # Ignore Dataiku API errors in local mode
                 pass
-            # Ensure fix_pass_qc appears if local CSV exists
-            if os.path.isfile(self._local_csv_path('fix_pass_qc.csv')) and 'fix_pass_qc' not in [d.lower() for d in self.available_datasets]:
-                self.available_datasets.append('fix_pass_qc')
-            
+            # Ensure fix_pass_bng appears if local CSV exists
+            if os.path.isfile(self._local_csv_path('fix_pass_bng.csv')) and 'fix_pass_bng' not in [d.lower() for d in self.available_datasets]:
+                self.available_datasets.append('fix_pass_bng')
+
             return {
                 "status": "success",
                 "datasets": self.available_datasets,
