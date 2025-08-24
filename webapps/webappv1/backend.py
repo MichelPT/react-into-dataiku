@@ -380,7 +380,7 @@ class WellLogAnalysis:
         """Automatically load the fix_pass_qc dataset on initialization"""
         try:
             # Prefer explicit fix_pass_qc first as requested
-            dataset_name = "fix_pass_qc"
+            dataset_name = "fix_pass_bng"
             result = self.select_dataset(dataset_name)
             if result.get("status") == "success":
                 print(f"Successfully auto-loaded dataset: {dataset_name}")
