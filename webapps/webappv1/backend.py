@@ -1875,7 +1875,7 @@ def select_dataset():
     """API endpoint to select a dataset"""
     try:
         data = request.get_json()
-        dataset_name = data.get('fix_pass_bng')
+        dataset_name = data.get('fix_pass_qc')
         structure_name = data.get('structure_name')  # Optional structure name
         
         print(f"Dataset selection request - dataset_name: {dataset_name}, structure_name: {structure_name}")
