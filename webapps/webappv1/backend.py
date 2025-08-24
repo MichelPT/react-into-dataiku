@@ -517,11 +517,11 @@ class WellLogAnalysis:
         try:
             if self.current_well_data is None:
                 return {"status": "error", "message": "No dataset selected"}
-            
-            if 'WELL_NAME' not in self.current_well_data.columns:
-                return {"status": "error", "message": "WELL_NAME column not found in dataset"}
-            
-            wells = self.current_well_data['WELL_NAME'].unique().tolist()
+            # Cari nama kolom well yang tersedia
+            well_col = next((c for c in ['WELL_NAME', 'WELL', 'Well', 'well', 'WELLNAME'] if c in self.current_well_data.columns), None)
+            if not well_col:
+                return {"status": "error", "message": "No well column found in dataset"}
+            wells = self.current_well_data[well_col].unique().tolist()
             return {
                 "status": "success",
                 "wells": wells,
