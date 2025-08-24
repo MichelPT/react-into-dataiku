@@ -380,7 +380,7 @@ class WellLogAnalysis:
         """Automatically load the fix_pass_qc dataset on initialization"""
         try:
             # Prefer explicit fix_pass_qc first as requested
-            dataset_name = "fix_pass_bng"
+            dataset_name = "fix_pass_qc"
             result = self.select_dataset(dataset_name)
             if result.get("status") == "success":
                 print(f"Successfully auto-loaded dataset: {dataset_name}")
@@ -434,10 +434,10 @@ class WellLogAnalysis:
             except Exception as _:
                 # Ignore Dataiku API errors in local mode
                 pass
-            # Ensure fix_pass_bng appears if local CSV exists
-            if os.path.isfile(self._local_csv_path('fix_pass_bng.csv')) and 'fix_pass_bng' not in [d.lower() for d in self.available_datasets]:
-                self.available_datasets.append('fix_pass_bng')
-
+            # Ensure fix_pass_qc appears if local CSV exists
+            if os.path.isfile(self._local_csv_path('fix_pass_qc.csv')) and 'fix_pass_qc' not in [d.lower() for d in self.available_datasets]:
+                self.available_datasets.append('fix_pass_qc')
+            
             return {
                 "status": "success",
                 "datasets": self.available_datasets,
@@ -1672,76 +1672,6 @@ def find_raw_data_dataset(structure_name=None):
 # -----------------------------
 # Structures utilities
 # -----------------------------
-# def _scan_structures_folder():
-#     try:
-#         base_dir = os.path.dirname(__file__)
-#         root = os.path.join(base_dir, 'structures')
-#         fields = []
-#         total_structures = 0
-#         if not os.path.isdir(root):
-#             return {"fields": [], "total_fields": 0, "total_structures": 0}
-#         # Try to get current dataset wells to enrich structures with availability info
-#         analysis = None
-#         try:
-#             analysis = get_analysis_instance()
-#         except Exception:
-#             analysis = None
-#         current_df = getattr(analysis, 'current_well_data', None) if analysis else None
-#         well_col = None
-#         if current_df is not None and isinstance(current_df, pd.DataFrame) and not current_df.empty:
-#             for c in ['WELL_NAME', 'WELL', 'Well', 'well']:
-#                 if c in current_df.columns:
-#                     well_col = c
-#                     break
-#         # Simple mapping from structure name to well name prefix (extend as needed)
-#         structure_to_prefix = {
-#             'abab': 'abb',  # ABAB structure maps to ABB well prefix (e.g., ABB-036)
-#         }
-#         for fname in sorted(os.listdir(root)):
-#             fpath = os.path.join(root, fname)
-#             if not os.path.isdir(fpath):
-#                 continue
-#             structures = []
-#             for entry in sorted(os.listdir(fpath)):
-#                 if entry.lower().endswith('.xlsx'):
-#                     web_path = f"/structures/{fname}/{entry}"
-#                     structure_name = os.path.splitext(entry)[0]
-#                     # Default structure info
-#                     info = {
-#                         "structure_name": structure_name,
-#                         "field_name": fname.capitalize(),
-#                         "file_path": web_path,
-#                         "wells_count": 0,
-#                         "wells": [],
-#                         "total_records": 0,
-#                         "columns": [],
-#                         "intervals": []
-#                     }
-#                     # If we have a loaded dataset, try to detect wells for this structure
-#                     if current_df is not None and well_col is not None:
-#                         key = structure_name.lower()
-#                         prefix = structure_to_prefix.get(key)
-#                         if prefix:
-#                             # Case-insensitive startswith or token match (e.g., ABB-)
-#                             wells_series = current_df[well_col].astype(str)
-#                             mask = wells_series.str.upper().str.startswith(prefix.upper()) | wells_series.str.upper().str.contains(rf"\b{prefix.upper()}-", regex=True)
-#                             wells = sorted(wells_series[mask].unique().tolist())
-#                             if wells:
-#                                 info["wells"] = wells
-#                                 info["wells_count"] = len(wells)
-#                     structures.append(info)
-#             if structures:
-#                 total_structures += len(structures)
-#                 fields.append({
-#                     "field_name": fname.capitalize(),
-#                     "structures_count": len(structures),
-#                     "structures": structures
-#                 })
-#         return {"fields": fields, "total_fields": len(fields), "total_structures": total_structures}
-#     except Exception:
-#         traceback.print_exc()
-#         return {"fields": [], "total_fields": 0, "total_structures": 0}
-
 def _scan_structures_folder():
     try:
         base_dir = os.path.dirname(__file__)
@@ -1765,7 +1695,7 @@ def _scan_structures_folder():
                     break
         # Simple mapping from structure name to well name prefix (extend as needed)
         structure_to_prefix = {
-            'benuang': 'bng',  # ABAB structure maps to ABB well prefix (e.g., ABB-036)
+            'abab': 'abb',  # ABAB structure maps to ABB well prefix (e.g., ABB-036)
         }
         for fname in sorted(os.listdir(root)):
             fpath = os.path.join(root, fname)
@@ -1811,7 +1741,6 @@ def _scan_structures_folder():
     except Exception:
         traceback.print_exc()
         return {"fields": [], "total_fields": 0, "total_structures": 0}
-                            
 
 @app.route('/scan_structures')
 def scan_structures():
@@ -1946,7 +1875,7 @@ def select_dataset():
     """API endpoint to select a dataset"""
     try:
         data = request.get_json()
-        dataset_name = data.get('fix_pass_bng')
+        dataset_name = data.get('fix_pass_qc')
         structure_name = data.get('structure_name')  # Optional structure name
         
         print(f"Dataset selection request - dataset_name: {dataset_name}, structure_name: {structure_name}")
