@@ -517,11 +517,11 @@ class WellLogAnalysis:
         try:
             if self.current_well_data is None:
                 return {"status": "error", "message": "No dataset selected"}
-            # Cari nama kolom well yang tersedia
-            well_col = next((c for c in ['WELL_NAME', 'WELL', 'Well', 'well', 'WELLNAME'] if c in self.current_well_data.columns), None)
-            if not well_col:
-                return {"status": "error", "message": "No well column found in dataset"}
-            wells = self.current_well_data[well_col].unique().tolist()
+            
+            if 'WELL_NAME' not in self.current_well_data.columns:
+                return {"status": "error", "message": "WELL_NAME column not found in dataset"}
+            
+            wells = self.current_well_data['WELL_NAME'].unique().tolist()
             return {
                 "status": "success",
                 "wells": wells,
@@ -1626,7 +1626,6 @@ def find_raw_data_dataset(structure_name=None):
         
         # Fallback to general dataset discovery - prioritize fix_pass_qc
         search_patterns = [
-            'fix_pass_bng'
             'fix_pass_qc',
             'raw_data_well',
             'raw_well_data', 
