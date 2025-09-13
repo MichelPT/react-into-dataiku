@@ -1,7 +1,7 @@
 {
   "meta": {
-    "label": "Well Log Analysis",
-    "description": "A webapp for well log analysis and visualization",
+    "label": "Native js v2",
+    "description": "coba tanpa repo github",
     "icon": "fas fa-chart-line"
   },
   "baseType": "STANDARD",
