@@ -9,3 +9,5 @@
 .htmlcov
 .DS_Store
 .idea
+dataset_fix/
+.venv/

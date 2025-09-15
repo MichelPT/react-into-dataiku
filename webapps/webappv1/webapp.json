@@ -1,0 +1,17 @@
+{
+    "meta": {
+        "label": "Well Log Analysis",
+        "description": "A webapp for well log analysis and visualization",
+        "icon": "fas fa-chart-line"
+    },
+    "baseType": "STANDARD",
+    "hasBackend": "true",
+    "noJSSecurity": "false",
+    "standardWebAppLibraries": [
+        "jquery",
+        "dataiku"
+    ],
+    "hideWebAppConfig": "true",
+    "params": [],
+    "roles": []
+}
