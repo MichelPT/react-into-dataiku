@@ -1,9 +1,9 @@
 {
-  "id": "native-webapp-v2",
+  "id": "native-webapp",
   "version": "1.0.0",
   "meta": {
-    "label": "native webapp v2",
-    "description": "coba tanpa repo github",
+    "label": "Native WebApp",
+    "description": "A plugin to create a native web application.",
     "author": ""
   }
 }

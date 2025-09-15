@@ -79,6 +79,7 @@ data_col = {
     'VSH_Z4': ['VSH_Z4'],
     'SP': ['SP'],
     'VSH_LINEAR': ['VSH_LINEAR'],
+    'VSH_GR': ['VSH_GR'],
     'VSH_DN': ['VSH_DN'],
     'VSH_SP': ['VSH_SP'],
     'VSH_GR_DN': ['VSH_LINEAR', 'VSH_DN'],
@@ -112,8 +113,6 @@ data_col = {
     'A40H': ['A40H'],
     'ROBB': ['ROBB'],
     'DGRCC': ['DGRCC'],
-    'DGRCC_GR_CAL': ['DGRCC', 'GR_CAL'],
-    'DGRCC_DM': ['DGRCC_DM', 'GR_CAL'],
     'ARM48PC': ['ARM48PC'],
     'ALCDLC': ['ALCDLC'],
     'TNPL': ['TNPL'],
@@ -144,8 +143,6 @@ unit_col = {
     'ZONE': [''],
     'GR_NORM': ['GAPI'],
     'GR': ['GAPI'],
-    'DGRCC_DM': ['GAPI', 'GAPI'],
-    'DGRCC_GR_CAL': ['GAPI', 'GAPI'],
     'GR_DUAL': ['GAPI', 'GAPI'],
     'GR_DUAL_2': ['GAPI', 'GAPI'],
     'GR_RAW_NORM': ['GAPI'],
@@ -180,6 +177,7 @@ unit_col = {
     'RHOB_DGSA': ['G/C3', ''],
     'ZONA': [''],
     'VSH': ['V/V'],
+    'VSH_GR': ['V/V'],
     'VSH_Z4': ['V/V'],
     'SP': ['MV'],
     'VSH_LINEAR': ['V/V'],
@@ -278,6 +276,7 @@ color_col = {
     'RHOB_DGSA': [colors_dict['red'], colors_dict['green']],
     'ZONA': [colors_dict['black']],
     'VSH': ['darkblue'],
+    'VSH_GR': ['darkblue'],
     'VSH_Z4': ['darkblue'],
     'SP': ['darkblue'],
     'VSH_LINEAR': ['darkgreen'],
@@ -308,9 +307,7 @@ color_col = {
     'C3_C1': ['blue'],
     'C3_C1_BASELINE': [colors_dict['black']],
     'GR_CAL': ['darkblue'],         # Sama seperti GR
-    'DGRCC': ['darkblue'],
-    'DGRCC_GR_CAL': ['#FF0000', "#FFD014"],
-    'DGRCC_DM': ['#FF0000', 'darkblue'],          # Sama seperti GR
+    'DGRCC': ['darkblue'],          # Sama seperti GR
     'RLA5': [colors_dict['red']],   # Sama seperti RT
     'A40H': [colors_dict['red']],   # Sama seperti RT
     'ARM48PC': [colors_dict['red']],  # Sama seperti RT
@@ -409,6 +406,7 @@ range_col = {
     'NPHI_NGSA': [[0.6, 0], [0.6, 0]],
     'RHOB_DGSA': [[1.71, 2.71], [1.71, 2.71]],
     'VSH': [[0, 1]],
+    'VSH_GR': [[0, 1]],
     'VSH_Z4': [[0, 1]],
     'SP': [[-160, 40]],
     'VSH_LINEAR': [[0, 1]],
@@ -460,8 +458,6 @@ range_col = {
     'R39PC_FM': [[0.2, 2000]], 'A40H_FM': [[0.2, 2000]], 'ARM48PC_FM': [[0.2, 2000]],
     'RHOZ_FM': [[1.71, 2.71]], 'ALCDLC_FM': [[1.71, 2.71]], 'ROBB_FM': [[1.71, 2.71]],
     'TNPH_FM': [[0.6, 0]], 'TNPL_FM': [[0.6, 0]],
-    'DGRCC_DM': [[0, 250], [0, 250]],
-    'DGRCC_GR_CAL': [[0, 250], [0, 250]],
     'MISSING_FLAG': [[0, 2]]
 }
 
@@ -507,6 +503,7 @@ ratio_plots = {
     'VSH_Z4': 1,
     'SP': 1,
     'VSH_LINEAR': 1,
+    'VSH_GR': 1,
     'VSH_DN': 1,
     'VSH_SP': 1,
     'VSH_GR_DN': 1,
@@ -526,7 +523,7 @@ ratio_plots = {
     'RPBE_TEXT': 0.5,
     'IQUAL': 0.5,
     'SWARRAY': 1,
-    'SWGRAD': 1,
+    'SWGRAD': 0.5,
     'DNS': 1,
     'DNSV': 1,
     'TGC': 1,
@@ -535,8 +532,6 @@ ratio_plots = {
     'C3_C1_BASELINE': 1,
     'GR_CAL': 1,        # Sama seperti GR
     'DGRCC': 1,         # Sama seperti GR
-    'DGRCC_GR_CAL': 1,         # Sama seperti GR
-    'DGRCC_DM': 1,         # Sama seperti GR
     'RLA5': 1,          # Sama seperti RT
     'R39PC': 1,          # Sama seperti RT
     'A40H': 1,          # Sama seperti RT
@@ -599,7 +594,6 @@ thres = {
     'X_RT_F': 0.7,
     'X_RT_RHOB': 0.02,
     'VSH_LINEAR': 0.5,
-    'VSH_DN': 0.5,
     'VSH': 0.5,
     'VSH_Z4': 0.5,
     'PHIE': 0.1,
@@ -662,7 +656,7 @@ def fillcol_dual(label, data_value, threshold, above_color='green', below_color=
 
 
 def xover_label_df(df_well, key, type=1):
-    if key in ['X_RT_RO', 'X_RWA_RW', 'X_RT_F', 'X_RT_RHOB', 'VSH_LINEAR', 'PHIE', 'RGBE', 'RPBE', 'SW', 'SW_Z4', 'VSH', 'VSH_Z4', 'VSH_DN']:
+    if key in ['X_RT_RO', 'X_RWA_RW', 'X_RT_F', 'X_RT_RHOB', 'VSH_LINEAR', 'PHIE', 'RGBE', 'RPBE', 'SW', 'SW_Z4', 'VSH', 'VSH_Z4']:
         xover_df = pd.DataFrame(df_well[data_col[key]].copy())
         xover_df['thres'] = [thres[key]]*len(xover_df)
         xover_df['label'] = np.where(
@@ -1703,11 +1697,6 @@ def plot_xover_bar_horizontal(df_well, fig, axes, key, n_seq, counter,
     """
     Plot horizontal bar chart style for RGBE / RPBE values with working hover.
     """
-
-    if key == 'RGBE':
-        above_thres_color='lightblue'
-        below_thres_color='darkgreen'
-
     axes[key].append('yaxis'+str(n_seq))
     axes[key].append('xaxis'+str(n_seq))
 
@@ -2116,7 +2105,7 @@ def layout_range_all_axis(fig, axes, plot_sequence):
             if axis.startswith('yaxis'):
                 fig.update_layout(
                     **{axis: dict(
-                        # domain=[0, 0.9], //10% header 90% log utama
+                        domain=[0, 0.9],
                         gridcolor='gainsboro',
                         showspikes=True,
                         showgrid=True,
@@ -2139,7 +2128,10 @@ def layout_range_all_axis(fig, axes, plot_sequence):
                             'xaxis') else True,
                     )}
                 )
-            elif key in ['GR', 'SP', 'GR_NORM', 'GR_DUAL', 'GR_RAW_NORM', 'GR_DUAL_2', 'GR_MovingAvg_5', 'GR_MovingAvg_10', 'RTRO', 'NPHI_RHOB', 'SW', 'SW_Z4', 'PHIE_PHIT', 'VCL', 'X_RWA_RW', 'X_RT_F', 'X_RT_RHOB', 'NPHI_NGSA', 'RHOB_DGSA', 'VSH_LINEAR', 'VSH_DN', 'VSH_SP', 'RHOB', 'PHIE_DEN', 'PHIT_DEN', 'PHIE_PHIT_Z4', 'PHIE', 'DNS', 'DNSV', 'VSH', 'VSH_GR_DN', 'RGBE', 'RPBE', 'TG_SUMC', 'C3_C1', 'C3_C1_BASELINE', 'DGRCC', 'GR_CAL', 'RHOZ', 'ALCDLC', 'TNPL', 'TNPH', 'DGRCC_GR_CAL', 'DGRCC_DM']:
+            elif key in ['GR', 'SP', 'GR_NORM', 'GR_DUAL', 'GR_RAW_NORM', 'GR_DUAL_2', 'GR_MovingAvg_5', 'GR_MovingAvg_10', 'RTRO', 'NPHI_RHOB', 'SW', 'SW_Z4', 
+                         'PHIE_PHIT', 'VCL', 'X_RWA_RW', 'X_RT_F', 'X_RT_RHOB', 'NPHI_NGSA', 'RHOB_DGSA', 'VSH_LINEAR', 'VSH_DN', 'VSH_GR',
+                         'VSH_SP', 'RHOB', 'PHIE_DEN', 'PHIT_DEN', 'PHIE_PHIT_Z4', 'PHIE', 'DNS', 'DNSV', 'VSH', 'VSH_GR_DN', 'RGBE', 
+                         'RPBE', 'TG_SUMC', 'C3_C1', 'C3_C1_BASELINE', 'DGRCC', 'GR_CAL', 'RHOZ', 'ALCDLC', 'TNPL', 'TNPH']:
                 fig.update_layout(
                     **{axis: dict(
                         # gridcolor='rgba(0,0,0,0)',
@@ -2202,12 +2194,12 @@ def layout_draw_lines(fig, ratio_plots, df_well, xgrid_intv):
             )
         )
 
-    # shapes.append(
-    #     dict(
-    #         type='line', xref='paper', yref='paper', x0=0, x1=1, y0=0.9, y1=0.9,
-    #         line=dict(color='black', width=1, dash='solid')
-    #     )
-    # )
+    shapes.append(
+        dict(
+            type='line', xref='paper', yref='paper', x0=0, x1=1, y0=0.9, y1=0.9,
+            line=dict(color='black', width=1, dash='solid')
+        )
+    )
 
     # plot grid
     if xgrid_intv is not None and xgrid_intv != 0:
@@ -2345,24 +2337,20 @@ def layout_draw_main_lines(fig, ratio_plots, df_well, xgrid_intv):
     return fig
 
 
-def layout_axis_header(fig_main, axes, ratio_plots, plot_sequence, subplot_col):
+def layout_axis_header(fig_main, axes, ratio_plots, plot_sequence):
     """
     Membuat figure header yang terpisah dari main plot
     Returns: fig_header - figure untuk header
     """
+    import plotly.graph_objects as go
 
     # Buat figure baru untuk header
-    fig_header = make_subplots(
-        rows=1, cols=subplot_col,
-        shared_yaxes=True,
-        column_widths=ratio_plots,
-        horizontal_spacing=0.0
-    )
+    fig_header = go.Figure()
 
     # Atur ukuran dan margin untuk header
     fig_header.update_layout(
         height=200,  # Tinggi header yang lebih kecil
-        margin=dict(l=45, r=20, t=40, b=50),
+        margin=dict(l=50, r=50, t=20, b=20),
         showlegend=False,
         plot_bgcolor='white',
         paper_bgcolor='white'
@@ -2376,92 +2364,117 @@ def layout_axis_header(fig_main, axes, ratio_plots, plot_sequence, subplot_col):
              xanchor="right",
              yanchor="middle",
              showarrow=False,
-             text=depth + ' (m)',
+             text=depth+' (m)',
              textangle=-90,
              xref='paper',
              yref="paper"
              )
     )
 
-    # --- PERUBAHAN DIMULAI DI SINI ---
-    # 1. Inisialisasi list untuk menampung SEMUA shape
-    shapes = []
-
     pos_x_c = 0
     ratio_plots = np.array(ratio_plots)
     line_pos = []
     for i in ratio_plots:
-        line_pos.append(i * (1 / (ratio_plots / len(ratio_plots)).sum()) / len(ratio_plots))
+        line_pos.append(
+            i*(1/(ratio_plots/len(ratio_plots)).sum())/len(ratio_plots))
 
     pos_x_t = 0
     for i, key in enumerate(axes.keys()):
         pos_x = line_pos[i]
-        pos_y = 0.2
-        pos_x_c += 0.5 * pos_x
+        pos_y = 0.2  # Posisi untuk header (lebih rendah dari 0.85)
+        pos_x_c += 0.5*pos_x
 
+        # Ganti dengan key yang butuh semua axis (feature di datacol)
         if key in ['SWARRAY']:
-            axis_range = axes[key][1:]
+            axis_range = axes[key][1:]  # Semua axis
         else:
-            axis_range = axes[key][1:3]
+            axis_range = axes[key][1:3]  # Hanya 2 axis pertama
 
         for j, axis in enumerate(axis_range):
-            # 2. HAPUS 'fig_header.update_layout' yang lama untuk axis
-            #    GANTI dengan menambahkan 'shape' garis berwarna ke dalam list
-            shapes.append(
-                dict(
-                    type='line',
-                    xref='paper', yref='paper',
-                    x0=pos_x_t,
-                    y0=pos_y,
-                    x1=pos_x_t + pos_x,
-                    y1=pos_y,
-                    line=dict(
-                        color=color_col[key][j],
-                        width=1.5
-                    )
-                )
+            # UPDATE LAYOUT AXIS - SAMA SEPERTI KODE ASLI
+            fig_header.update_layout(
+                **{axis: dict(
+                    tickfont=dict(color=color_col[key][j], size=9),
+                    anchor="free",
+                    showline=True,        # INI YANG BIKIN GARIS BERWARNA
+                    position=pos_y,
+                    showticklabels=False,
+                    linewidth=1.5,
+                    linecolor=color_col[key][j],  # WARNA GARIS
+                )}
             )
 
             # Add Text Parameter
             fig_header.add_annotation(
                 dict(font=dict(color=color_col[key][j], size=12),
-                     x=pos_x_c, y=pos_y, xanchor="center", yanchor="bottom",
-                     showarrow=False, text=data_col[key][j], textangle=0,
-                     xref='paper', yref="paper")
+                     x=pos_x_c,
+                     y=pos_y,
+                     xanchor="center",
+                     yanchor="bottom",
+                     showarrow=False,
+                     text=data_col[key][j],
+                     textangle=0,
+                     xref='paper',
+                     yref="paper"
+                     )
             )
 
             # Add Text Unit
             fig_header.add_annotation(
                 dict(font=dict(color=color_col[key][j], size=10),
-                     x=pos_x_c, y=pos_y, xanchor="center", yanchor="top",
-                     showarrow=False, text=unit_col[key][j], textangle=0,
-                     xref='paper', yref="paper")
+                     x=pos_x_c,
+                     y=pos_y,
+                     xanchor="center",
+                     yanchor="top",
+                     showarrow=False,
+                     text=unit_col[key][j],
+                     textangle=0,
+                     xref='paper',
+                     yref="paper"
+                     )
             )
 
             # Add Text Min Max Range
-            if key not in ['CLASS', 'TEST', 'XPT', 'MARKER', 'ZONA', 'RESERVOIR_CLASS', 'RGBE', 'RPBE', 'IQUAL', 'RGBE_TEXT', 'RPBE_TEXT','ZONE']:
+            if key not in ['CLASS', 'TEST', 'XPT', 'MARKER', 'ZONA', 'RESERVOIR_CLASS', 'RGBE', 'RPBE', 'IQUAL', 'RGBE_TEXT', 'RPBE_TEXT', 'MISSING_FLAG']:
                 fig_header.add_annotation(
                     dict(font=dict(color=color_col[key][j], size=10),
-                         x=pos_x_t, y=pos_y, xanchor="left", yanchor="top",
-                         showarrow=False, text=range_col[key][j][0], textangle=0,
-                         xref='paper', yref="paper")
-                )
-                fig_header.add_annotation(
-                    dict(font=dict(color=color_col[key][j], size=10),
-                         x=pos_x_t + pos_x, y=pos_y, xanchor="right", yanchor="top",
-                         showarrow=False, text=range_col[key][j][1], textangle=0,
-                         xref='paper', yref="paper")
+                         x=pos_x_t,
+                         y=pos_y,
+                         xanchor="left",
+                         yanchor="top",
+                         showarrow=False,
+                         text=range_col[key][j][0],
+                         textangle=0,
+                         xref='paper',
+                         yref="paper"
+                         )
                 )
 
-            pos_y += 0.35
+                fig_header.add_annotation(
+                    dict(font=dict(color=color_col[key][j], size=10),
+                         x=pos_x_t+pos_x,
+                         y=pos_y,
+                         xanchor="right",
+                         yanchor="top",
+                         showarrow=False,
+                         text=range_col[key][j][1],
+                         textangle=0,
+                         xref='paper',
+                         yref="paper"
+                         )
+                )
+
+            # Increment posisi y untuk axis selanjutnya (seperti kode asli)
+            pos_y += 0.35  # Lebih besar dari 0.04 karena ruang header lebih terbatas
             pos_y = min(pos_y, 1.0)
 
         pos_x_t += pos_x
-        pos_x_c += 0.5 * pos_x
+        pos_x_c += 0.5*pos_x
 
-    # 3. Tambahkan garis pembatas vertikal ke list 'shapes'
+    # Tambahkan garis pembatas vertikal di header
+    shapes = []
     x = 0
-    for pos in line_pos[:-1]: # Loop sampai sebelum terakhir agar garis paling kanan tidak digambar
+    for pos in line_pos:
         x += pos
         shapes.append(
             dict(
@@ -2471,31 +2484,33 @@ def layout_axis_header(fig_main, axes, ratio_plots, plot_sequence, subplot_col):
             )
         )
 
-    # 4. Tambahkan garis border header ke list 'shapes' yang sama
+    # Garis border header
     shapes.extend([
+        # Garis atas
         dict(type='line', xref='paper', yref='paper',
              x0=0, x1=1, y0=1, y1=1,
-             line=dict(color='black', width=1, dash='solid')),  # Garis atas
+             line=dict(color='black', width=1, dash='solid')),
+        # Garis bawah
         dict(type='line', xref='paper', yref='paper',
              x0=0, x1=1, y0=0, y1=0,
-             line=dict(color='black', width=1, dash='solid')),  # Garis bawah
+             line=dict(color='black', width=1, dash='solid')),
+        # Garis kiri
         dict(type='line', xref='paper', yref='paper',
              x0=0, x1=0, y0=0, y1=1,
-             line=dict(color='black', width=1, dash='solid')),  # Garis kiri
+             line=dict(color='black', width=1, dash='solid')),
+        # Garis kanan
         dict(type='line', xref='paper', yref='paper',
              x0=1, x1=1, y0=0, y1=1,
-             line=dict(color='black', width=1, dash='solid'))   # Garis kanan
+             line=dict(color='black', width=1, dash='solid'))
     ])
 
-    # 5. Terapkan SEMUA shape yang sudah terkumpul dalam satu perintah
     fig_header.update_layout(shapes=shapes)
 
-    # Hilangkan ticklabels dan grid bawaan
+    # TIDAK hilangkan axis - biarkan axis tetap visible untuk menampilkan garis berwarna
+    # Hanya hilangkan ticklabels dan grid
     fig_header.update_layout(
-        xaxis=dict(showticklabels=False, showgrid=False, zeroline=False, visible=False),
-        yaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
-        # Loop untuk semua xaxis tambahan yang mungkin dibuat oleh make_subplots
-        **{f'xaxis{i}': dict(showticklabels=False, showgrid=False, zeroline=False, visible=False) for i in range(2, subplot_col + 1)}
+        xaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
+        yaxis=dict(showticklabels=False, showgrid=False, zeroline=False)
     )
 
     return fig_header
@@ -2579,6 +2594,7 @@ def rgb_to_hex(rgb):
 
 # ------------------------------- Main Plot --------------------------------
 # @title
+
 
 def main_plot(df, sequence=[], title="", height_plot=1600):
     # Zona RGSA-NGSA-DGSA
@@ -2675,26 +2691,17 @@ def main_plot(df, sequence=[], title="", height_plot=1600):
         elif col == 'VSH_LINEAR':
             fig, axes = plot_line(df, fig, axes, base_key='VSH_LINEAR', n_seq=n_seq, col=col, label=col)
             # fig, axes, counter = plot_xover_thres_dual(
-                # df, fig, axes, col, n_seq, counter)
-        elif col == 'VSH_Zona4':
-            # fig, axes = plot_line(df, fig, axes, base_key='VSH_Zona4', n_seq=n_seq, col=col, label=col)
-            fig, axes, counter = plot_xover_thres_dual(
-                df, fig, axes, col, n_seq, counter)
-        elif col == 'VSH_DN':
-            # fig, axes = plot_line(df, fig, axes, base_key='VSH_DN', n_seq=n_seq, col=col, label=col)
-            fig, axes, counter = plot_xover_thres_dual(
-                df, fig, axes, col, n_seq, counter)
+            #     df, fig, axes, col, n_seq, counter)
 
         elif col == 'VSH_GR_DN':
             fig, axes, counter = plot_two_features_simple(df, fig, axes, 'VSH_GR_DN', n_seq,
-                                                          counter, n_plots=subplot_col, log_scale=False)
-        elif col == 'VSH_GR_ZN':
-            fig, axes, counter = plot_two_features_simple(df, fig, axes, 'VSH_GR_ZN', n_seq,
                                                           counter, n_plots=subplot_col, log_scale=False)
         elif col == 'VSH' or col == 'VSH_Z4':
             # fig, axes = plot_line(df, fig, axes, base_key='VSH', n_seq=n_seq, col=col, label=col)
             fig, axes, counter = plot_xover_thres_dual(
                 df, fig, axes, col, n_seq, counter)
+        elif col == 'VSH_GR':
+            fig, axes = plot_line(df, fig, axes, base_key='VSH_GR', n_seq=n_seq, col=col, label=col)
 
         # POROSITY
         elif col == 'PHIE' or col == 'PHIE_Z4':
@@ -2768,14 +2775,6 @@ def main_plot(df, sequence=[], title="", height_plot=1600):
             fig, axes = plot_line(df, fig, axes, col, n_seq)
         elif col == 'DNSV':
             fig, axes = plot_line(df, fig, axes, col, n_seq)
-
-        # DEPTH MATCHING
-        elif col == 'DGRCC_GR_CAL':
-            fig, axes, counter = plot_two_features_simple(
-                df, fig, axes, 'DGRCC_GR_CAL', n_seq, counter, n_plots=subplot_col, log_scale=False)
-        elif col == 'DGRCC_DM':
-            fig, axes, counter = plot_two_features_simple(
-                df, fig, axes, 'DGRCC_DM', n_seq, counter, n_plots=subplot_col, log_scale=False)
 
         # RT R0
         elif col == 'RT_RO':
@@ -2862,13 +2861,13 @@ def main_plot(df, sequence=[], title="", height_plot=1600):
     fig = layout_range_all_axis(fig, axes, plot_sequence)
 
     fig.update_layout(
-        margin=dict(l=20, r=20, t=20, b=20),
+        margin=dict(l=20, r=20, t=40, b=20),
         height=height_plot,
         paper_bgcolor='white',
         plot_bgcolor='white',
         showlegend=False,
         hovermode='y unified', hoverdistance=-1,
-        # title_text=title,
+        title_text=title,
         title_x=0.5,
         modebar_remove=['lasso', 'autoscale', 'zoom',
                         'zoomin', 'zoomout', 'pan', 'select']
@@ -2880,10 +2879,9 @@ def main_plot(df, sequence=[], title="", height_plot=1600):
 
     fig = layout_draw_lines(fig, ratio_plots_seq, df, xgrid_intv=0)
 
-    fig_header = layout_axis_header(
-        fig, axes, ratio_plots_seq, plot_sequence, subplot_col)
+    fig = layout_axis(fig, axes, ratio_plots_seq, plot_sequence)
 
-    return fig, fig_header
+    return fig
 
 
 def layout_axis(fig, axes, ratio_plots, plot_sequence):
@@ -3122,9 +3120,9 @@ def plot_log_default(df):
     sequence_default = filtered_sequence + ['GR', 'RT', 'NPHI_RHOB']
 
     # Create the plot with the filtered sequence
-    fig, fig_header = main_plot(df, sequence=sequence_default,
+    fig = main_plot(df, sequence=sequence_default,
                     title="Plot Well Log Selected", height_plot=1600)
-    return fig, fig_header
+    return fig
 
 
 def plot_normalization(df):
@@ -3209,9 +3207,9 @@ def plot_phie_den(df):
     """
     sequence_phie = ['MARKER', 'GR',
                      'RT', 'NPHI_RHOB', 'VSH', 'PHIE_PHIT']
-    fig, fig_header = main_plot(df, sequence_phie, title="Porosity Bateman/Konen")
+    fig = main_plot(df, sequence_phie, title="Porosity Bateman/Konen")
 
-    return fig, fig_header
+    return fig
 
 
 def plot_gsa_main(df):
@@ -3293,9 +3291,9 @@ def plot_gsa_main(df):
         col for col in marker_zone_sequence if col in df.columns]
     sequence_rgsa = filtered_sequence + ['GR', 'RT', 'NPHI_RHOB',
                                          'RT_RGSA', 'NPHI_NGSA', 'RHOB_DGSA']
-    fig, fig_header = main_plot(df, sequence_rgsa, title="Gas Show Anomaly Analysis")
+    fig = main_plot(df, sequence_rgsa, title="Gas Show Anomaly Analysis")
 
-    return fig, fig_header
+    return fig
 
 
 def plot_vsh_linear(df):
@@ -3307,12 +3305,30 @@ def plot_vsh_linear(df):
     # Filter the sequence to include only columns that exist in the DataFrame
     filtered_sequence = [
         col for col in marker_zone_sequence if col in df.columns]
+    # sequence_vsh = filtered_sequence + ['GR',
+    #                                     'RT', 'NPHI_RHOB', 'VSH_GR_DN']
     sequence_vsh = filtered_sequence + ['GR',
                                         'RT', 'NPHI_RHOB', 'VSH_LINEAR']
-    fig, fig_header = main_plot(df, sequence_vsh, title="Log VSH GR-DN")
+    fig = main_plot(df, sequence_vsh, title="Log VSH GR-DN")
 
-    return fig, fig_header
+    return fig
 
+def plot_vsh_gr(df):
+    """
+    Membuat plot multi-panel untuk visualisasi hasil kalkulasi VSH.
+    """
+    marker_zone_sequence = ['ZONE', 'MARKER']
+
+    # Filter the sequence to include only columns that exist in the DataFrame
+    filtered_sequence = [
+        col for col in marker_zone_sequence if col in df.columns]
+    # sequence_vsh = filtered_sequence + ['GR',
+    #                                     'RT', 'NPHI_RHOB', 'VSH_GR_DN']
+    sequence_vsh = filtered_sequence + ['GR',
+                                        'RT', 'NPHI_RHOB', 'VSH_GR']
+    fig = main_plot(df, sequence_vsh, title="Log VSH GR")
+
+    return fig
 
 def plot_sw_indo(df):
     """
@@ -3325,8 +3341,8 @@ def plot_sw_indo(df):
         col for col in marker_zone_sequence if col in df.columns]
     sequence_swe = filtered_sequence + ['GR', 'RT',
                                         'NPHI_RHOB', 'VSH', 'PHIE_PHIT', 'SW']
-    fig, fig_header = main_plot(df, sequence_swe, title="Water Saturation")
-    return fig, fig_header
+    fig = main_plot(df, sequence_swe, title="Water Saturation")
+    return fig
 
 
 def plot_rwa_indo(df):
@@ -3339,8 +3355,8 @@ def plot_rwa_indo(df):
         col for col in marker_zone_sequence if col in df.columns]
     sequence_rwa = filtered_sequence + ['GR',
                                         'RT', 'NPHI_RHOB', 'VSH', 'PHIE', 'RWA']
-    fig, fig_header = main_plot(df, sequence_rwa, title="Water Resistivity")
-    return fig, fig_header
+    fig = main_plot(df, sequence_rwa, title="Water Resistivity")
+    return fig
 
 
 def plot_sw_simandoux(df):
@@ -3353,9 +3369,9 @@ def plot_sw_simandoux(df):
         col for col in marker_zone_sequence if col in df.columns]
     sequence_sw_sim = filtered_sequence + ['GR', 'RT',
                                            'NPHI_RHOB', 'VSH', 'PHIE_PHIT', 'SW_SIMANDOUX', 'RESERVOIR_CLASS']
-    fig, fig_header = main_plot(df, sequence_sw_sim,
+    fig = main_plot(df, sequence_sw_sim,
                     title="Water Saturation (Modified Simandoux)")
-    return fig, fig_header
+    return fig
 
 
 def plot_smoothing(df, df_marker, df_well_marker):
@@ -3420,22 +3436,18 @@ def plot_smoothing(df, df_marker, df_well_marker):
 def plot_module_2(df):
     marker_zone_sequence = ['ZONE', 'MARKER']
     # Filter the sequence to include only columns that exist in the DataFrame
-    if 'IQUAL' not in df.columns:
-        df['IQUAL'] = np.where((df['PHIE'] >= 0.2) & (
-            df['VSH_LINEAR'] <= 0.5), 1, 0).astype(int)
-
     filtered_sequence = [
         col for col in marker_zone_sequence if col in df.columns]
     seq_module_2 = filtered_sequence + ['GR', 'RT',
                                         'NPHI_RHOB', 'PHIE', 'VSH_LINEAR', 'SW', 'IQUAL']
-    fig, fig_header = main_plot(df, seq_module_2, title="Log Interpretation Selected Well")
-    return fig, fig_header
+    fig = main_plot(df, seq_module_2, title="Log Interpretation Selected Well")
+    return fig
 
 
 def plot_gwd(df):
     sequence = ['TGC', 'TG_SUMC', 'C3_C1', 'C3_C1_BASELINE']
-    fig, fig_header = main_plot(df, sequence, title="GWD Analysis")
-    return fig, fig_header
+    fig = main_plot(df, sequence, title="GWD Analysis")
+    return fig
 
 
 def plot_iqual(df):
@@ -3448,16 +3460,16 @@ def plot_iqual(df):
         col for col in marker_zone_sequence if col in df.columns]
     sequence_iqual = filtered_sequence + ['GR', 'RT',
                                           'NPHI_RHOB', 'PHIE', 'VSH_LINEAR', 'IQUAL']
-    fig, fig_header = main_plot(df, sequence_iqual, title="IQUAL")
+    fig = main_plot(df, sequence_iqual, title="IQUAL")
 
-    return fig, fig_header
+    return fig
 
 
 def plot_splicing(df):
 
     sequence = ['GR', 'RT', 'NPHI_RHOB']
-    fig, fig_header = main_plot(df, sequence, title="Splicing BNG-057")
-    return fig, fig_header
+    fig = main_plot(df, sequence, title="Splicing BNG-057")
+    return fig
 
 
 def plot_module1(df):
@@ -3499,9 +3511,9 @@ def plot_module1(df):
     if not available_sequence:
         raise ValueError("No valid columns found for Module1 plot")
 
-    fig, fig_header = main_plot(df, available_sequence, title=title)
+    fig = main_plot(df, available_sequence, title=title)
 
-    return fig, fig_header
+    return fig
 
 
 def plot_norm_prep(df):
@@ -3540,9 +3552,9 @@ def plot_norm_prep(df):
     if not sequence:
         raise ValueError("No valid columns found for Module1 plot")
 
-    fig, fig_header = main_plot(df, sequence, title=title)
+    fig = main_plot(df, sequence, title=title)
 
-    return fig, fig_header
+    return fig
 
 
 def plot_smoothing_prep(df):
@@ -3592,9 +3604,9 @@ def plot_smoothing_prep(df):
     if not sequence:
         raise ValueError("No valid columns found for Module1 plot")
 
-    fig, fig_header = main_plot(df, sequence, title=title)
+    fig = main_plot(df, sequence, title=title)
 
-    return fig, fig_header
+    return fig
 
 
 def plot_fill_missing(df, title="Fill Missing Plot"):
@@ -3650,9 +3662,9 @@ def plot_fill_missing(df, title="Fill Missing Plot"):
     if not sequence:
         raise ValueError("No valid columns found for fill missing plot")
 
-    fig, fig_header = main_plot(df, sequence, title=title)
+    fig = main_plot(df, sequence, title=title)
 
-    return fig, fig_header
+    return fig
 
 
 def plot_trimming(df):
@@ -3702,9 +3714,9 @@ def plot_trimming(df):
     if not sequence:
         raise ValueError("No valid columns found for Module1 plot")
 
-    fig, fig_header = main_plot(df, sequence, title=title)
+    fig = main_plot(df, sequence, title=title)
 
-    return fig, fig_header
+    return fig
 
 
 def plot_module_3(df, title="Module 3 Plot"):
@@ -3716,9 +3728,9 @@ def plot_module_3(df, title="Module 3 Plot"):
         col for col in marker_zone_sequence if col in df.columns]
     sequence = ['GR', 'RT', 'NPHI_RHOB', 'VSH', 'PHIE', 'IQUAL', 'RT_RGSA',
                 'NPHI_NGSA', 'RHOB_DGSA', 'RGBE', 'RPBE', 'SWGRAD', 'DNS', 'DNSV', 'RT_RO']
-    fig, fig_header = main_plot(df, sequence, title=title)
+    fig = main_plot(df, sequence, title=title)
 
-    return fig, fig_header
+    return fig
 
 
 def plot_custom(df, sequence):
@@ -3741,8 +3753,8 @@ def plot_custom(df, sequence):
     plotly.graph_objects.Figure
         Objek Figure yang berisi plot.
     """
-    fig, fig_header = main_plot(df, sequence)
-    return fig, fig_header
+    fig = main_plot(df, sequence)
+    return fig
 
 
 def plot_depth_matching(df):
@@ -3757,11 +3769,44 @@ def plot_depth_matching(df):
         df = df.rename(columns={'DEPT': 'DEPTH'})
 
     # Auto-detect LWD vs WL berdasarkan kolom yang tersedia
-    sequence = ['DGRCC_GR_CAL', 'DGRCC_DM']
+    lwd_sequence = [
+        'DGRCC', 'DGRCC_DM',
+        'ALCDLC', 'ALCDLC_DM',
+        'TNPL', 'TNPL_DM',
+        'R39PC', 'R39PC_DM'
+    ]
 
-    fig, fig_header = main_plot(df, sequence, title='DEPTH MATCHING BNG-056')
+    wl_sequence = [
+        'GR_CAL', 'GR_CAL_DM',
+        'RHOZ', 'RHOZ_DM',
+        'RLA5', 'RLA5_DM',
+        'TNPH', 'TNPH_DM'
+    ]
 
-    return fig, fig_header
+    # Check which type of data we have
+    lwd_available = sum(1 for col in lwd_sequence if col in df.columns)
+    wl_available = sum(1 for col in wl_sequence if col in df.columns)
+
+    if lwd_available >= wl_available:
+        # Use LWD sequence
+        sequence = lwd_sequence
+        title = 'Depth Matching Layout'
+    else:
+        # Use WL sequence and scale RHOZ if available
+        if 'RHOZ' in df.columns:
+            df['RHOZ'] = df['RHOZ'] / 1000
+        sequence = wl_sequence
+        title = 'Depth Matching Layout'
+
+    # Filter sequence to only include available columns
+    sequence = [col for col in sequence if col in df.columns]
+
+    if not sequence:
+        raise ValueError("No valid columns found for Module1 plot")
+
+    fig = main_plot(df, sequence, title=title)
+
+    return fig
 
 # DUMMY DEPTH MATCHING PLOT
 

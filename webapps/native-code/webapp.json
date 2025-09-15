@@ -1,7 +1,7 @@
 {
   "meta": {
-    "label": "Native js v2",
-    "description": "coba tanpa repo github",
+    "label": "Native WebApp",
+    "description": "A plugin to create a native web application.",
     "icon": "fas fa-chart-line"
   },
   "baseType": "STANDARD",

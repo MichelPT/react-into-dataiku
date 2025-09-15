@@ -1,3 +1,15 @@
+import sys, os, logging
+
+logging.info("Isi python-lib plugin:")
+plugin_lib = r"C:\Users\informatics\AppData\Local\Dataiku\DataScienceStudio\dss_home\plugins\dev\native-webapp-v2\python-lib"
+logging.info(os.listdir(plugin_lib))
+
+try:
+    import plotting_service
+    logging.info("✅ Import plotting_service berhasil")
+except Exception as e:
+    logging.error("❌ Import plotting_service gagal: %s", e)
+
 # Prefer Dataiku custom webapp app; fall back to a local Flask app for linting/development
 try:
     from dataiku.customwebapp import *  # provides `app` in Dataiku runtime
@@ -18,90 +30,94 @@ import os
 
 # Import your services (assuming they exist)
 try:
-    from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr
-    from standardwebappv1.services.porosity import calculate_porosity
-    from standardwebappv1.services.depth_matching import depth_matching
-    from standardwebappv1.services.rgsa import process_all_wells_rgsa
-    from standardwebappv1.services.dgsa import process_all_wells_dgsa
-    from standardwebappv1.services.ngsa import process_all_wells_ngsa
-    from standardwebappv1.services.rgbe_rpbe import process_rgbe_rpbe
-    from standardwebappv1.services.rt_r0 import process_rt_r0
-    from standardwebappv1.services.swgrad import process_swgrad
-    from standardwebappv1.services.dns_dnsv import process_dns_dnsv
-    from standardwebappv1.services.sw import calculate_sw, calculate_sw_simandoux
+    import vsh_calculation 
+    import porosity 
+    import depth_matching 
+    import rgsa 
+    import dgsa 
+    import ngsa 
+    import rgbe_rpbe 
+    import rt_r0 
+    import swgrad 
+    import dns_dnsv 
+    import sw 
+    # from standardwebappv1.services.vsh_calculation import calculate_vsh_from_gr
+    # from standardwebappv1.services.porosity import calculate_porosity
+    # from standardwebappv1.services.depth_matching import depth_matching
+    # from standardwebappv1.services.rgsa import process_all_wells_rgsa
+    # from standardwebappv1.services.dgsa import process_all_wells_dgsa
+    # from standardwebappv1.services.ngsa import process_all_wells_ngsa
+    # from standardwebappv1.services.rgbe_rpbe import process_rgbe_rpbe
+    # from standardwebappv1.services.rt_r0 import process_rt_r0
+    # from standardwebappv1.services.swgrad import process_swgrad
+    # from standardwebappv1.services.dns_dnsv import process_dns_dnsv
+    # from standardwebappv1.services.sw import calculate_sw, calculate_sw_simandoux
     print("✅ All services imported successfully")
 except ImportError as e:
     print(f"⚠️ Service import error: {e}")
     # Define fallback functions to prevent NameError
-    def process_all_wells_rgsa(df, params, target_intervals=None, target_zones=None):
-        print("⚠️ Using fallback RGSA implementation")
-        # Simple moving average fallback
-        window = params.get('SLIDING_WINDOW', 100)
-        gr_col = params.get('GR', 'GR')
-        rt_col = params.get('RES', 'RT')
+    # def process_all_wells_rgsa(df, params, target_intervals=None, target_zones=None):
+    #     print("⚠️ Using fallback RGSA implementation")
+    #     # Simple moving average fallback
+    #     window = params.get('SLIDING_WINDOW', 100)
+    #     gr_col = params.get('GR', 'GR')
+    #     rt_col = params.get('RES', 'RT')
         
-        if rt_col in df.columns:
-            df['RGSA'] = df[rt_col].rolling(window=window, center=True).mean()
-            df['GAS_EFFECT_RT'] = df[rt_col] > df['RGSA']
-            df['RT_RATIO'] = df[rt_col] / df['RGSA']
-            df['RT_DIFF'] = df[rt_col] - df['RGSA']
-        return df
+    #     if rt_col in df.columns:
+    #         df['RGSA'] = df[rt_col].rolling(window=window, center=True).mean()
+    #         df['GAS_EFFECT_RT'] = df[rt_col] > df['RGSA']
+    #         df['RT_RATIO'] = df[rt_col] / df['RGSA']
+    #         df['RT_DIFF'] = df[rt_col] - df['RGSA']
+    #     return df
     
-    def process_all_wells_dgsa(df, params, target_intervals=None, target_zones=None):
-        print("⚠️ Using fallback DGSA implementation")
-        window = params.get('SLIDING_WINDOW', 100)
-        dens_col = params.get('DENS', 'RHOB')
-        if dens_col in df.columns:
-            df['DGSA'] = df[dens_col].rolling(window=window, center=True).mean()
-        return df
+    # def process_all_wells_dgsa(df, params, target_intervals=None, target_zones=None):
+    #     print("⚠️ Using fallback DGSA implementation")
+    #     window = params.get('SLIDING_WINDOW', 100)
+    #     dens_col = params.get('DENS', 'RHOB')
+    #     if dens_col in df.columns:
+    #         df['DGSA'] = df[dens_col].rolling(window=window, center=True).mean()
+    #     return df
     
-    def process_all_wells_ngsa(df, params, target_intervals=None, target_zones=None):
-        print("⚠️ Using fallback NGSA implementation")
-        window = params.get('SLIDING_WINDOW', 100)
-        neut_col = params.get('NEUT', 'NPHI')
-        if neut_col in df.columns:
-            df['NGSA'] = df[neut_col].rolling(window=window, center=True).mean()
-        return df
+    # def process_all_wells_ngsa(df, params, target_intervals=None, target_zones=None):
+    #     print("⚠️ Using fallback NGSA implementation")
+    #     window = params.get('SLIDING_WINDOW', 100)
+    #     neut_col = params.get('NEUT', 'NPHI')
+    #     if neut_col in df.columns:
+    #         df['NGSA'] = df[neut_col].rolling(window=window, center=True).mean()
+    #     return df
     
-    # Define other fallback functions as needed
-    def process_rgbe_rpbe(df, params, target_intervals=None, target_zones=None):
-        return df
-    def process_rt_r0(df, params):
-        return df
-    def process_swgrad(df):
-        return df
-    def process_dns_dnsv(df, params):
-        return df
-    def calculate_sw(df, params):
-        return df
-    def calculate_vsh_from_gr(df, params):
-        return df
-    def calculate_porosity(df, params):
-        return df
-    def depth_matching(df, params):
-        return df
+    # # Define other fallback functions as needed
+    # def process_rgbe_rpbe(df, params, target_intervals=None, target_zones=None):
+    #     return df
+    # def process_rt_r0(df, params):
+    #     return df
+    # def process_swgrad(df):
+    #     return df
+    # def process_dns_dnsv(df, params):
+    #     return df
+    # def calculate_sw(df, params):
+    #     return df
+    # def calculate_vsh_from_gr(df, params):
+    #     return df
+    # def calculate_porosity(df, params):
+    #     return df
+    # def depth_matching(df, params):
+    #     return df
+
+
 
 # Try to import additional services
 try:
-    from standardwebappv1.services.rwa import calculate_rwa
-    from standardwebappv1.services.vsh_dn import calculate_vsh_dn
-    from standardwebappv1.services.histogram import plot_histogram
-    from standardwebappv1.services.crossplot import generate_crossplot
-    from standardwebappv1.services.data_processing import trim_data_auto
-    # from standardwebappv1.services.plotting_service import plot_log_default
-    from plotting_service import  plot_vsh_linear, plot_log_default
-    from standardwebappv1.services.plotting_service import (
-        extract_markers_with_mean_depth,
-        normalize_xover,
-        plot_gsa_main,
-        # plot_log_default,
-        plot_smoothing,
-        plot_phie_den,
-        plot_normalization,
-        plot_vsh_linear,
-        plot_sw_indo,
-        plot_rwa_indo
-    )
+    import rwa 
+    import vsh_dn 
+    import histogram 
+    import crossplot 
+    import data_processing 
+    # from rwa import calculate_rwa
+    # from vsh_dn import calculate_vsh_dn
+    # from histogram import plot_histogram
+    # from crossplot import generate_crossplot
+    # from data_processing import trim_data_auto
     print("✅ Additional services imported successfully")
 except ImportError as e:
     print(f"⚠️ Additional service import error: {e}")
@@ -151,154 +167,154 @@ except ImportError as e:
 
 # Remaining constants and definitions
 
-    def plot_normalization(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
+    # def plot_normalization(df=None, df_marker=None, df_well_marker=None):
+    #     return plot_log_default(df)
 
-    def plot_sw_indo(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
+    # def plot_sw_indo(df=None, df_marker=None, df_well_marker=None):
+    #     return plot_log_default(df)
 
-    def plot_rwa_indo(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
+    # def plot_rwa_indo(df=None, df_marker=None, df_well_marker=None):
+    #     return plot_log_default(df)
 
-    def plot_smoothing(df=None, df_marker=None, df_well_marker=None):
-        return plot_log_default(df)
+    # def plot_smoothing(df=None, df_marker=None, df_well_marker=None):
+    #     return plot_log_default(df)
 
-    # Fallback histogram and crossplot generators
-    def plot_histogram(df: pd.DataFrame, log_column: str, n_bins: int):
-        import plotly.graph_objects as go
-        s = pd.to_numeric(df.get(log_column), errors='coerce').dropna()
-        if s.empty:
-            return plot_log_default(df)
-        hist_y, hist_x = np.histogram(s, bins=n_bins, density=False)
-        fig = go.Figure()
-        fig.add_bar(x=hist_x[:-1], y=hist_y, name=f"Hist {log_column}")
-        fig.update_layout(title=f"Histogram: {log_column}")
-        return fig
+    # # Fallback histogram and crossplot generators
+    # def plot_histogram(df: pd.DataFrame, log_column: str, n_bins: int):
+    #     import plotly.graph_objects as go
+    #     s = pd.to_numeric(df.get(log_column), errors='coerce').dropna()
+    #     if s.empty:
+    #         return plot_log_default(df)
+    #     hist_y, hist_x = np.histogram(s, bins=n_bins, density=False)
+    #     fig = go.Figure()
+    #     fig.add_bar(x=hist_x[:-1], y=hist_y, name=f"Hist {log_column}")
+    #     fig.update_layout(title=f"Histogram: {log_column}")
+    #     return fig
 
-    def generate_crossplot(df, x_col, y_col, *args, **kwargs):
-        import plotly.express as px
-        d = df[[c for c in [x_col, y_col] if c in df.columns]].dropna()
-        if d.empty:
-            return plot_log_default(df)
-        fig = px.scatter(d, x=x_col, y=y_col, height=600)
-        fig.update_layout(title=f"Crossplot {x_col} vs {y_col}")
-        return fig
+    # def generate_crossplot(df, x_col, y_col, *args, **kwargs):
+    #     import plotly.express as px
+    #     d = df[[c for c in [x_col, y_col] if c in df.columns]].dropna()
+    #     if d.empty:
+    #         return plot_log_default(df)
+    #     fig = px.scatter(d, x=x_col, y=y_col, height=600)
+    #     fig.update_layout(title=f"Crossplot {x_col} vs {y_col}")
+    #     return fig
 
-    # Minimal calculation fallbacks
-    def _apply_interval_zone_filter(df, target_intervals=None, target_zones=None):
-        mask = pd.Series(True, index=df.index)
-        if target_intervals and 'MARKER' in df.columns:
-            mask &= df['MARKER'].isin(target_intervals)
-        if target_zones is not None:
-            for zc in ['ZONE', 'ZONES', 'ZONE_NAME', 'Zone', 'zone']:
-                if zc in df.columns:
-                    mask &= df[zc].isin(target_zones)
-                    break
-        return mask
+    # # Minimal calculation fallbacks
+    # def _apply_interval_zone_filter(df, target_intervals=None, target_zones=None):
+    #     mask = pd.Series(True, index=df.index)
+    #     if target_intervals and 'MARKER' in df.columns:
+    #         mask &= df['MARKER'].isin(target_intervals)
+    #     if target_zones is not None:
+    #         for zc in ['ZONE', 'ZONES', 'ZONE_NAME', 'Zone', 'zone']:
+    #             if zc in df.columns:
+    #                 mask &= df[zc].isin(target_zones)
+    #                 break
+    #     return mask
 
-    def calculate_vsh_from_gr(df, gr_log='GR', gr_ma=30.0, gr_sh=120.0, output_col='VSH_GR', target_intervals=None, target_zones=None):
-        if gr_log not in df.columns:
-            raise ValueError(f"Input log {gr_log} not found")
-        res = df.copy()
-        igr = (pd.to_numeric(res[gr_log], errors='coerce') - float(gr_ma)) / max(1e-6, (float(gr_sh) - float(gr_ma)))
-        vsh = igr.clip(0, 1)
-        mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
-        res.loc[mask, output_col] = vsh[mask]
-        return res
+    # # def calculate_vsh_from_gr(df, gr_log='GR', gr_ma=30.0, gr_sh=120.0, output_col='VSH_GR', target_intervals=None, target_zones=None):
+    # #     if gr_log not in df.columns:
+    # #         raise ValueError(f"Input log {gr_log} not found")
+    # #     res = df.copy()
+    # #     igr = (pd.to_numeric(res[gr_log], errors='coerce') - float(gr_ma)) / max(1e-6, (float(gr_sh) - float(gr_ma)))
+    # #     vsh = igr.clip(0, 1)
+    # #     mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
+    # #     res.loc[mask, output_col] = vsh[mask]
+    # #     return res
 
-    def calculate_vsh_dn(df, params=None, target_intervals=None, target_zones=None):
-        params = params or {}
-        nphi_col = params.get('NPHI', 'NPHI')
-        rhob_col = params.get('RHOB', 'RHOB')
-        out_col = params.get('output_log', 'VSH_DN')
-        nphi_ma = float(params.get('NPHI_MA', -0.02))
-        nphi_sh = float(params.get('NPHI_SH', 0.4))
-        rho_ma = float(params.get('RHO_MA', 2.65))
-        rho_sh = float(params.get('RHO_SH', 2.3))
-        if nphi_col not in df.columns or rhob_col not in df.columns:
-            raise ValueError("NPHI and RHOB required for VSH-DN")
-        res = df.copy()
-        nphi = pd.to_numeric(res[nphi_col], errors='coerce')
-        rhob = pd.to_numeric(res[rhob_col], errors='coerce')
-        # Simple normalized blend toward shale signature (high NPHI, low RHOB)
-        nphi_part = (nphi - nphi_ma) / max(1e-6, (nphi_sh - nphi_ma))
-        rhob_part = (rho_ma - rhob) / max(1e-6, (rho_ma - rho_sh))
-        vsh_dn = 0.5 * (nphi_part + rhob_part)
-        vsh_dn = vsh_dn.clip(0, 1)
-        mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
-        res.loc[mask, out_col] = vsh_dn[mask]
-        return res
+    # def calculate_vsh_dn(df, params=None, target_intervals=None, target_zones=None):
+    #     params = params or {}
+    #     nphi_col = params.get('NPHI', 'NPHI')
+    #     rhob_col = params.get('RHOB', 'RHOB')
+    #     out_col = params.get('output_log', 'VSH_DN')
+    #     nphi_ma = float(params.get('NPHI_MA', -0.02))
+    #     nphi_sh = float(params.get('NPHI_SH', 0.4))
+    #     rho_ma = float(params.get('RHO_MA', 2.65))
+    #     rho_sh = float(params.get('RHO_SH', 2.3))
+    #     if nphi_col not in df.columns or rhob_col not in df.columns:
+    #         raise ValueError("NPHI and RHOB required for VSH-DN")
+    #     res = df.copy()
+    #     nphi = pd.to_numeric(res[nphi_col], errors='coerce')
+    #     rhob = pd.to_numeric(res[rhob_col], errors='coerce')
+    #     # Simple normalized blend toward shale signature (high NPHI, low RHOB)
+    #     nphi_part = (nphi - nphi_ma) / max(1e-6, (nphi_sh - nphi_ma))
+    #     rhob_part = (rho_ma - rhob) / max(1e-6, (rho_ma - rho_sh))
+    #     vsh_dn = 0.5 * (nphi_part + rhob_part)
+    #     vsh_dn = vsh_dn.clip(0, 1)
+    #     mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
+    #     res.loc[mask, out_col] = vsh_dn[mask]
+    #     return res
 
-    # Fallback porosity calculation (density method)
-    def calculate_porosity(df, params=None, target_intervals=None, target_zones=None):
-        params = params or {}
-        rho_ma = float(params.get('RHO_MA', 2.65))
-        rho_fl = float(params.get('RHO_FL', 1.0))
-        rhob_col = params.get('RHOB', 'RHOB')
-        out_col = params.get('PHIE', 'PHIE')
-        if rhob_col not in df.columns:
-            return df.copy()
-        res = df.copy()
-        rhob = pd.to_numeric(res[rhob_col], errors='coerce')
-        phie = (rho_ma - rhob) / max(1e-6, (rho_ma - rho_fl))
-        phie = phie.clip(0, 1)
-        mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
-        res.loc[mask, out_col] = phie[mask]
-        # Also set PHIT as PHIE if absent
-        if 'PHIT' not in res.columns:
-            res.loc[mask, 'PHIT'] = res.loc[mask, out_col]
-        # Den variants common in plotting_service
-        if 'PHIE_DEN' not in res.columns:
-            res.loc[mask, 'PHIE_DEN'] = res.loc[mask, out_col]
-        if 'PHIT_DEN' not in res.columns:
-            res.loc[mask, 'PHIT_DEN'] = res.loc[mask, 'PHIT']
-        return res
+    # # # Fallback porosity calculation (density method)
+    # # def calculate_porosity(df, params=None, target_intervals=None, target_zones=None):
+    # #     params = params or {}
+    # #     rho_ma = float(params.get('RHO_MA', 2.65))
+    # #     rho_fl = float(params.get('RHO_FL', 1.0))
+    # #     rhob_col = params.get('RHOB', 'RHOB')
+    # #     out_col = params.get('PHIE', 'PHIE')
+    # #     if rhob_col not in df.columns:
+    # #         return df.copy()
+    # #     res = df.copy()
+    # #     rhob = pd.to_numeric(res[rhob_col], errors='coerce')
+    # #     phie = (rho_ma - rhob) / max(1e-6, (rho_ma - rho_fl))
+    # #     phie = phie.clip(0, 1)
+    # #     mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
+    # #     res.loc[mask, out_col] = phie[mask]
+    # #     # Also set PHIT as PHIE if absent
+    # #     if 'PHIT' not in res.columns:
+    # #         res.loc[mask, 'PHIT'] = res.loc[mask, out_col]
+    # #     # Den variants common in plotting_service
+    # #     if 'PHIE_DEN' not in res.columns:
+    # #         res.loc[mask, 'PHIE_DEN'] = res.loc[mask, out_col]
+    # #     if 'PHIT_DEN' not in res.columns:
+    # #         res.loc[mask, 'PHIT_DEN'] = res.loc[mask, 'PHIT']
+    # #     return res
 
-    # Fallback SW (Archie)
-    def calculate_sw(df, params=None, target_intervals=None, target_zones=None):
-        params = params or {}
-        rw = float(params.get('rw', 0.1))
-        a = float(params.get('a', 1.0))
-        m = float(params.get('m', 2.0))
-        n = float(params.get('n', 2.0))
-        rt_col = params.get('RT', 'RT')
-        phie_col = params.get('PHIE', 'PHIE')
-        out_col = params.get('SW', 'SW')
-        if rt_col not in df.columns or phie_col not in df.columns:
-            return df.copy()
-        res = df.copy()
-        rt = pd.to_numeric(res[rt_col], errors='coerce')
-        phie = pd.to_numeric(res[phie_col], errors='coerce')
-        with np.errstate(divide='ignore', invalid='ignore'):
-            sw = ((a * rw) / (rt * (phie ** m))) ** (1.0 / n)
-        sw = sw.clip(0, 1)
-        mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
-        res.loc[mask, out_col] = sw[mask]
-        # Alias expected by plotting_service
-        if 'SWE_INDO' not in res.columns:
-            res.loc[mask, 'SWE_INDO'] = res.loc[mask, out_col]
-        return res
+    # # Fallback SW (Archie)
+    # def calculate_sw(df, params=None, target_intervals=None, target_zones=None):
+    #     params = params or {}
+    #     rw = float(params.get('rw', 0.1))
+    #     a = float(params.get('a', 1.0))
+    #     m = float(params.get('m', 2.0))
+    #     n = float(params.get('n', 2.0))
+    #     rt_col = params.get('RT', 'RT')
+    #     phie_col = params.get('PHIE', 'PHIE')
+    #     out_col = params.get('SW', 'SW')
+    #     if rt_col not in df.columns or phie_col not in df.columns:
+    #         return df.copy()
+    #     res = df.copy()
+    #     rt = pd.to_numeric(res[rt_col], errors='coerce')
+    #     phie = pd.to_numeric(res[phie_col], errors='coerce')
+    #     with np.errstate(divide='ignore', invalid='ignore'):
+    #         sw = ((a * rw) / (rt * (phie ** m))) ** (1.0 / n)
+    #     sw = sw.clip(0, 1)
+    #     mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
+    #     res.loc[mask, out_col] = sw[mask]
+    #     # Alias expected by plotting_service
+    #     if 'SWE_INDO' not in res.columns:
+    #         res.loc[mask, 'SWE_INDO'] = res.loc[mask, out_col]
+    #     return res
 
-    # Fallback RWA producing three columns used by plotting_service
-    def calculate_rwa(df, params=None, target_intervals=None, target_zones=None):
-        params = params or {}
-        rt_col = params.get('RT', 'RT')
-        phie_col = params.get('PHIE', 'PHIE')
-        a = float(params.get('a', 1.0))
-        m = float(params.get('m', 2.0))
-        # Simple Archie-based apparent Rw approximation: Rw_app ≈ RT * PHIE^m / a
-        res = df.copy()
-        if rt_col in res.columns and phie_col in res.columns:
-            rt = pd.to_numeric(res[rt_col], errors='coerce')
-            phie = pd.to_numeric(res[phie_col], errors='coerce').clip(lower=1e-6)
-            rwa_val = (rt * (phie ** m)) / max(1e-6, a)
-        else:
-            # Default to NaN series of correct length
-            rwa_val = pd.Series(np.nan, index=res.index)
-        mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
-        for col in ['RWA_FULL', 'RWA_SIMPLE', 'RWA_TAR']:
-            res.loc[mask, col] = rwa_val[mask]
-        return res
+    # # Fallback RWA producing three columns used by plotting_service
+    # def calculate_rwa(df, params=None, target_intervals=None, target_zones=None):
+    #     params = params or {}
+    #     rt_col = params.get('RT', 'RT')
+    #     phie_col = params.get('PHIE', 'PHIE')
+    #     a = float(params.get('a', 1.0))
+    #     m = float(params.get('m', 2.0))
+    #     # Simple Archie-based apparent Rw approximation: Rw_app ≈ RT * PHIE^m / a
+    #     res = df.copy()
+    #     if rt_col in res.columns and phie_col in res.columns:
+    #         rt = pd.to_numeric(res[rt_col], errors='coerce')
+    #         phie = pd.to_numeric(res[phie_col], errors='coerce').clip(lower=1e-6)
+    #         rwa_val = (rt * (phie ** m)) / max(1e-6, a)
+    #     else:
+    #         # Default to NaN series of correct length
+    #         rwa_val = pd.Series(np.nan, index=res.index)
+    #     mask = _apply_interval_zone_filter(res, target_intervals, target_zones)
+    #     for col in ['RWA_FULL', 'RWA_SIMPLE', 'RWA_TAR']:
+    #         res.loc[mask, col] = rwa_val[mask]
+    #     return res
 
 class WellLogAnalysis:
     def __init__(self, project_key=None):
@@ -593,7 +609,7 @@ class WellLogAnalysis:
 
             # Create dashboard plot with Marker, GR, RT, and combined RHOB+NPHI
             # fig = self._plot_dashboard_log(well_data_normalized)
-            fig = plot_log_default(well_data_normalized)
+            fig= plotting_service.plot_log_default(well_data_normalized)
         
             if selected_intervals and len(selected_intervals) > 0:
                 current_title = fig.layout.title.text if fig.layout.title else f"Well Log - {well_name}"
@@ -992,10 +1008,10 @@ class WellLogAnalysis:
             gr_ma = float(params.get('GR_CLEAN', params.get('GR_MA', 30)))
             gr_sh = float(params.get('GR_SHALE', params.get('GR_SH', 120)))
             gr_log = params.get('GR_COLUMN', params.get('GR', 'GR'))
-            output_col = params.get('output_log', 'VSH_GR')
+            output_col = params.get('output_log', 'VSH_LINEAR')
             
             # Use the actual service function
-            result_df = calculate_vsh_from_gr(
+            result_df = vsh_calculation.calculate_vsh_from_gr(
                 df=df,
                 gr_log=gr_log,
                 gr_ma=gr_ma,
@@ -1005,6 +1021,11 @@ class WellLogAnalysis:
                 target_zones=None
             )
             
+            target_dataset = dataiku.Dataset("calculated_dataset")
+            target_dataset.write_with_schema(result_df)
+
+            logging.info(f"✅ Successfully saved {len(result_df)} rows to dataset '{dataset_name}'.")
+
             return result_df
         except Exception as e:
             raise Exception(f"VSH calculation error: {str(e)}")
@@ -1050,7 +1071,7 @@ class WellLogAnalysis:
             }
             
             # Use the actual service function
-            result_df = calculate_porosity(
+            result_df = porosity.calculate_porosity(
                 df=df,
                 params=service_params,
                 target_intervals=self.selected_intervals,
@@ -1082,19 +1103,19 @@ class WellLogAnalysis:
 
     def _run_rgsa_calculation(self, df, params):
         try:
-            return process_all_wells_rgsa(df, params, target_intervals=self.selected_intervals, target_zones=None)
+            return rgsa.process_all_wells_rgsa(df, params, target_intervals=self.selected_intervals, target_zones=None)
         except Exception as e:
             raise Exception(f"RGSA calculation error: {str(e)}")
 
     def _run_dgsa_calculation(self, df, params):
         try:
-            return process_all_wells_dgsa(df, params, target_intervals=self.selected_intervals, target_zones=None)
+            return dgsa.process_all_wells_dgsa(df, params, target_intervals=self.selected_intervals, target_zones=None)
         except Exception as e:
             raise Exception(f"DGSA calculation error: {str(e)}")
 
     def _run_ngsa_calculation(self, df, params):
         try:
-            return process_all_wells_ngsa(df, params, target_intervals=self.selected_intervals, target_zones=None)
+            return ngsa.process_all_wells_ngsa(df, params, target_intervals=self.selected_intervals, target_zones=None)
         except Exception as e:
             raise Exception(f"NGSA calculation error: {str(e)}")
 
@@ -1109,7 +1130,7 @@ class WellLogAnalysis:
                 # Get zones from temporary attribute or instance attribute
                 target_zones = getattr(self, '_tmp_selected_zones', None) or getattr(self, 'selected_zones', None)
                 
-                result_df = process_rgbe_rpbe(
+                result_df = rgbe_rpbe.process_rgbe_rpbe(
                     df=df,
                     params=params,
                     target_intervals=self.selected_intervals,
@@ -1117,7 +1138,7 @@ class WellLogAnalysis:
                 )
             else:
                 # Fallback for simpler function signature
-                result_df = process_rgbe_rpbe(df=df, params=params)
+                result_df = rgbe_rpbe.process_rgbe_rpbe(df=df, params=params)
             
             return result_df
         except Exception as e:
@@ -1125,19 +1146,19 @@ class WellLogAnalysis:
 
     def _run_rt_r0_calculation(self, df, params):
         try:
-            return process_rt_r0(df, params)
+            return rt_r0.process_rt_r0(df, params)
         except Exception as e:
             raise Exception(f"RT-R0 calculation error: {str(e)}")
 
     def _run_swgrad_calculation(self, df, params):
         try:
-            return process_swgrad(df)
+            return swgrad.process_swgrad(df)
         except Exception as e:
             raise Exception(f"SWGRAD calculation error: {str(e)}")
 
     def _run_dns_dnsv_calculation(self, df, params):
         try:
-            return process_dns_dnsv(df, params)
+            return dns_dnsv.process_dns_dnsv(df, params)
         except Exception as e:
             raise Exception(f"DNS-DNSV calculation error: {str(e)}")
     
@@ -1158,7 +1179,7 @@ class WellLogAnalysis:
             
             # Use the appropriate service function based on method
             if method.lower() in ['simandoux', 'indonesia']:
-                result_df = calculate_sw_simandoux(
+                result_df = sw.calculate_sw_simandoux(
                     df=df,
                     params=service_params,
                     target_intervals=self.selected_intervals,
@@ -1166,7 +1187,7 @@ class WellLogAnalysis:
                 )
             else:
                 # Use the general SW calculation service for Archie
-                result_df = calculate_sw(
+                result_df = sw.calculate_sw(
                     df=df,
                     params=service_params,
                     target_intervals=self.selected_intervals,
@@ -1191,7 +1212,7 @@ class WellLogAnalysis:
             }
             
             # Use the actual service function
-            result_df = calculate_rwa(
+            result_df = rwa.calculate_rwa(
                 df=df,
                 params=service_params,
                 target_intervals=self.selected_intervals,
@@ -1233,22 +1254,55 @@ class WellLogAnalysis:
     def create_plot_for_calculation(self, calculation_type, well_name=None):
         """Create plot based on calculation type"""
         try:
-            if self.current_well_data is None:
-                return {"status": "error", "message": "No dataset selected"}
+            # if self.current_well_data is None:
+            #     return {"status": "error", "message": "No dataset selected"}
             
-            # Filter by well if specified
+            # # Filter by well if specified
+            # if well_name:
+            #     df = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]
+            #     if df.empty:
+            #         return {"status": "error", "message": f"No data found for well {well_name}"}
+            # else:
+            #     df = self.current_well_data
+
+            try:
+                # 1. Prioritas utama: Coba muat dataset hasil kalkulasi
+                logging.info("Attempting to load 'calculated_dataset' for plotting...")
+                calculated_dataset = dataiku.Dataset("calculated_dataset")
+                df = calculated_dataset.get_dataframe()
+                logging.info("✅ Successfully loaded 'calculated_dataset' for the plot.")
+            except Exception as e:
+                # 2. Cadangan: Jika gagal, gunakan data yang ada di memori
+                logging.warning(f"⚠️ Could not load 'calculated_dataset' ({e}). Falling back to in-memory data.")
+                if self.current_well_data is not None:
+                    df = self.current_well_data
+                    logging.info("Using in-memory data from the initially loaded dataset.")
+                else:
+                    # Jika tidak ada data sama sekali, lempar error.
+                    return {"status": "error", "message": "No data available for plotting. Please select a dataset first."}
+            # --- AKHIR BLOK BARU ---
+            
+            # Filter by well if specified (logika ini tetap sama)
             if well_name:
-                df = self.current_well_data[self.current_well_data['WELL_NAME'] == well_name]
-                if df.empty:
-                    return {"status": "error", "message": f"No data found for well {well_name}"}
-            else:
-                df = self.current_well_data
+                # Cek berbagai kemungkinan nama kolom sumur
+                well_col_found = None
+                for col in ['WELL_NAME', 'WELL', 'Well', 'well']:
+                    if col in df.columns:
+                        well_col_found = col
+                        break
+                
+                if well_col_found:
+                    df = df[df[well_col_found] == well_name]
+                    if df.empty:
+                        return {"status": "error", "message": f"No data found for well {well_name} in the current data source."}
+                else:
+                    logging.warning("No well column found in the dataset to filter by well name.")
             
             # Create plot based on calculation type
             if calculation_type in ["default", "log"]:
                 return self._create_default_log_plot(df)
             elif calculation_type == "vsh":
-                return self._create_vsh_plot(df)
+                return self._create_vsh_plot_linear(df)
             elif calculation_type == "vsh-dn":
                 return self._create_vsh_plot(df)  # Same plotting as VSH
             elif calculation_type == "porosity":
@@ -1281,7 +1335,7 @@ class WellLogAnalysis:
             df_normalized = self._ensure_crossplot_norms(df)
             # Create dashboard-style plot
             # fig = self._plot_dashboard_log(df_normalized)
-            fig = plot_log_default(df_normalized)
+            fig = plotting_service.plot_log_default(df_normalized)
             
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
@@ -1301,7 +1355,7 @@ class WellLogAnalysis:
         depth_col = 'DEPTH' if 'DEPTH' in df.columns else ('DEPT' if 'DEPT' in df.columns else None)
         if depth_col is None:
             # Fallback to existing default if no depth
-            return plot_log_default(df)
+            return plotting_service.plot_log_default(df)
 
         y = pd.to_numeric(df[depth_col], errors='coerce')
         # Build subplots: 4 columns
@@ -1372,17 +1426,30 @@ class WellLogAnalysis:
         try:
             # Show in the same dashboard layout for consistency
             df_normalized = self._ensure_crossplot_norms(df)
-            fig = self._plot_dashboard_log(df_normalized)
+            fig = plotting_service.plot_vsh_linear(df_normalized)
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
             return {"status": "error", "message": f"Error creating VSH plot: {str(e)}"}
+        
+    def _create_vsh_plot_linear(self, df):
+        """Create VSH-LINEAR plot"""
+        try:
+            # Show in the same dashboard layout for consistency
+            df_normalized = self._ensure_crossplot_norms(df)
+            fig = plotting_service.plot_vsh_gr(df_normalized)
+            logging.info("✅ VSH-LINEAR plot created successfully.")
+            return {"status": "success", "figure": fig.to_dict()}
+        except Exception as e:
+            logging.error(f"❌ Error creating VSH-LINEAR plot: {str(e)}")
+            return {"status": "error", "message": f"Error creating VSH-LINEAR plot: {str(e)}"}
+            
     
     def _create_porosity_plot(self, df):
         """Create porosity plot"""
         try:
             # Render using the unified dashboard layout
             df_normalized = self._ensure_crossplot_norms(df)
-            fig = self._plot_dashboard_log(df_normalized)
+            fig = plotting_service.plot_phie_den(df_normalized)
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
             return {"status": "error", "message": f"Error creating porosity plot: {str(e)}"}
@@ -1402,7 +1469,7 @@ class WellLogAnalysis:
             
             # Use enhanced GSA plotting function
             try:
-                fig = plot_gsa_main(df)
+                fig = plotting_service.plot_gsa_main(df)
                 return {"status": "success", "figure": fig.to_dict()}
             except Exception as plot_error:
                 print(f"GSA plot failed: {plot_error}, falling back to dashboard")
@@ -1527,7 +1594,7 @@ class WellLogAnalysis:
         try:
             if 'GR_NORM' not in df.columns:
                 return {"status": "error", "message": "No normalization data found"}
-            fig = plot_normalization(df)
+            fig = plotting_service.plot_normalization(df)
             
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
@@ -1538,7 +1605,7 @@ class WellLogAnalysis:
         try:
             # Use the unified dashboard layout
             df_normalized = self._ensure_crossplot_norms(df)
-            fig = self._plot_dashboard_log(df_normalized)
+            fig = plotting_service.plot_sw_indo(df_normalized)
             return {"status": "success", "figure": fig.to_dict()}
         except Exception as e:
             return {"status": "error", "message": f"Error creating SW plot: {str(e)}"}
@@ -2217,7 +2284,7 @@ def vsh_calculation_endpoint():
                 gr_sh = float(final_params.get('GR_SH', final_params.get('gr_sh', 120)))
                 input_log = final_params.get('input_log') or final_params.get('GR_LOG', 'GR')
                 output_log = final_params.get('output_log', 'VSH_GR')
-                result_df = calculate_vsh_from_gr(
+                result_df = vsh_calculation.calculate_vsh_from_gr(
                     df=df,
                     gr_log=input_log,
                     gr_ma=gr_ma,
@@ -2226,7 +2293,13 @@ def vsh_calculation_endpoint():
                     target_intervals=selected_intervals,
                     target_zones=selected_zones or None
                 )
-                
+
+
+                target_dataset = dataiku.Dataset("calculated_dataset")
+                target_dataset.write_with_schema(result_df)
+
+                logging.info(f"✅ Successfully saved {len(result_df)} rows to dataset 'calculated_dataset'.")
+
                 # Update current data in analysis instance
                 analysis.current_well_data = result_df
                 
@@ -2244,7 +2317,7 @@ def vsh_calculation_endpoint():
         elif method == 'vsh_dn':
             # VSH from Density-Neutron calculation
             try:
-                result_df = calculate_vsh_dn(df, final_params, target_intervals=selected_intervals, target_zones=selected_zones or None)
+                result_df = vsh_dn.calculate_vsh_dn(df, final_params, target_intervals=selected_intervals, target_zones=selected_zones or None)
                 
                 # Update current data in analysis instance
                 analysis.current_well_data = result_df
@@ -2295,7 +2368,7 @@ def porosity_calculation_endpoint():
                 df = df[df[well_col].isin(selected_wells)]
 
         # Perform porosity calculation (interval-aware)
-        result_df = calculate_porosity(df, parameters, target_intervals=selected_intervals, target_zones=None)
+        result_df = porosity.calculate_porosity(df, parameters, target_intervals=selected_intervals, target_zones=None)
         
         # Update current data in analysis instance for downstream plotting
         analysis.current_well_data = result_df
@@ -2495,7 +2568,7 @@ def histogram_endpoint():
                     df = df[df[zc].isin(selected_zones)]
                     break
 
-        fig = plot_histogram(df, log_column, n_bins)
+        fig = histogram.plot_histogram(df, log_column, n_bins)
         return json.dumps({"status": "success", "figure": fig.to_dict()})
     except Exception as e:
         traceback.print_exc()
@@ -2563,7 +2636,7 @@ def crossplot_endpoint():
                     df = df[df[zc].isin(selected_zones)]
                     break
 
-        fig = generate_crossplot(
+        fig = crossplot.generate_crossplot(
             df=df,
             x_col=x_col,
             y_col=y_col,
